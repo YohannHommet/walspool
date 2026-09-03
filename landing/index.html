@@ -158,7 +158,7 @@
       </button>
 
       <div class="w-full sm:w-auto flex items-center justify-between px-5 py-3.5 rounded-xl bg-[#0E131F] border border-obsidian-border text-slate-200 font-mono text-xs cursor-pointer hover:border-emerald-400/50 transition group" onclick="copyInstallCmd()">
-        <span class="text-slate-400 group-hover:text-slate-200">$ go get walspool</span>
+        <span class="text-slate-400 group-hover:text-slate-200">$ go get github.com/YohannHommet/walspool</span>
         <span id="copy-badge" class="ml-4 text-emerald-400 text-xs font-sans font-bold uppercase tracking-wider">Copy</span>
       </div>
     </div>
@@ -975,8 +975,8 @@ defer spool.Close()</code>`;
     }
 
     function copyInstallCmd() {
-      navigator.clipboard.writeText("go get walspool");
-      showToast("Copied 'go get walspool' to clipboard!");
+      navigator.clipboard.writeText("go get github.com/YohannHommet/walspool");
+      showToast("Copied 'go get github.com/YohannHommet/walspool' to clipboard!");
     }
 
     function showToast(msg) {

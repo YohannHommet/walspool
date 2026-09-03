@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"walspool"
+	"github.com/YohannHommet/walspool"
 )
 
 // recordingSink is an in-memory test stand-in for the Sink outbound port.

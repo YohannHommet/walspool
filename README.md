@@ -1,7 +1,7 @@
 # walspool
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/pilot4it/walspool/main/assets/banner.svg" alt="walspool banner" width="650" onerror="this.style.display='none'"/>
+  <img src="https://raw.githubusercontent.com/YohannHommet/walspool/main/assets/banner.svg" alt="walspool banner" width="650" onerror="this.style.display='none'"/>
 </p>
 
 <p align="center">
@@ -11,7 +11,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/pilot4it/walspool/actions"><img src="https://img.shields.io/badge/build-passing-brightgreen?style=flat-square" alt="Build Status"/></a>
+  <a href="https://github.com/YohannHommet/walspool/actions"><img src="https://img.shields.io/badge/build-passing-brightgreen?style=flat-square" alt="Build Status"/></a>
   <a href="https://golang.org"><img src="https://img.shields.io/badge/go-%3E%3D%201.22-blue?style=flat-square" alt="Go Version"/></a>
   <a href="https://goreportcard.com"><img src="https://img.shields.io/badge/go%20report-A%2B-emerald?style=flat-square" alt="Go Report Card"/></a>
   <a href="#benchmarks"><img src="https://img.shields.io/badge/latency-1.5µs-cyan?style=flat-square" alt="Append Latency"/></a>
@@ -109,7 +109,7 @@ Every record is self-delimited and checksummed:
 ### 1. Installation
 
 ```bash
-go get walspool
+go get github.com/YohannHommet/walspool
 ```
 
 ### 2. Basic Usage

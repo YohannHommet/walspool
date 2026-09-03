@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 	"time"
 
-	"walspool"
+	"github.com/YohannHommet/walspool"
 )
 
 // ConsoleSink implements the Outbound Sink port, printing batches.
