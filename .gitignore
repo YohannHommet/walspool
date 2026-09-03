@@ -1,0 +1,12 @@
+# Binaries
+/bin/
+*.exe
+*.test
+walspool-preview
+
+# Test artifacts
+*.out
+/tmp/
+
+# OS artifacts
+.DS_Store
