@@ -196,6 +196,56 @@ func TestOrderPipeline_InMemory(t *testing.T) {
 
 ---
 
+
+---
+
+## 🌐 Polyglot Support: Python, Node.js, Ruby, & cURL
+
+Most backend developers don't write Go. `walspool` includes a lightweight, turnkey **HTTP Sidecar Daemon** (`cmd/sidecar`) that allows applications in **any programming language** to buffer events to local NVMe disk with sub-millisecond latency.
+
+### 1. Start the Sidecar
+
+```bash
+# Via Go:
+go run ./cmd/sidecar -addr :9099 -data-dir /var/data/spool -sink-url https://api.yourdomain.com/webhook-collector
+
+# Or via Docker:
+docker run -d -p 9099:9099 -v /var/data/spool:/data/spool walspool-sidecar
+```
+
+### 2. Enqueue from Any Language
+
+#### Python (Django / FastAPI / Flask):
+```python
+import requests
+
+# Fast local append (< 0.5ms) - never stalls request
+requests.post("http://localhost:9099/v1/enqueue", json={
+    "topic": "orders.checkout",
+    "payload": {"order_id": "ord_8819", "total": 149.00}
+})
+```
+
+#### Node.js (Express / NestJS / Next.js):
+```javascript
+// Native fetch in Node 18+
+await fetch("http://localhost:9099/v1/enqueue", {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({
+    topic: "users.password_reset",
+    payload: { userId: "usr_99", ip: "10.0.0.1" }
+  })
+});
+```
+
+#### Bash / cURL:
+```bash
+curl -X POST http://localhost:9099/v1/enqueue \
+  -H "Content-Type: application/json" \
+  -d '{"topic": "system.alert", "payload": {"level": "CRITICAL"}}'
+```
+
 ## 💼 Production Use Cases
 
 | Workload | How `walspool` Solves It |
