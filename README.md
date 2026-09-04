@@ -15,7 +15,7 @@
   <a href="https://github.com/YohannHommet/walspool/releases/tag/v1.0.0"><img src="https://img.shields.io/badge/Release-v1.0.0-EA580C?style=for-the-badge&logo=github&logoColor=white" alt="Release Version"/></a>
   <a href="https://github.com/YohannHommet/walspool/actions"><img src="https://img.shields.io/badge/Tests-Passing-CCFF00?style=for-the-badge&logo=githubactions&logoColor=black" alt="Tests Status"/></a>
   <a href="https://github.com/YohannHommet/walspool/pkgs/container/walspool"><img src="https://img.shields.io/badge/Docker-Ready-2496ED?style=for-the-badge&logo=docker&logoColor=white" alt="Docker Ready"/></a>
-  <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-6366F1?style=for-the-badge" alt="License MIT"/></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/License-FSL--1.1--MIT-CCFF00?style=for-the-badge&logoColor=black&labelColor=16171C" alt="License FSL-1.1-MIT"/></a>
 </p>
 
 <p align="center">
@@ -437,4 +437,9 @@ go test -run=^$ -bench=. -benchmem ./...
 
 ## License
 
-Walspool is licensed under the [MIT License](LICENSE).
+Walspool is distributed under the **[Functional Source License, Version 1.1, MIT Future License (FSL-1.1-MIT)](LICENSE)**.
+
+- **100% Free for Developers & Enterprises:** You are free to use, inspect, modify, and run Walspool for any internal commercial, educational, or testing purpose with zero fees or royalties.
+- **Fair-Source Protection:** You may not offer Walspool as a managed commercial service that competes with Walspool (no "Walspool as a Service").
+- **Automatic MIT Conversion:** Each release automatically converts to the standard, permissive **MIT License** on the second anniversary of its release date.
+
