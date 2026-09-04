@@ -9,8 +9,8 @@ import (
 )
 
 const (
-	magicByte1 byte = 0x57 // 'W'
-	magicByte2 byte = 0x53 // 'S'
+	magicByte1  byte = 0x57 // 'W'
+	magicByte2  byte = 0x53 // 'S'
 	wireVersion byte = 0x01
 	headerSize       = 29 // 2 (magic) + 1 (ver) + 4 (crc) + 8 (id) + 8 (time) + 2 (topicLen) + 4 (payloadLen)
 )

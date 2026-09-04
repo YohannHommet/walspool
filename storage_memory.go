@@ -7,11 +7,11 @@ import (
 // MemoryStorageEngine is an in-memory implementation of StorageEngine.
 // Conforms behaviorally to the same postconditions as the disk-backed engine.
 type MemoryStorageEngine struct {
-	mu           sync.RWMutex
-	records      []Record
-	checkpoint   Offset
-	closed       bool
-	maxCapacity  int
+	mu          sync.RWMutex
+	records     []Record
+	checkpoint  Offset
+	closed      bool
+	maxCapacity int
 }
 
 // NewMemoryStorageEngine creates a thread-safe in-memory storage engine.

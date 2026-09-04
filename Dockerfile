@@ -1,10 +1,12 @@
 # Build Stage
-FROM golang:1.22-alpine AS builder
+FROM --platform=$BUILDPLATFORM golang:1.22-alpine AS builder
+ARG TARGETOS
+ARG TARGETARCH
 WORKDIR /app
 COPY go.mod ./
 COPY *.go ./
 COPY cmd/ ./cmd/
-RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w -extldflags '-static'" -o /walspool-sidecar ./cmd/sidecar
+RUN CGO_ENABLED=0 GOOS=${TARGETOS:-linux} GOARCH=${TARGETARCH:-amd64} go build -ldflags="-s -w -extldflags '-static' -X main.Version=1.0.0" -o /walspool-sidecar ./cmd/sidecar
 
 # Production Stage
 FROM alpine:3.19

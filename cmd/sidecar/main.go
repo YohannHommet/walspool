@@ -23,6 +23,13 @@ import (
 	"github.com/YohannHommet/walspool"
 )
 
+// Build metadata injected via -ldflags during GoReleaser or docker builds.
+var (
+	Version   = "1.0.0"
+	GitCommit = "HEAD"
+	BuildDate = "unknown"
+)
+
 // HTTPSink forwards drained batches to an external target HTTP endpoint.
 type HTTPSink struct {
 	TargetURL  string
@@ -653,10 +660,14 @@ type SidecarConfig struct {
 	HubCapacity   int
 	LogFormat     string
 	LogLevel      string
+	ShowVersion   bool
 }
 
 // Validate enforces strict invariants across configuration values.
 func (c *SidecarConfig) Validate() error {
+	if c.ShowVersion {
+		return nil
+	}
 	if strings.TrimSpace(c.Addr) == "" {
 		return fmt.Errorf("%w: addr must not be empty", walspool.ErrPreconditionViolated)
 	}
@@ -742,6 +753,7 @@ func ParseConfig(args []string, lookupEnv func(string) (string, bool)) (*Sidecar
 	fs.IntVar(&cfg.HubCapacity, "hub-capacity", hubCapacity, "In-memory ring buffer capacity for logs hub")
 	fs.StringVar(&cfg.LogFormat, "log-format", getEnvStr("WALSPOOL_LOG_FORMAT", "text"), "Log output format (text|json)")
 	fs.StringVar(&cfg.LogLevel, "log-level", getEnvStr("WALSPOOL_LOG_LEVEL", "info"), "Log level (debug|info|warn|error)")
+	fs.BoolVar(&cfg.ShowVersion, "version", false, "Show version information and exit")
 
 	if err := fs.Parse(args); err != nil {
 		return nil, err
@@ -858,9 +870,16 @@ func main() {
 		os.Exit(1)
 	}
 
+	if cfg.ShowVersion {
+		fmt.Printf("walspool-sidecar version %s (commit %s, built %s)\n", Version, GitCommit, BuildDate)
+		return
+	}
+
 	SetupLogger(cfg.LogFormat, cfg.LogLevel)
 
 	slog.Info("Starting walspool sidecar daemon",
+		"version", Version,
+		"commit", GitCommit,
 		"addr", cfg.Addr,
 		"data_dir", cfg.DataDir,
 		"target_sink", cfg.TargetSinkURL,
