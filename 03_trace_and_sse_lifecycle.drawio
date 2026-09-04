@@ -155,13 +155,13 @@
 <mxCell id="n6" value="&lt;b style=&quot;color:#e65100;&quot;&gt;6.2. WalspoolHandler.emit() (Arrière-plan Non-Bloquant) :&lt;/b&gt;&lt;br&gt;• Récupère automatiquement le &lt;b&gt;trace_id&lt;/b&gt; actif via &lt;i&gt;get_current_trace_id()&lt;/i&gt; depuis &lt;i&gt;contextvars&lt;/i&gt;.&lt;br&gt;• Formate le payload selon le schéma &lt;b&gt;StandardLogEvent&lt;/b&gt; (timestamp ISO UTC, service: &quot;aipi&quot;, context, extra).&lt;br&gt;• Enfile l&#39;événement sans attendre : &lt;b&gt;_queue.put_nowait(event)&lt;/b&gt; (file bornée max 5000 items).&lt;br&gt;• &lt;b&gt;Isolation Black-Box :&lt;/b&gt; Le thread de calcul IA n&#39;attend JAMAIS le réseau. Si Walspool est éteint ou saturé, le log est droppé sans lever d&#39;exception métier." style="shape=note;whiteSpace=wrap;html=1;size=14;verticalAlign=middle;align=left;fillColor=#fff3e0;strokeColor=#ffb74d;strokeWidth=1.5;fontSize=11;shadow=1;" vertex="1" parent="1">
       <mxGeometry x="450" y="990" width="395" height="120" as="geometry" />
     </mxCell>
-<mxCell id="e6_3" value="&lt;b style=&quot;font-size:12px;&quot;&gt;6.3. Thread Daemon (WalspoolLogWorker) : POST http://localhost:9099/v1/enqueue&lt;/b&gt;&lt;br&gt;Payload: {&quot;topic&quot;: &quot;pilot4it.aipi.logs&quot;, &quot;payload&quot;: { &quot;service&quot;: &quot;aipi&quot;, &quot;trace_id&quot;: &quot;c4a2e881...&quot;, &quot;level&quot;: &quot;INFO&quot;, &quot;message&quot;: &quot;Démarrage inférence IA&quot; }}" style="endArrow=block;html=1;strokeColor=#e65100;strokeWidth=2.5;fontSize=11;labelBackgroundColor=#ffffff;" edge="1" parent="1">
+<mxCell id="e6_3" value="&lt;b style=&quot;font-size:12px;&quot;&gt;6.3. Thread Daemon (WalspoolLogWorker) : POST http://localhost:9099/v1/enqueue&lt;/b&gt;&lt;br&gt;Payload: {&quot;topic&quot;: &quot;core.aipi.logs&quot;, &quot;payload&quot;: { &quot;service&quot;: &quot;aipi&quot;, &quot;trace_id&quot;: &quot;c4a2e881...&quot;, &quot;level&quot;: &quot;INFO&quot;, &quot;message&quot;: &quot;Démarrage inférence IA&quot; }}" style="endArrow=block;html=1;strokeColor=#e65100;strokeWidth=2.5;fontSize=11;labelBackgroundColor=#ffffff;" edge="1" parent="1">
       <mxGeometry relative="1" as="geometry">
         <mxPoint x="865" y="1080" as="sourcePoint" />
         <mxPoint x="1210" y="1080" as="targetPoint" />
       </mxGeometry>
     </mxCell>
-<mxCell id="e6_4" value="&lt;b&gt;6.4. HTTP 202 Accepted {&quot;status&quot;: &quot;accepted&quot;, &quot;topic&quot;: &quot;pilot4it.aipi.logs&quot;, &quot;size_bytes&quot;: 312}&lt;/b&gt;" style="endArrow=block;dashed=1;html=1;strokeColor=#e65100;strokeWidth=1.5;fontSize=11;labelBackgroundColor=#ffffff;" edge="1" parent="1">
+<mxCell id="e6_4" value="&lt;b&gt;6.4. HTTP 202 Accepted {&quot;status&quot;: &quot;accepted&quot;, &quot;topic&quot;: &quot;core.aipi.logs&quot;, &quot;size_bytes&quot;: 312}&lt;/b&gt;" style="endArrow=block;dashed=1;html=1;strokeColor=#e65100;strokeWidth=1.5;fontSize=11;labelBackgroundColor=#ffffff;" edge="1" parent="1">
       <mxGeometry relative="1" as="geometry">
         <mxPoint x="1210" y="1115" as="sourcePoint" />
         <mxPoint x="865" y="1115" as="targetPoint" />
@@ -237,7 +237,7 @@
         </Array>
       </mxGeometry>
     </mxCell>
-<mxCell id="e10_enqueue" value="&lt;b style=&quot;font-size:12px;&quot;&gt;10.2. Émission log Gateway : POST http://localhost:9099/v1/enqueue&lt;/b&gt;&lt;br&gt;Payload: {&quot;topic&quot;: &quot;pilot4it.gateway.logs&quot;, &quot;payload&quot;: { &quot;service&quot;: &quot;api-gateway&quot;, &quot;trace_id&quot;: &quot;c4a2e881...&quot;, &quot;duration_ms&quot;: 210, &quot;status_code&quot;: 200, &quot;method&quot;: &quot;POST&quot;, &quot;path&quot;: &quot;/api/v1/ai/generate&quot; }}" style="endArrow=block;html=1;strokeColor=#6a1b9a;strokeWidth=2.5;fontSize=11;labelBackgroundColor=#ffffff;" edge="1" parent="1">
+<mxCell id="e10_enqueue" value="&lt;b style=&quot;font-size:12px;&quot;&gt;10.2. Émission log Gateway : POST http://localhost:9099/v1/enqueue&lt;/b&gt;&lt;br&gt;Payload: {&quot;topic&quot;: &quot;core.gateway.logs&quot;, &quot;payload&quot;: { &quot;service&quot;: &quot;api-gateway&quot;, &quot;trace_id&quot;: &quot;c4a2e881...&quot;, &quot;duration_ms&quot;: 210, &quot;status_code&quot;: 200, &quot;method&quot;: &quot;POST&quot;, &quot;path&quot;: &quot;/api/v1/ai/generate&quot; }}" style="endArrow=block;html=1;strokeColor=#6a1b9a;strokeWidth=2.5;fontSize=11;labelBackgroundColor=#ffffff;" edge="1" parent="1">
       <mxGeometry relative="1" as="geometry">
         <mxPoint x="515" y="1670" as="sourcePoint" />
         <mxPoint x="1210" y="1670" as="targetPoint" />

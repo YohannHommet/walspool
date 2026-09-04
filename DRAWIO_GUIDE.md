@@ -10,11 +10,11 @@ Tous les diagrammes ont été générés au format XML Draw.io natif non compres
 
 | Fichier Draw.io | Contenu & Objectifs | Nombre de Pages |
 | :--- | :--- | :---: |
-| **[`master_observability_architecture.drawio`](file:///home/yohann/pilot4it/walspool/master_observability_architecture.drawio)** | **Classeur Maître regroupant l'intégralité des 6 planches sous forme d'onglets.** | **6 onglets** |
-| **[`01_architecture_overview.drawio`](file:///home/yohann/pilot4it/walspool/01_architecture_overview.drawio)** | Vue d'ensemble conteneurs Docker, réseau bridge `172.99.0.0/24`, ports, reverse-proxy Nginx, passerelle vers l'hôte `172.99.0.1:9099` et débuffering SSE. | 1 page |
-| **[`02_walspool_internals.drawio`](file:///home/yohann/pilot4it/walspool/02_walspool_internals.drawio)** | Fonctionnement interne de Walspool vulgarisé en 4 onglets : métaphores du Notaire et du Château d'eau, Ring Buffer $O(1)$, index inversés, moteur WAL disque et reprise sur panne. | 4 onglets |
-| **[`03_trace_and_sse_lifecycle.drawio`](file:///home/yohann/pilot4it/walspool/03_trace_and_sse_lifecycle.drawio)** | Cycle de vie de bout en bout d'une requête en 12 étapes : corrélation par `x-request-id`, émission asynchrone non-bloquante et cascade Gantt Waterfall. | 1 page |
-| **[`04_why_go_and_docker_microservices.drawio`](file:///home/yohann/pilot4it/walspool/04_why_go_and_docker_microservices.drawio)** | Justification technique Go (Go vs Node/Python) et modèles d'intégration microservices Docker. | 1 page |
+| **[`master_observability_architecture.drawio`](./master_observability_architecture.drawio)** | **Classeur Maître regroupant l'intégralité des 6 planches sous forme d'onglets.** | **6 onglets** |
+| **[`01_architecture_overview.drawio`](./01_architecture_overview.drawio)** | Vue d'ensemble conteneurs Docker, réseau bridge `172.99.0.0/24`, ports, reverse-proxy Nginx, passerelle vers l'hôte `172.99.0.1:9099` et débuffering SSE. | 1 page |
+| **[`02_walspool_internals.drawio`](./02_walspool_internals.drawio)** | Fonctionnement interne de Walspool vulgarisé en 4 onglets : métaphores du Notaire et du Château d'eau, Ring Buffer $O(1)$, index inversés, moteur WAL disque et reprise sur panne. | 4 onglets |
+| **[`03_trace_and_sse_lifecycle.drawio`](./03_trace_and_sse_lifecycle.drawio)** | Cycle de vie de bout en bout d'une requête en 12 étapes : corrélation par `x-request-id`, émission asynchrone non-bloquante et cascade Gantt Waterfall. | 1 page |
+| **[`04_why_go_and_docker_microservices.drawio`](./04_why_go_and_docker_microservices.drawio)** | Justification technique Go (Go vs Node/Python) et modèles d'intégration microservices Docker. | 1 page |
 
 ---
 
@@ -105,7 +105,7 @@ Navigateur                API Gateway                AIPI (Django)             W
 
 1. **Dans VS Code** :
    - Installez l'extension **Draw.io Integration** (d'Henning Dieterichs).
-   - Cliquez simplement sur [`master_observability_architecture.drawio`](file:///home/yohann/pilot4it/walspool/master_observability_architecture.drawio) : le diagramme s'ouvre avec ses **6 onglets interactifs** en bas de fenêtre.
+   - Cliquez simplement sur [`master_observability_architecture.drawio`](./master_observability_architecture.drawio) : le diagramme s'ouvre avec ses **6 onglets interactifs** en bas de fenêtre.
 
 2. **Dans le Navigateur (En ligne)** :
    - Rendez-vous sur [app.diagrams.net](https://app.diagrams.net/).
@@ -145,7 +145,7 @@ Le choix de **Go (Golang)** pour le cœur de Walspool a été guidé par des con
 
 ### A. Les 4 Avantages Majeurs de Go pour Walspool
 
-| Avantage | Explication Technique | Bénéfice Concret pour Pilot4IT |
+| Avantage | Explication Technique | Bénéfice Concret en Production |
 | :--- | :--- | :--- |
 | **1. Binaire Statique Autonome** | Go compile directement en code machine natif sans runtime externe (~15 Mo). | **Zéro dépendance sur le serveur hôte**. Pas besoin d'installer de JVM, d'interpréteur Python ou de Node.js. Démarre en moins de 10 millisecondes. |
 | **2. Concurrence Ultra-Légère (Goroutines & Channels)** | Une goroutine Go démarre avec **2 Ko de pile mémoire** (contre 1 à 2 Mo pour un thread OS en Java/C++). | **10 000 connexions SSE simultanées consomment ~20 Mo de RAM**, là où une architecture multi-thread classique exigerait plusieurs gigaoctets. |
@@ -156,7 +156,7 @@ Le choix de **Go (Golang)** pour le cœur de Walspool a été guidé par des con
 
 | Inconvénient | Impact Réel | Mesure d'Atténuation (Doctrine Black-Box) |
 | :--- | :--- | :--- |
-| **1. Barrière linguistique dans l'équipe** | L'équipe Pilot4IT est experte en **Python (Django)** et **TypeScript (Vue/Node)**. Contribuer au code interne de Walspool nécessite des compétences Go. | **Découplage Black-Box absolu** : Les développeurs n'ont jamais besoin de toucher au Go. Toute interaction se fait par des contrats HTTP standard (`POST /v1/enqueue` et `GET /v1/logs/stream`). |
+| **1. Barrière linguistique dans l'équipe** | Dans une équipe polyglotte experte en **Python (Django)** ou **TypeScript (Vue/Node)**, contribuer au code interne de Walspool nécessite des compétences Go. | **Découplage Black-Box absolu** : Les développeurs n'ont jamais besoin de toucher au Go. Toute interaction se fait par des contrats HTTP standard (`POST /v1/enqueue` et `GET /v1/logs/stream`). |
 | **2. Verbosité du contrôle d'erreurs** | Go impose de vérifier chaque retour d'erreur (`if err != nil`). Pas d'exceptions magiques. | Rend le code du démon extrêmement robuste et prévisible : aucun crash imprévu en production par exception non catchée. |
 | **3. Présence d'un GC (vs Rust/C++)** | Contrairement à Rust, Go n'a pas de gestion mémoire manuelle sans GC. | Walspool alloue son buffer de 50 000 logs une fois pour toutes au démarrage. La réutilisation circulaire élimine les cycles d'allocation/désallocation continue. |
 
@@ -172,7 +172,7 @@ Le choix de **Go (Golang)** pour le cœur de Walspool a été guidé par des con
 │ Machine Hôte Linux        │      │ Réseau Docker Bridge (docker-compose)│       │ Pod Kubernetes            │
 │ [ Walspool Daemon :9099 ] │      │                                      │       │ ┌───────────────────────┐ │
 │        ▲                  │      │  [ Service : walspool ]              │       │ │ Conteneur Microservice│ │
-│        │ (172.99.0.1:9099)│      │  [ Image : pilot4it/walspool:latest ]│       │ └───────────┬───────────┘ │
+│        │ (172.99.0.1:9099)│      │  [ Image : walspool:latest ]         │       │ └───────────┬───────────┘ │
 │ ┌──────┴──────────────┐   │      │  [ Port interne : 9099              ]│       │             │ localhost   │
 │ │ Conteneurs Docker   │   │      │            ▲                         │       │ ┌───────────▼───────────┐ │
 │ │ (172.99.0.0/24)     │   │      │            │ (http://walspool:9099)  │       │ │ Conteneur Sidecar     │ │
@@ -207,7 +207,7 @@ Host: 172.99.0.1:9099
 Content-Type: application/json
 
 {
-  "topic": "pilot4it.aipi.logs",
+  "topic": "core.aipi.logs",
   "service": "aipi",
   "level": "info",
   "payload": {

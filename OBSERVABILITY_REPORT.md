@@ -2,7 +2,7 @@
 
 ## 1. Vue d'Ensemble & Objectifs Atteints
 
-Le système d'observabilité distribué de bout en bout a été conçu, implémenté, testé et validé sur l'ensemble de la stack **pilot4it** en respectant rigoureusement les principes de la **Black-Box Architecture** (Parnas, Meyer DbC, Cockburn Ports & Adapters, Ousterhout Deep Modules) :
+Le système d'observabilité distribué de bout en bout a été conçu, implémenté, testé et validé sur l'ensemble de la stack microservices en respectant rigoureusement les principes de la **Black-Box Architecture** (Parnas, Meyer DbC, Cockburn Ports & Adapters, Ousterhout Deep Modules) :
 
 - **Ingestion ultra-rapide & streaming temps réel** : `walspool` (Go) sert de hub in-memory circulaire thread-safe (50 000 logs) avec persistance disque WAL (Write-Ahead Log) et streaming Server-Sent Events (SSE).
 - **Corrélation de trace distribuée** : `api-gateway` (Node.js/LoopBack 4) propage de manière non invasive l'en-tête `x-request-id` via `AsyncLocalStorage` et émet des logs structurés sans bloquer l'Event Loop.
@@ -93,7 +93,7 @@ sequenceDiagram
 
 ## 4. Détails des Composants Livrés
 
-### A. Walspool (`/home/yohann/pilot4it/walspool`)
+### A. Walspool (`walspool`)
 - **`hub.go` (`MemoryLogHub`)** :
   - Buffer circulaire thread-safe protégé par `sync.RWMutex`.
   - Capacité fixe (50 000 enregistrements) avec éviction en $O(1)$ sans allocation dynamique continue.
@@ -105,7 +105,7 @@ sequenceDiagram
   - Configuration `http.Server` adaptée aux flux continus (`ReadHeaderTimeout: 5s`, `WriteTimeout: 0` pour les connexions streaming longue durée).
 - **Tests** : Suite Go validée avec le détecteur de race conditions (`go test -race ./...`).
 
-### B. API Gateway (`/home/yohann/pilot4it/api-gateway`)
+### B. API Gateway (`api-gateway`)
 - **`src/middleware/trace.middleware.ts`** :
   - `AsyncLocalStorage` pour propager `x-request-id` à travers toute la chaîne asynchrone Node.js sans fuite de contexte.
 - **`src/utils/gateway-logger.ts`** :
@@ -115,7 +115,7 @@ sequenceDiagram
   - Intégration de l'IP gateway Docker `http://172.99.0.1:9099`.
 - **Tests** : 13/13 tests unitaires Mocha validés.
 
-### C. AIPI Django (`/home/yohann/pilot4it/micro-services/aipi`)
+### C. AIPI Django (`micro-services/aipi`)
 - **`src/middleware/trace_middleware.py`** :
   - Capture et propagation de `x-request-id` via `contextvars.ContextVar`.
 - **`src/utils/walspool_handler.py`** :
@@ -123,7 +123,7 @@ sequenceDiagram
   - Journalisation en microsecondes sans impact sur les temps de réponse de l'inférence.
 - **Tests** : 246/246 tests Django passés avec succès.
 
-### D. Frontend Platform (`/home/yohann/pilot4it/frontend/apps/platform`)
+### D. Frontend Platform (`frontend/apps/platform`)
 - **`src/modules/observability/types/Observability.interface.ts`** :
   - Contrat `StandardLogEvent`, calcul de cascade de trace `computeTraceSummary()`, et fonction normalisatrice `normalizeLogEvent()`.
 - **`src/modules/observability/stores/UseObservabilityStore.ts`** :
