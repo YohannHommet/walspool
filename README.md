@@ -63,7 +63,7 @@ Walspool sits in the sweet spot: **the durability of a write-ahead log, the simp
 
 ## How It Works
 
-Walspool operates as a **Dual-Engine** behind clean [Ports & Adapters](ARCHITECTURE.md) boundaries:
+Walspool operates as a **Dual-Engine** behind clean [Ports & Adapters](docs/architecture/ARCHITECTURE.md) boundaries (see also [Visual Architecture Diagrams](docs/diagrams/)):
 
 ```
                   Incoming Event (Go API or HTTP POST /v1/enqueue)

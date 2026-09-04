@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en" class="dark scroll-smooth bg-[#0B0C10]">
+<html lang="en" class="dark scroll-smooth bg-[#0D0D10]">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -30,22 +30,22 @@
             brand: {
               300: '#fde047',
               400: '#fbbf24',
-              500: '#f59e0b',
+              500: '#CCFF00',
               600: '#d97706',
             },
             copper: {
               300: '#fdba74',
               400: '#fb923c',
-              500: '#ea580c',
+              500: '#EA580C',
               600: '#c2410c',
             },
             obsidian: {
-              950: '#07080B',
-              900: '#0B0C10',
-              850: '#111218',
+              950: '#08080A',
+              900: '#0D0D10',
+              850: '#16171C',
               800: '#171821',
-              border: '#222430',
-              borderLight: '#323545'
+              border: '#272930',
+              borderLight: '#3A3D47'
             }
           }
         }
@@ -55,7 +55,7 @@
 
   <style>
     html, body {
-      background-color: #0B0C10 !important;
+      background-color: #0D0D10 !important;
       color: #F8FAFC !important;
       font-family: 'Inter', sans-serif;
       margin: 0;
@@ -65,13 +65,13 @@
 
     /* Subtle Technical Dot Matrix */
     .bg-dots {
-      background-image: radial-gradient(rgba(245, 158, 11, 0.05) 1px, transparent 1px);
+      background-image: radial-gradient(rgba(204, 255, 0, 0.04) 1px, transparent 1px);
       background-size: 24px 24px;
     }
 
     /* Linear Glow Effect */
     .spotlight {
-      background: radial-gradient(circle at 50% -10%, rgba(245, 158, 11, 0.18) 0%, rgba(11, 12, 16, 0) 70%);
+      background: radial-gradient(circle at 50% -10%, rgba(204, 255, 0, 0.12) 0%, rgba(234, 88, 12, 0.08) 35%, rgba(13, 13, 16, 0) 70%);
     }
 
     /* Hairline Glass Card */
@@ -81,15 +81,15 @@
       backdrop-filter: blur(12px);
     }
     .hairline-card:hover {
-      border-color: rgba(245, 158, 11, 0.4);
-      box-shadow: 0 0 35px -5px rgba(245, 158, 11, 0.14);
+      border-color: rgba(204, 255, 0, 0.35);
+      box-shadow: 0 0 35px -5px rgba(204, 255, 0, 0.12);
     }
 
     /* Terminal Scrollbar */
     ::-webkit-scrollbar { width: 6px; height: 6px; }
-    ::-webkit-scrollbar-track { background: #07080B; }
-    ::-webkit-scrollbar-thumb { background: #222430; border-radius: 3px; }
-    ::-webkit-scrollbar-thumb:hover { background: #f59e0b; }
+    ::-webkit-scrollbar-track { background: #08080A; }
+    ::-webkit-scrollbar-thumb { background: #272930; border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: #CCFF00; }
 
     /* Accordion chevron */
     details[open] summary svg.chevron {
@@ -97,7 +97,7 @@
     }
   </style>
 </head>
-<body class="bg-[#0B0C10] text-slate-100 min-h-screen bg-dots antialiased selection:bg-[#CCFF00] selection:text-slate-950">
+<body class="bg-[#0D0D10] text-slate-100 min-h-screen bg-dots antialiased selection:bg-[#CCFF00] selection:text-slate-950">
 
   <!-- TOP STATUS BANNER (Linear Style) -->
   <div class="bg-[#0E0F14] border-b border-obsidian-border text-xs text-center py-2.5 px-4 text-slate-300 font-mono flex items-center justify-center gap-3 flex-wrap">
@@ -110,10 +110,10 @@
   </div>
 
   <!-- NAVIGATION -->
-  <header class="sticky top-0 z-40 backdrop-blur-md bg-[#0B0C10]/85 border-b border-obsidian-border/80">
+  <header class="sticky top-0 z-40 backdrop-blur-md bg-[#0D0D10]/85 border-b border-obsidian-border/80">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
       <div class="flex items-center gap-3">
-        <img src="assets/logo.png" alt="walspool logo" class="w-9 h-9 rounded-xl object-contain shadow-md shadow-[#CCFF00]/20 border border-[#CCFF00]/50/30" />
+        <img src="assets/logo.png" alt="walspool logo" class="w-9 h-9 rounded-xl object-contain shadow-md shadow-[#CCFF00]/20 border border-orange-500/40" />
         <div class="flex items-baseline gap-2">
           <span class="font-bold text-xl tracking-tight text-white font-mono">walspool</span>
           <span class="text-[10px] uppercase font-mono tracking-widest px-2 py-0.5 rounded bg-[#1A2200]/80 text-[#CCFF00] border border-[#CCFF00]/50/40 font-semibold">v1.0 Dual-Engine</span>
@@ -208,12 +208,12 @@
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 items-stretch">
       
       <!-- ENGINE 1 CARD -->
-      <div class="p-8 rounded-2xl hairline-card border-[#CCFF00]/50/30 flex flex-col justify-between relative overflow-hidden">
+      <div class="p-8 rounded-2xl hairline-card border-orange-500/40 flex flex-col justify-between relative overflow-hidden">
         <div class="absolute -right-10 -bottom-10 w-48 h-48 bg-[#CCFF00]/5 rounded-full blur-2xl pointer-events-none"></div>
         <div>
           <div class="flex items-center justify-between mb-4">
-            <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded bg-[#1A2200] text-[#D4FF33] text-xs font-mono font-bold border border-[#CCFF00]/50/40">
-              ENGINE 1 · DISK PERSISTENCE
+            <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded bg-orange-950/60 text-orange-400 text-xs font-mono font-bold border border-orange-500/40">
+              ENGINE 1 · DISK WAL PERSISTENCE
             </span>
             <span class="text-xs font-mono text-slate-400">1,132,000 ops/sec</span>
           </div>
@@ -233,7 +233,7 @@
             </div>
             <div class="flex items-start gap-2.5 text-slate-200">
               <span class="text-[#CCFF00] font-bold">✓</span>
-              <div><strong class="text-white">Atomic Checkpoint Swap:</strong> Safe metadata swap (<code class="text-[#D4FF33] font-mono">.tmp</code> → <code class="text-[#D4FF33] font-mono">checkpoint.meta</code>) with directory fsync.</div>
+              <div><strong class="text-white">Atomic Checkpoint Swap:</strong> Safe metadata swap (<code class="text-[#CCFF00] font-mono">.tmp</code> → <code class="text-[#CCFF00] font-mono">checkpoint.meta</code>) with directory fsync.</div>
             </div>
             <div class="flex items-start gap-2.5 text-slate-200">
               <span class="text-[#CCFF00] font-bold">✓</span>
@@ -243,20 +243,20 @@
         </div>
 
         <div class="bg-[#08080C] p-3.5 rounded-xl border border-obsidian-border font-mono text-[11px] text-slate-300">
-          <span class="text-slate-500">// Header format:</span><br>
-          <span class="text-[#CCFF00] font-semibold">[WS:2B][Ver:1B][CRC32:4B][ID:8B][Nano:8B][TopicLen:2B][PayloadLen:4B]</span>
+          <span class="text-slate-400">// Header format:</span><br>
+          <span class="text-[#CCFF00] font-semibold"><span class="text-orange-400 font-bold">[WS:2B][Ver:1B][CRC32:4B][ID:8B][Nano:8B][TopicLen:2B][PayloadLen:4B]</span></span>
         </div>
       </div>
 
       <!-- ENGINE 2 CARD -->
-      <div class="p-8 rounded-2xl hairline-card border-orange-500/30 flex flex-col justify-between relative overflow-hidden">
-        <div class="absolute -right-10 -bottom-10 w-48 h-48 bg-orange-500/5 rounded-full blur-2xl pointer-events-none"></div>
+      <div class="p-8 rounded-2xl hairline-card border-[#CCFF00]/40 flex flex-col justify-between relative overflow-hidden">
+        <div class="absolute -right-10 -bottom-10 w-48 h-48 bg-[#CCFF00]/5 rounded-full blur-2xl pointer-events-none"></div>
         <div>
           <div class="flex items-center justify-between mb-4">
-            <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded bg-orange-950 text-orange-300 text-xs font-mono font-bold border border-orange-500/40">
+            <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded bg-[#1A2200] text-[#CCFF00] text-xs font-mono font-bold border border-[#CCFF00]/40">
               ENGINE 2 · REAL-TIME OBSERVABILITY
             </span>
-            <span class="text-xs font-mono text-orange-400">< 15 µs Queries</span>
+            <span class="text-xs font-mono text-[#CCFF00] font-bold">< 15 µs Queries</span>
           </div>
           <h3 class="text-2xl font-extrabold text-white mb-3">In-Memory Streaming LogHub</h3>
           <p class="text-slate-300 text-sm leading-relaxed mb-6">
@@ -265,26 +265,26 @@
 
           <div class="space-y-3 font-mono text-xs mb-6">
             <div class="flex items-start gap-2.5 text-slate-200">
-              <span class="text-orange-400 font-bold">✓</span>
+              <span class="text-[#CCFF00] font-bold">✓</span>
               <div><strong class="text-white">O(1) Circular Ring Buffer:</strong> Fixed memory ceiling (50,000 logs) with zero dynamic allocation overhead.</div>
             </div>
             <div class="flex items-start gap-2.5 text-slate-200">
-              <span class="text-orange-400 font-bold">✓</span>
-              <div><strong class="text-white">Dual Secondary Indices:</strong> Instant lookup by <code class="text-orange-300 font-mono">trace_id</code> and <code class="text-orange-300 font-mono">service</code> in under 15 microseconds.</div>
+              <span class="text-[#CCFF00] font-bold">✓</span>
+              <div><strong class="text-white">Dual Secondary Indices:</strong> Instant lookup by <code class="text-[#CCFF00] font-mono">trace_id</code> and <code class="text-[#CCFF00] font-mono">service</code> in under 15 microseconds.</div>
             </div>
             <div class="flex items-start gap-2.5 text-slate-200">
-              <span class="text-orange-400 font-bold">✓</span>
+              <span class="text-[#CCFF00] font-bold">✓</span>
               <div><strong class="text-white">Non-Blocking SSE Streaming:</strong> Broadcasts live events to browsers and CLI tools at > 1M req/s.</div>
             </div>
             <div class="flex items-start gap-2.5 text-slate-200">
-              <span class="text-orange-400 font-bold">✓</span>
+              <span class="text-[#CCFF00] font-bold">✓</span>
               <div><strong class="text-white">Zero-Leak Eviction:</strong> Index references are automatically pruned as oldest records are overwritten.</div>
             </div>
           </div>
         </div>
 
         <div class="bg-[#08080C] p-3.5 rounded-xl border border-obsidian-border font-mono text-[11px] text-slate-300 flex justify-between items-center">
-          <span class="text-slate-400">Wiring: <code class="text-orange-300">WithObserver(hub)</code></span>
+          <span class="text-slate-400">Wiring: <code class="text-[#CCFF00]">WithObserver(hub)</code></span>
           <span class="text-[#CCFF00] font-semibold flex items-center gap-1.5">
             <span class="w-2 h-2 rounded-full bg-[#CCFF00] animate-ping"></span> Live Broadcast
           </span>
@@ -374,7 +374,7 @@
       </div>
 
       <!-- Certified Table -->
-      <div class="overflow-x-auto rounded-xl border border-obsidian-border bg-[#07080B]">
+      <div class="overflow-x-auto rounded-xl border border-obsidian-border bg-[#08080A]">
         <table class="w-full text-left text-xs font-mono">
           <thead class="bg-[#0E0F14] text-slate-300 border-b border-obsidian-border">
             <tr>
@@ -441,7 +441,7 @@
 
       <!-- CONTROLS -->
       <div class="p-4 bg-[#090A0E] border-b border-obsidian-border flex flex-wrap items-center gap-3">
-        <button onclick="simEnqueueBatch()" class="px-3.5 py-2 rounded-lg bg-[#CCFF00] hover:bg-[#CCFF00] text-white font-mono text-xs font-bold flex items-center gap-1.5 transition shadow-sm">
+        <button onclick="simEnqueueBatch()" class="px-3.5 py-2 rounded-lg bg-[#CCFF00] hover:bg-[#D4FF33] text-slate-950 text-white font-mono text-xs font-bold flex items-center gap-1.5 transition shadow-sm">
           <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
           Enqueue Event (WAL + Hub)
         </button>
@@ -488,7 +488,7 @@
         <div class="text-orange-300 font-semibold">[BOOT] Initialized MemoryLogHub (Capacity: 50,000 entries, IngestionObserver active)</div>
         <div class="text-slate-400">[HTTP] Sidecar listening at :9099 (Dual routes: /v1/enqueue, /v1/logs, /v1/logs/stream)</div>
         <div class="text-orange-300">[SSE] Connected client to /v1/logs/stream (keepalives enabled)</div>
-        <div class="text-slate-500">⚡ Click "Enqueue Event (WAL + Hub)" to test instant disk append and SSE live streaming...</div>
+        <div class="text-slate-400">⚡ Click "Enqueue Event (WAL + Hub)" to test instant disk append and SSE live streaming...</div>
       </div>
     </div>
   </section>
@@ -528,7 +528,7 @@
             <td class="py-3.5 px-4"><span class="px-2 py-0.5 rounded bg-orange-950 text-orange-400 border border-orange-500/40 font-bold">GET</span></td>
             <td class="py-3.5 px-4 font-bold text-white">/v1/logs</td>
             <td class="py-3.5 px-6 font-sans text-xs text-slate-300">
-              <strong class="text-white font-mono text-xs">Historical Query:</strong> Retrieves logs from Ring Buffer filtered by <code class="text-orange-300">trace_id</code>, <code class="text-orange-300">service</code>, and <code class="text-orange-300">level</code>.
+              <strong class="text-white font-mono text-xs">Historical Query:</strong> Retrieves logs from Ring Buffer filtered by <code class="text-[#CCFF00]">trace_id</code>, <code class="text-[#CCFF00]">service</code>, and <code class="text-[#CCFF00]">level</code>.
             </td>
             <td class="py-3.5 px-4 text-right text-orange-300 font-bold">< 15 µs</td>
             <td class="py-3.5 px-4 text-center"><span class="text-orange-300">200 OK</span></td>
@@ -615,7 +615,7 @@
       <div id="arch-content-1" class="block space-y-6">
         <div class="flex flex-col lg:flex-row gap-8 items-start">
           <div class="lg:w-1/2 space-y-4">
-            <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#1A2200]/60 border border-[#CCFF00]/50/30 text-[#CCFF00] text-xs font-mono">
+            <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#1A2200]/60 border border-orange-500/40 text-[#CCFF00] text-xs font-mono">
               <span>Localhost Pod Coupling</span>
             </div>
             <h3 class="text-2xl font-bold text-white">Dedicated Container Sidecar</h3>
@@ -636,7 +636,7 @@
               <span>docker-compose.sidecar.yml</span>
               <span class="text-[#CCFF00]">Production Ready</span>
             </div>
-            <pre class="bg-[#07080B] p-4 rounded-xl border border-obsidian-border text-xs font-mono text-slate-200 overflow-x-auto"><code><span class="text-orange-400">services</span>:
+            <pre class="bg-[#08080A] p-4 rounded-xl border border-obsidian-border text-xs font-mono text-slate-200 overflow-x-auto"><code><span class="text-orange-400">services</span>:
   <span class="text-[#CCFF00]">api-service</span>:
     <span class="text-slate-400">image</span>: my-app:latest
     <span class="text-slate-400">network_mode</span>: <span class="text-[#D4FF33]">"service:walspool"</span>
@@ -686,7 +686,7 @@
               <span>docker-compose.collector.yml</span>
               <span class="text-orange-400">Multi-Service</span>
             </div>
-            <pre class="bg-[#07080B] p-4 rounded-xl border border-obsidian-border text-xs font-mono text-slate-200 overflow-x-auto"><code><span class="text-orange-400">services</span>:
+            <pre class="bg-[#08080A] p-4 rounded-xl border border-obsidian-border text-xs font-mono text-slate-200 overflow-x-auto"><code><span class="text-orange-400">services</span>:
   <span class="text-[#CCFF00]">walspool</span>:
     <span class="text-slate-400">image</span>: walspool-sidecar:prod
     <span class="text-slate-400">ports</span>:
@@ -733,7 +733,7 @@
               <span>nginx.conf (SSE Anti-Buffering)</span>
               <span class="text-orange-400">Reverse Proxy</span>
             </div>
-            <pre class="bg-[#07080B] p-4 rounded-xl border border-obsidian-border text-xs font-mono text-slate-200 overflow-x-auto"><code><span class="text-orange-400">location</span> /v1/logs/stream {
+            <pre class="bg-[#08080A] p-4 rounded-xl border border-obsidian-border text-xs font-mono text-slate-200 overflow-x-auto"><code><span class="text-orange-400">location</span> /v1/logs/stream {
     <span class="text-slate-400">proxy_pass</span> http://walspool:9099;
     <span class="text-slate-400">proxy_http_version</span> 1.1;
     <span class="text-slate-400">proxy_buffering</span> off;
@@ -771,10 +771,11 @@
               <span>Architecture Workbooks</span>
               <span class="text-purple-400">Draw.io XML</span>
             </div>
-            <div class="p-5 rounded-xl bg-[#07080B] border border-obsidian-border text-xs font-mono space-y-3">
-              <p class="text-slate-300 font-sans">Full editable schemas available directly at the root of the repository:</p>
+            <div class="p-5 rounded-xl bg-[#08080A] border border-obsidian-border text-xs font-mono space-y-3">
+              <p class="text-slate-300 font-sans">Full editable schemas available in <code class="text-[#CCFF00]">docs/diagrams/</code>:</p>
               <div class="space-y-1.5">
-                <div class="text-[#CCFF00] font-bold">📄 master_observability_architecture.drawio (6 tabs)</div>
+                <div class="text-[#CCFF00] font-bold">📁 docs/diagrams/</div>
+                <div class="text-slate-300">├── master_observability_architecture.drawio (6 tabs)</div>
                 <div class="text-slate-300">├── 01_architecture_overview.drawio</div>
                 <div class="text-slate-300">├── 02_walspool_internals.drawio</div>
                 <div class="text-slate-300">├── 03_trace_and_sse_lifecycle.drawio</div>
@@ -819,7 +820,7 @@
             <td class="py-3.5 px-4 font-bold text-white">-data-dir</td>
             <td class="py-3.5 px-4 text-orange-300">WALSPOOL_DATA_DIR</td>
             <td class="py-3.5 px-4 text-[#CCFF00]">./data/spool</td>
-            <td class="py-3.5 px-6 font-sans text-xs text-slate-300">Directory path on local disk for append-only <code class="text-[#D4FF33] font-mono">.wal</code> and <code class="text-[#D4FF33] font-mono">checkpoint.meta</code>.</td>
+            <td class="py-3.5 px-6 font-sans text-xs text-slate-300">Directory path on local disk for append-only <code class="text-[#CCFF00] font-mono">.wal</code> and <code class="text-[#CCFF00] font-mono">checkpoint.meta</code>.</td>
           </tr>
           <tr class="hover:bg-obsidian-850/50 transition">
             <td class="py-3.5 px-4 font-bold text-white">-sink-url</td>
@@ -964,7 +965,7 @@ curl http://localhost:9099/metrics</code></pre>
             <th class="py-4 px-6 text-slate-400">Direct HTTP</th>
             <th class="py-4 px-6 text-slate-400">Redis / Celery</th>
             <th class="py-4 px-6 text-slate-400">Kafka / AWS SQS</th>
-            <th class="py-4 px-6 text-[#D4FF33] bg-[#1A2200]/40 border-l border-r border-[#CCFF00]/50/30 font-bold">walspool v1.0</th>
+            <th class="py-4 px-6 text-[#D4FF33] bg-[#1A2200]/40 border-l border-r border-orange-500/40 font-bold">walspool v1.0</th>
           </tr>
         </thead>
         <tbody class="divide-y divide-obsidian-border text-slate-200 text-xs">
@@ -973,42 +974,42 @@ curl http://localhost:9099/metrics</code></pre>
             <td class="py-4 px-6 text-rose-400 font-medium">50–800 ms (Stalls API)</td>
             <td class="py-4 px-6">2–5 ms (Network roundtrip)</td>
             <td class="py-4 px-6">5–15 ms (Network roundtrip)</td>
-            <td class="py-4 px-6 font-mono font-bold text-[#CCFF00] bg-[#1A2200]/40 border-l border-r border-[#CCFF00]/50/30">0.69 µs (Direct Disk Log)</td>
+            <td class="py-4 px-6 font-mono font-bold text-[#CCFF00] bg-[#1A2200]/40 border-l border-r border-orange-500/40">0.69 µs (Direct Disk Log)</td>
           </tr>
           <tr>
             <td class="py-4 px-6 font-semibold text-white">Crash Durability (SIGKILL / OOM)</td>
             <td class="py-4 px-6 text-rose-400 font-medium">❌ 0% (Complete Loss)</td>
             <td class="py-4 px-6 text-[#CCFF00] font-medium">⚠️ Loses un-fsync'd RAM</td>
             <td class="py-4 px-6 text-[#CCFF00]">✅ High (Distributed cluster)</td>
-            <td class="py-4 px-6 font-bold text-[#CCFF00] bg-[#1A2200]/40 border-l border-r border-[#CCFF00]/50/30">✅ 100% (WAL + CRC32)</td>
+            <td class="py-4 px-6 font-bold text-[#CCFF00] bg-[#1A2200]/40 border-l border-r border-orange-500/40">✅ 100% (WAL + CRC32)</td>
           </tr>
           <tr>
             <td class="py-4 px-6 font-semibold text-white">Real-Time Observability</td>
             <td class="py-4 px-6 text-rose-400">❌ None</td>
             <td class="py-4 px-6 text-[#CCFF00]">⚠️ Pub/Sub (Drops offline)</td>
             <td class="py-4 px-6 text-slate-300">Requires consumer workers</td>
-            <td class="py-4 px-6 font-bold text-[#CCFF00] bg-[#1A2200]/40 border-l border-r border-[#CCFF00]/50/30">✅ Native SSE (> 1M req/s)</td>
+            <td class="py-4 px-6 font-bold text-[#CCFF00] bg-[#1A2200]/40 border-l border-r border-orange-500/40">✅ Native SSE (> 1M req/s)</td>
           </tr>
           <tr>
             <td class="py-4 px-6 font-semibold text-white">Historical Trace Lookup</td>
-            <td class="py-4 px-6 text-slate-500">N/A</td>
+            <td class="py-4 px-6 text-slate-400">N/A</td>
             <td class="py-4 px-6 text-slate-400">Scan keys (Slow)</td>
             <td class="py-4 px-6 text-slate-400">Requires Elasticsearch / ClickHouse</td>
-            <td class="py-4 px-6 font-bold text-orange-300 bg-[#1A2200]/40 border-l border-r border-[#CCFF00]/50/30">✅ < 15 µs In-Memory Index</td>
+            <td class="py-4 px-6 font-bold text-orange-300 bg-[#1A2200]/40 border-l border-r border-orange-500/40">✅ < 15 µs In-Memory Index</td>
           </tr>
           <tr>
             <td class="py-4 px-6 font-semibold text-white">Infrastructure Cost</td>
             <td class="py-4 px-6">$0</td>
             <td class="py-4 px-6 text-[#CCFF00] font-medium">$200–$600 / mo</td>
             <td class="py-4 px-6 text-rose-400 font-medium">$800–$3,500 / mo</td>
-            <td class="py-4 px-6 font-bold text-[#CCFF00] bg-[#1A2200]/40 border-l border-r border-[#CCFF00]/50/30">$0 (In-process)</td>
+            <td class="py-4 px-6 font-bold text-[#CCFF00] bg-[#1A2200]/40 border-l border-r border-orange-500/40">$0 (In-process)</td>
           </tr>
           <tr>
             <td class="py-4 px-6 font-semibold text-white">Maintenance Overhead</td>
             <td class="py-4 px-6">Zero</td>
             <td class="py-4 px-6 text-[#CCFF00]">Connection pools, leaks</td>
             <td class="py-4 px-6 text-rose-400 font-medium">Partitions, brokers, rebalancing</td>
-            <td class="py-4 px-6 font-bold text-[#CCFF00] bg-[#1A2200]/40 border-l border-r border-[#CCFF00]/50/30">Zero (Single Go Import)</td>
+            <td class="py-4 px-6 font-bold text-[#CCFF00] bg-[#1A2200]/40 border-l border-r border-orange-500/40">Zero (Single Go Import)</td>
           </tr>
         </tbody>
       </table>
@@ -1047,7 +1048,7 @@ curl http://localhost:9099/metrics</code></pre>
           </div>
         </div>
 
-        <div class="p-6 rounded-xl bg-[#07080B] border border-[#CCFF00]/50/30 flex flex-col justify-between space-y-6">
+        <div class="p-6 rounded-xl bg-[#08080A] border border-orange-500/40 flex flex-col justify-between space-y-6">
           <div>
             <div class="text-xs font-mono text-slate-300 font-medium">Estimated Annual Cloud Savings</div>
             <div id="calc-savings" class="text-3xl font-mono font-extrabold text-[#CCFF00] mt-1">$14,400 / yr</div>
@@ -1084,7 +1085,7 @@ curl http://localhost:9099/metrics</code></pre>
         </summary>
         <div class="mt-4 text-slate-300 text-sm leading-relaxed font-normal border-t border-obsidian-border pt-4">
           <p>
-            Walspool utilizes a 128KB userspace write buffer with <code class="text-[#D4FF33] font-mono">SyncInterval</code> policy (periodic 50ms fsync). Sequential appends amortize kernel syscalls and drive PCIe NVMe throughput to saturation without per-write seek stalls.
+            Walspool utilizes a 128KB userspace write buffer with <code class="text-[#CCFF00] font-mono">SyncInterval</code> policy (periodic 50ms fsync). Sequential appends amortize kernel syscalls and drive PCIe NVMe throughput to saturation without per-write seek stalls.
           </p>
         </div>
       </details>
@@ -1099,7 +1100,7 @@ curl http://localhost:9099/metrics</code></pre>
         </summary>
         <div class="mt-4 text-slate-300 text-sm leading-relaxed font-normal border-t border-obsidian-border pt-4">
           <p>
-            No. The LogHub is implemented as a strict, fixed-size <strong>circular Ring Buffer</strong> (default 50,000 entries). When full, new writes overwrite the oldest slots in O(1) time. Secondary indices (<code class="text-orange-300 font-mono">byTraceID</code> and <code class="text-orange-300 font-mono">byService</code>) automatically prune stale references, guaranteeing zero memory leaks.
+            No. The LogHub is implemented as a strict, fixed-size <strong>circular Ring Buffer</strong> (default 50,000 entries). When full, new writes overwrite the oldest slots in O(1) time. Secondary indices (<code class="text-[#CCFF00] font-mono">byTraceID</code> and <code class="text-[#CCFF00] font-mono">byService</code>) automatically prune stale references, guaranteeing zero memory leaks.
           </p>
         </div>
       </details>
@@ -1114,7 +1115,7 @@ curl http://localhost:9099/metrics</code></pre>
         </summary>
         <div class="mt-4 text-slate-300 text-sm leading-relaxed font-normal border-t border-obsidian-border pt-4">
           <p>
-            Walspool reads <code class="text-[#D4FF33] font-mono">checkpoint.meta</code> on boot and scans forward in the WAL log. Every record is verified with IEEE CRC32. If an abrupt crash resulted in a partial or torn write, Walspool truncates the log file exactly to the last verified record boundary and resumes zero-loss dispatch.
+            Walspool reads <code class="text-[#CCFF00] font-mono">checkpoint.meta</code> on boot and scans forward in the WAL log. Every record is verified with IEEE CRC32. If an abrupt crash resulted in a partial or torn write, Walspool truncates the log file exactly to the last verified record boundary and resumes zero-loss dispatch.
           </p>
         </div>
       </details>
@@ -1129,7 +1130,7 @@ curl http://localhost:9099/metrics</code></pre>
         </summary>
         <div class="mt-4 text-slate-300 text-sm leading-relaxed font-normal border-t border-obsidian-border pt-4">
           <p>
-            Zero CGO. Walspool is 100% pure standard library Go. It compiles with <code class="text-[#D4FF33] font-mono">CGO_ENABLED=0</code> into a tiny, static binary compatible with distroless/scratch containers on Linux, macOS, Windows, and ARM architectures.
+            Zero CGO. Walspool is 100% pure standard library Go. It compiles with <code class="text-[#CCFF00] font-mono">CGO_ENABLED=0</code> into a tiny, static binary compatible with distroless/scratch containers on Linux, macOS, Windows, and ARM architectures.
           </p>
         </div>
       </details>
@@ -1146,7 +1147,7 @@ curl http://localhost:9099/metrics</code></pre>
 
       <form onsubmit="handleLeadSubmit(event)" class="max-w-md mx-auto space-y-3">
         <div class="flex gap-2">
-          <input type="email" id="lead-email" required placeholder="name@company.com" class="flex-1 px-4 py-3 rounded-xl bg-[#07080B] border border-obsidian-border text-sm text-white placeholder-slate-500 focus:outline-none focus:border-[#CCFF00]">
+          <input type="email" id="lead-email" required placeholder="name@company.com" class="flex-1 px-4 py-3 rounded-xl bg-[#08080A] border border-obsidian-border text-sm text-white placeholder-slate-500 focus:outline-none focus:border-[#CCFF00]">
           <button type="submit" class="px-6 py-3 rounded-xl bg-[#CCFF00] hover:bg-lime-300 text-slate-950 font-mono font-bold text-xs transition whitespace-nowrap shadow-md">
             Get Architecture Kit
           </button>
@@ -1189,11 +1190,11 @@ curl http://localhost:9099/metrics</code></pre>
       <form onsubmit="handleModalSubmit(event)" class="space-y-4 text-left">
         <div>
           <label class="block text-xs font-mono text-slate-200 font-medium mb-1">Work Email</label>
-          <input type="email" id="modal-email" required placeholder="techlead@company.com" class="w-full px-3.5 py-2.5 rounded-lg bg-[#07080B] border border-obsidian-border text-sm text-white focus:outline-none focus:border-[#CCFF00]">
+          <input type="email" id="modal-email" required placeholder="techlead@company.com" class="w-full px-3.5 py-2.5 rounded-lg bg-[#08080A] border border-obsidian-border text-sm text-white focus:outline-none focus:border-[#CCFF00]">
         </div>
         <div>
           <label class="block text-xs font-mono text-slate-200 font-medium mb-1">Primary Problem to Solve</label>
-          <select id="modal-usecase" class="w-full px-3.5 py-2.5 rounded-lg bg-[#07080B] border border-obsidian-border text-sm text-slate-200 focus:outline-none focus:border-[#CCFF00]">
+          <select id="modal-usecase" class="w-full px-3.5 py-2.5 rounded-lg bg-[#08080A] border border-obsidian-border text-sm text-slate-200 focus:outline-none focus:border-[#CCFF00]">
             <option>Audit Log Durability / SOC2 Compliance</option>
             <option>Outgoing Webhook Dispatcher / Partner Retries</option>
             <option>Eliminate Kafka/Redis Infrastructure Bills</option>
@@ -1226,7 +1227,7 @@ curl http://localhost:9099/metrics</code></pre>
       const line = document.createElement('div');
       line.className = color;
       const time = new Date().toISOString().split('T')[1].slice(0, 8);
-      line.innerHTML = `<span class="text-slate-500">[${time}]</span> ${msg}`;
+      line.innerHTML = `<span class="text-slate-400">[${time}]</span> ${msg}`;
       terminal.appendChild(line);
       terminal.scrollTop = terminal.scrollHeight;
     }
