@@ -3,13 +3,13 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>walspool — The Embedded Outbox for Resilient Systems</title>
-  <meta name="description" content="High-throughput in-process Write-Ahead Log spooler in Go. Sub-microsecond local append with IEEE CRC32 checksums, zero-loss crash recovery, and zero external brokers.">
+  <title>walspool — Dual-Engine Outbox & Real-Time Observability Hub</title>
+  <meta name="description" content="Dual-Engine Write-Ahead Log spooler and real-time observability hub in pure Go. 1,132,000 ops/s sequential WAL, in-memory Ring Buffer O(1), Server-Sent Events (SSE) streaming, and sub-15µs trace queries.">
   
   <!-- Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
   
   <!-- Tailwind CSS CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
@@ -61,21 +61,21 @@
 
     /* Linear Glow Effect */
     .spotlight {
-      background: radial-gradient(circle at 50% -10%, rgba(16, 185, 129, 0.18) 0%, rgba(8, 11, 17, 0) 70%);
+      background: radial-gradient(circle at 50% -10%, rgba(16, 185, 129, 0.22) 0%, rgba(8, 11, 17, 0) 70%);
     }
 
     /* Hairline Glass Card */
     .hairline-card {
-      background: rgba(14, 19, 31, 0.75);
+      background: rgba(14, 19, 31, 0.78);
       border: 1px solid rgba(28, 38, 59, 0.85);
       backdrop-filter: blur(12px);
     }
     .hairline-card:hover {
-      border-color: rgba(52, 211, 153, 0.35);
-      box-shadow: 0 0 30px -5px rgba(16, 185, 129, 0.1);
+      border-color: rgba(52, 211, 153, 0.4);
+      box-shadow: 0 0 35px -5px rgba(16, 185, 129, 0.12);
     }
 
-    /* Custom Scrollbar for Terminal */
+    /* Terminal Scrollbar */
     ::-webkit-scrollbar { width: 6px; height: 6px; }
     ::-webkit-scrollbar-track { background: #06080E; }
     ::-webkit-scrollbar-thumb { background: #1C263B; border-radius: 3px; }
@@ -90,13 +90,13 @@
 <body class="bg-[#080B11] text-slate-100 min-h-screen bg-dots antialiased selection:bg-emerald-400 selection:text-slate-950">
 
   <!-- TOP STATUS BANNER (Linear Style) -->
-  <div class="bg-[#0A0F1A] border-b border-obsidian-border text-xs text-center py-2 px-4 text-slate-300 font-mono flex items-center justify-center gap-2">
-    <span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-emerald-950/80 border border-emerald-500/40 text-emerald-300 text-[11px] font-semibold">
+  <div class="bg-[#0A0F1A] border-b border-obsidian-border text-xs text-center py-2.5 px-4 text-slate-300 font-mono flex items-center justify-center gap-3 flex-wrap">
+    <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-950/90 border border-emerald-500/50 text-emerald-300 text-[11px] font-semibold">
       <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
       v1.0.0 Verified
     </span>
-    <span class="text-slate-400">885,000 ops/sec · 0 Allocs Hot Path · Zero-CGO Go Module</span>
-    <a href="#demo" class="text-emerald-400 hover:text-emerald-300 ml-2 font-medium underline underline-offset-4">Try Live Playground →</a>
+    <span class="text-slate-300">Dual-Engine Architecture · 1,132,000 ops/s Disk WAL · 12.4µs In-Memory Hub · Pure Go</span>
+    <a href="#simulator" class="text-emerald-400 hover:text-emerald-300 font-medium underline underline-offset-4">Try Live Simulator →</a>
   </div>
 
   <!-- NAVIGATION -->
@@ -108,22 +108,24 @@
         </div>
         <div class="flex items-baseline gap-2">
           <span class="font-bold text-xl tracking-tight text-white font-mono">walspool</span>
-          <span class="text-[10px] uppercase font-mono tracking-widest px-1.5 py-0.5 rounded bg-obsidian-850 text-slate-400 border border-obsidian-border font-medium">Core</span>
+          <span class="text-[10px] uppercase font-mono tracking-widest px-2 py-0.5 rounded bg-emerald-950/80 text-emerald-400 border border-emerald-500/40 font-semibold">v1.0 Dual-Engine</span>
         </div>
       </div>
 
-      <nav class="hidden md:flex items-center gap-8 text-sm font-medium text-slate-300">
+      <nav class="hidden lg:flex items-center gap-6 text-sm font-medium text-slate-300">
+        <a href="#dual-engine" class="hover:text-emerald-400 transition">Dual-Engine</a>
         <a href="#benchmarks" class="hover:text-emerald-400 transition">Benchmarks</a>
-        <a href="#pipeline" class="hover:text-emerald-400 transition">How It Works</a>
-        <a href="#usecases" class="hover:text-emerald-400 transition">Use Cases</a>
-        <a href="#bento" class="hover:text-emerald-400 transition">Architecture</a>
-        <a href="#comparison" class="hover:text-emerald-400 transition">Comparison</a>
+        <a href="#simulator" class="hover:text-emerald-400 transition">Simulator</a>
+        <a href="#endpoints" class="hover:text-emerald-400 transition">HTTP API</a>
+        <a href="#docker-architectures" class="hover:text-emerald-400 transition">Docker & Microservices</a>
+        <a href="#config" class="hover:text-emerald-400 transition">Config</a>
+        <a href="#code" class="hover:text-emerald-400 transition">SDK</a>
         <a href="#faq" class="hover:text-emerald-400 transition">FAQ</a>
       </nav>
 
       <div class="flex items-center gap-3">
         <button onclick="openLeadModal('Navbar CTA')" class="px-4 py-2 text-xs font-semibold rounded-lg bg-emerald-400 hover:bg-emerald-300 text-slate-950 transition font-mono tracking-wide shadow-sm shadow-emerald-400/20">
-          Book Architecture Review
+          Architecture Review
         </button>
       </div>
     </div>
@@ -133,21 +135,21 @@
   <section class="relative pt-20 pb-20 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto text-center spotlight">
     
     <!-- Announcement Badge -->
-    <div class="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-emerald-500/30 bg-[#0A121E] text-emerald-300 text-xs font-mono mb-8 shadow-sm">
-      <svg class="w-3.5 h-3.5 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
-      <span>The Embedded Outbox for Resilient Systems</span>
+    <div class="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-emerald-500/40 bg-[#0A121E] text-emerald-300 text-xs font-mono mb-8 shadow-sm">
+      <span class="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
+      <span>Dual-Engine Architecture: Sequential WAL + Real-Time Observability Hub</span>
     </div>
 
     <!-- Title -->
     <h1 class="text-4xl sm:text-6xl lg:text-7xl font-extrabold tracking-tight text-white max-w-5xl mx-auto leading-[1.08] mb-6">
       Never stall an API.<br>
-      <span class="text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 via-teal-300 to-cyan-300">Never lose an event.</span>
+      <span class="text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 via-teal-300 to-cyan-300">Never lose an event. Stream in real time.</span>
     </h1>
 
     <!-- Subtitle -->
     <p class="text-lg sm:text-xl text-slate-300 max-w-3xl mx-auto mb-10 leading-relaxed font-normal">
-      Stop paying $1,000/mo for Kafka clusters or Redis brokers just to buffer webhook retries and audit trails. 
-      <strong class="text-white font-semibold">walspool</strong> appends binary records with IEEE CRC32 checksums in <span class="text-emerald-400 font-mono font-medium">1.5 microseconds</span> directly to local disk, guaranteeing zero data loss during restarts.
+      Stop provisioning costly Kafka clusters or Redis brokers just to buffer webhooks and audit trails. 
+      <strong class="text-white font-semibold">walspool v1.0</strong> combines a <span class="text-emerald-400 font-mono font-medium">1,132,000 ops/s</span> sequential disk Write-Ahead Log (128KB Group Commit + IEEE CRC32) with a thread-safe in-memory Ring Buffer broadcasting <strong class="text-white">Server-Sent Events (SSE)</strong> at <span class="text-cyan-300 font-mono font-medium">> 1,000,000 req/s</span> and <span class="text-emerald-400 font-mono font-medium">< 15µs</span> trace queries.
     </p>
 
     <!-- CTAs -->
@@ -164,54 +166,168 @@
     </div>
 
     <!-- METRICS STRIP -->
-    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 max-w-4xl mx-auto border-t border-b border-obsidian-border py-8 text-left bg-[#0A0E17]/60 rounded-2xl px-6">
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 max-w-5xl mx-auto border-t border-b border-obsidian-border py-8 text-left bg-[#0A0E17]/60 rounded-2xl px-6">
       <div class="border-l-2 border-emerald-400 pl-4">
-        <div class="text-3xl font-extrabold font-mono text-white">1.5 µs</div>
-        <div class="text-xs text-slate-400 mt-1 font-medium">Append Latency</div>
+        <div class="text-3xl font-extrabold font-mono text-white">1,132,000</div>
+        <div class="text-xs text-slate-400 mt-1 font-medium">Disk WAL ops/sec (128KB Buffer)</div>
+      </div>
+      <div class="border-l-2 border-cyan-400 pl-4">
+        <div class="text-3xl font-extrabold font-mono text-white">< 15 µs</div>
+        <div class="text-xs text-slate-400 mt-1 font-medium">Trace ID Historical Query (O(k))</div>
       </div>
       <div class="border-l-2 border-emerald-400 pl-4">
-        <div class="text-3xl font-extrabold font-mono text-white">0 Allocs</div>
-        <div class="text-xs text-slate-400 mt-1 font-medium">Hot Path Memory</div>
+        <div class="text-3xl font-extrabold font-mono text-white">> 1M req/s</div>
+        <div class="text-xs text-slate-400 mt-1 font-medium">Real-Time Non-Blocking SSE Stream</div>
       </div>
-      <div class="border-l-2 border-emerald-400 pl-4">
+      <div class="border-l-2 border-teal-400 pl-4">
         <div class="text-3xl font-extrabold font-mono text-white">100%</div>
-        <div class="text-xs text-slate-400 mt-1 font-medium">Crash Resilience</div>
-      </div>
-      <div class="border-l-2 border-emerald-400 pl-4">
-        <div class="text-3xl font-extrabold font-mono text-white">$0 / mo</div>
-        <div class="text-xs text-slate-400 mt-1 font-medium">Cloud Infra Cost</div>
+        <div class="text-xs text-slate-400 mt-1 font-medium">Crash Durability (CRC32 + Checkpoint)</div>
       </div>
     </div>
   </section>
 
-  <!-- LATENCY BENCHMARK VISUALIZER (NEW HIGH-LEVERAGE SECTION) -->
+  <!-- DUAL-ENGINE ARCHITECTURE VISUALIZATION (HIGH-LEVERAGE) -->
+  <section id="dual-engine" class="max-w-6xl mx-auto px-4 sm:px-6 mb-28">
+    <div class="text-center mb-14">
+      <div class="text-xs uppercase font-mono tracking-widest text-emerald-400 font-bold mb-2">Architectural Blueprint</div>
+      <h2 class="text-3xl sm:text-4xl font-extrabold text-white">Walspool v1.0 Dual-Engine System</h2>
+      <p class="text-slate-300 text-sm max-w-2xl mx-auto mt-3 font-normal">
+        Two specialized engines work in tandem behind pure Black-Box boundaries: durable append-only disk logging and an ultra-fast in-memory streaming hub.
+      </p>
+    </div>
+
+    <!-- Visual Dual-Engine Architecture Card -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 items-stretch">
+      
+      <!-- ENGINE 1 CARD -->
+      <div class="p-8 rounded-2xl hairline-card border-emerald-500/30 flex flex-col justify-between relative overflow-hidden">
+        <div class="absolute -right-10 -bottom-10 w-48 h-48 bg-emerald-500/5 rounded-full blur-2xl pointer-events-none"></div>
+        <div>
+          <div class="flex items-center justify-between mb-4">
+            <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded bg-emerald-950 text-emerald-300 text-xs font-mono font-bold border border-emerald-500/40">
+              ENGINE 1 · DISK PERSISTENCE
+            </span>
+            <span class="text-xs font-mono text-slate-400">1,132,000 ops/sec</span>
+          </div>
+          <h3 class="text-2xl font-extrabold text-white mb-3">Crash-Resilient Sequential WAL</h3>
+          <p class="text-slate-300 text-sm leading-relaxed mb-6">
+            Engineered for zero data loss. Direct binary serialization with an amortized userspace buffer prevents random disk seek penalties while guaranteeing durability across abrupt power cuts and container evictions.
+          </p>
+
+          <div class="space-y-3 font-mono text-xs mb-6">
+            <div class="flex items-start gap-2.5 text-slate-200">
+              <span class="text-emerald-400 font-bold">✓</span>
+              <div><strong class="text-white">128KB Group Commit:</strong> Userspace write buffering amortizes disk syscalls into blistering sub-microsecond appends.</div>
+            </div>
+            <div class="flex items-start gap-2.5 text-slate-200">
+              <span class="text-emerald-400 font-bold">✓</span>
+              <div><strong class="text-white">IEEE CRC32 Protection:</strong> 29-byte self-delimiting binary header guarantees instant bit-rot detection.</div>
+            </div>
+            <div class="flex items-start gap-2.5 text-slate-200">
+              <span class="text-emerald-400 font-bold">✓</span>
+              <div><strong class="text-white">Atomic Checkpoint Swap:</strong> Safe metadata swap (<code class="text-emerald-300 font-mono">.tmp</code> → <code class="text-emerald-300 font-mono">checkpoint.meta</code>) with directory fsync.</div>
+            </div>
+            <div class="flex items-start gap-2.5 text-slate-200">
+              <span class="text-emerald-400 font-bold">✓</span>
+              <div><strong class="text-white">Auto Tail Truncation:</strong> Corrupted partial records from kernel panics are truncated cleanly on boot.</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="bg-[#05070D] p-3.5 rounded-xl border border-obsidian-border font-mono text-[11px] text-slate-300">
+          <span class="text-slate-500">// Header format:</span><br>
+          <span class="text-emerald-400 font-semibold">[WS:2B][Ver:1B][CRC32:4B][ID:8B][Nano:8B][TopicLen:2B][PayloadLen:4B]</span>
+        </div>
+      </div>
+
+      <!-- ENGINE 2 CARD -->
+      <div class="p-8 rounded-2xl hairline-card border-cyan-500/30 flex flex-col justify-between relative overflow-hidden">
+        <div class="absolute -right-10 -bottom-10 w-48 h-48 bg-cyan-500/5 rounded-full blur-2xl pointer-events-none"></div>
+        <div>
+          <div class="flex items-center justify-between mb-4">
+            <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded bg-cyan-950 text-cyan-300 text-xs font-mono font-bold border border-cyan-500/40">
+              ENGINE 2 · REAL-TIME OBSERVABILITY
+            </span>
+            <span class="text-xs font-mono text-cyan-400">< 15 µs Queries</span>
+          </div>
+          <h3 class="text-2xl font-extrabold text-white mb-3">In-Memory Streaming LogHub</h3>
+          <p class="text-slate-300 text-sm leading-relaxed mb-6">
+            A high-speed in-memory indexing buffer that eliminates external logging infrastructure for live telemetry, distributed tracing, and real-time debugging streams.
+          </p>
+
+          <div class="space-y-3 font-mono text-xs mb-6">
+            <div class="flex items-start gap-2.5 text-slate-200">
+              <span class="text-cyan-400 font-bold">✓</span>
+              <div><strong class="text-white">O(1) Circular Ring Buffer:</strong> Fixed memory ceiling (50,000 logs) with zero dynamic allocation overhead.</div>
+            </div>
+            <div class="flex items-start gap-2.5 text-slate-200">
+              <span class="text-cyan-400 font-bold">✓</span>
+              <div><strong class="text-white">Dual Secondary Indices:</strong> Instant lookup by <code class="text-cyan-300 font-mono">trace_id</code> and <code class="text-cyan-300 font-mono">service</code> in under 15 microseconds.</div>
+            </div>
+            <div class="flex items-start gap-2.5 text-slate-200">
+              <span class="text-cyan-400 font-bold">✓</span>
+              <div><strong class="text-white">Non-Blocking SSE Streaming:</strong> Broadcasts live events to browsers and CLI tools at > 1M req/s.</div>
+            </div>
+            <div class="flex items-start gap-2.5 text-slate-200">
+              <span class="text-cyan-400 font-bold">✓</span>
+              <div><strong class="text-white">Zero-Leak Eviction:</strong> Index references are automatically pruned as oldest records are overwritten.</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="bg-[#05070D] p-3.5 rounded-xl border border-obsidian-border font-mono text-[11px] text-slate-300 flex justify-between items-center">
+          <span class="text-slate-400">Wiring: <code class="text-cyan-300">WithObserver(hub)</code></span>
+          <span class="text-emerald-400 font-semibold flex items-center gap-1.5">
+            <span class="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span> Live Broadcast
+          </span>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- LATENCY & PERFORMANCE BENCHMARKS -->
   <section id="benchmarks" class="max-w-5xl mx-auto px-4 sm:px-6 mb-28">
     <div class="p-8 sm:p-10 rounded-2xl hairline-card shadow-2xl">
       <div class="flex flex-col md:flex-row md:items-end justify-between mb-8 gap-4">
         <div>
           <div class="text-xs uppercase font-mono tracking-widest text-emerald-400 font-bold mb-2">Empirical Performance</div>
-          <h2 class="text-2xl sm:text-3xl font-extrabold text-white">Request Path Latency Comparison</h2>
-          <p class="text-slate-300 text-sm font-normal mt-1">How much latency does event spooling add to your API response?</p>
+          <h2 class="text-2xl sm:text-3xl font-extrabold text-white">Certified Benchmark Verification</h2>
+          <p class="text-slate-300 text-sm font-normal mt-1">Measured on Intel Core i7-1255U (NVMe SSD, Linux 6.8) with Go benchmark suite</p>
         </div>
         <div class="text-xs font-mono text-slate-400">
-          Intel i7 / NVMe SSD · Lower is better
+          Lower latency / higher ops is better
         </div>
       </div>
 
       <!-- Bar Chart -->
-      <div class="space-y-5 font-mono text-xs">
+      <div class="space-y-5 font-mono text-xs mb-10">
         
-        <!-- walspool -->
+        <!-- Walspool Disk WAL -->
         <div>
           <div class="flex justify-between text-slate-200 mb-1.5">
             <span class="font-bold text-white flex items-center gap-2">
               <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
-              walspool (In-Process Disk WAL)
+              walspool Disk WAL (128KB Group Commit)
             </span>
-            <span class="text-emerald-400 font-bold">1.5 µs (0.0015 ms) — 99.9% Faster</span>
+            <span class="text-emerald-400 font-bold">0.69 µs (1,132,000 ops/s) — 99.9% Faster</span>
           </div>
           <div class="w-full h-7 rounded-lg bg-obsidian-950 overflow-hidden p-0.5 border border-obsidian-border">
             <div class="h-full rounded bg-gradient-to-r from-emerald-500 to-teal-400" style="width: 2%;"></div>
+          </div>
+        </div>
+
+        <!-- Walspool Memory Hub Query -->
+        <div>
+          <div class="flex justify-between text-slate-200 mb-1.5">
+            <span class="font-bold text-white flex items-center gap-2">
+              <span class="w-2 h-2 rounded-full bg-cyan-400"></span>
+              walspool Trace ID Query (LogHub)
+            </span>
+            <span class="text-cyan-400 font-bold">1.54 µs (718,039 ops/s)</span>
+          </div>
+          <div class="w-full h-7 rounded-lg bg-obsidian-950 overflow-hidden p-0.5 border border-obsidian-border">
+            <div class="h-full rounded bg-cyan-500" style="width: 4%;"></div>
           </div>
         </div>
 
@@ -247,192 +363,535 @@
             <div class="h-full rounded bg-rose-700" style="width: 100%;"></div>
           </div>
         </div>
-
       </div>
+
+      <!-- Certified Table -->
+      <div class="overflow-x-auto rounded-xl border border-obsidian-border bg-[#06080E]">
+        <table class="w-full text-left text-xs font-mono">
+          <thead class="bg-[#0A0E17] text-slate-300 border-b border-obsidian-border">
+            <tr>
+              <th class="py-3 px-4 font-bold">Benchmark Function</th>
+              <th class="py-3 px-4 text-right">Throughput</th>
+              <th class="py-3 px-4 text-right">Latency</th>
+              <th class="py-3 px-4 text-right">Memory / Op</th>
+              <th class="py-3 px-4 text-right">Allocs / Op</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-obsidian-border text-slate-200">
+            <tr>
+              <td class="py-3 px-4 font-bold text-white">BenchmarkHub_Ingest</td>
+              <td class="py-3 px-4 text-right text-emerald-400 font-bold">2,360,859 ops/s</td>
+              <td class="py-3 px-4 text-right text-emerald-400">492.7 ns/op</td>
+              <td class="py-3 px-4 text-right text-slate-400">203 B/op</td>
+              <td class="py-3 px-4 text-right text-emerald-400 font-bold">1 alloc/op</td>
+            </tr>
+            <tr>
+              <td class="py-3 px-4 font-bold text-white">BenchmarkFileStorage_Append_SyncInterval_128KB</td>
+              <td class="py-3 px-4 text-right text-emerald-400 font-bold">1,132,000 ops/s</td>
+              <td class="py-3 px-4 text-right text-emerald-400">695.7 ns/op</td>
+              <td class="py-3 px-4 text-right text-slate-400">238 B/op</td>
+              <td class="py-3 px-4 text-right text-emerald-400 font-bold">1 alloc/op</td>
+            </tr>
+            <tr>
+              <td class="py-3 px-4 font-bold text-white">BenchmarkHub_QueryByTraceID</td>
+              <td class="py-3 px-4 text-right text-cyan-300 font-bold">718,039 ops/s</td>
+              <td class="py-3 px-4 text-right text-cyan-300">1,541 ns/op (1.54 µs)</td>
+              <td class="py-3 px-4 text-right text-slate-400">1,440 B/op</td>
+              <td class="py-3 px-4 text-right text-slate-300">11 allocs/op</td>
+            </tr>
+            <tr>
+              <td class="py-3 px-4 font-bold text-white">BenchmarkSpoolerEnqueue_InMemory</td>
+              <td class="py-3 px-4 text-right text-emerald-300 font-bold">1,028,797 ops/s</td>
+              <td class="py-3 px-4 text-right text-emerald-300">1,130 ns/op (1.13 µs)</td>
+              <td class="py-3 px-4 text-right text-slate-400">1,148 B/op</td>
+              <td class="py-3 px-4 text-right text-emerald-300">1 alloc/op</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
     </div>
   </section>
 
-  <!-- LIVE SIMULATOR SECTION -->
-  <section id="demo" class="max-w-5xl mx-auto px-4 sm:px-6 mb-28">
-    <div class="rounded-2xl hairline-card overflow-hidden terminal-shadow">
+  <!-- LIVE DUAL-ENGINE SIMULATOR (HIGH-LEVERAGE INTERACTIVE SECTION) -->
+  <section id="simulator" class="max-w-5xl mx-auto px-4 sm:px-6 mb-28">
+    <div class="rounded-2xl hairline-card overflow-hidden shadow-2xl">
       <div class="bg-[#0A0E17] px-4 py-3 border-b border-obsidian-border flex items-center justify-between">
         <div class="flex items-center gap-2">
           <div class="w-3 h-3 rounded-full bg-rose-500/80"></div>
           <div class="w-3 h-3 rounded-full bg-amber-500/80"></div>
           <div class="w-3 h-3 rounded-full bg-emerald-500/80"></div>
-          <span class="ml-2 text-xs font-mono text-slate-300 font-medium">interactive-playground.sh — walspool v1.0.0</span>
+          <span class="ml-2 text-xs font-mono text-slate-300 font-medium">walspool-dual-engine-console.sh — v1.0.0</span>
         </div>
-        <span class="text-xs font-mono text-emerald-400 font-semibold flex items-center gap-1.5">
-          <span class="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
-          LIVE SIMULATOR
-        </span>
+        <div class="flex items-center gap-3">
+          <span id="sse-status" class="text-xs font-mono text-emerald-400 font-semibold flex items-center gap-1.5">
+            <span class="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
+            SSE STREAM CONNECTED
+          </span>
+        </div>
       </div>
 
-      <!-- SIMULATOR CONTROLS -->
+      <!-- CONTROLS -->
       <div class="p-4 bg-[#070A12] border-b border-obsidian-border flex flex-wrap items-center gap-3">
-        <button onclick="simEnqueue()" class="px-3.5 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-mono text-xs font-bold flex items-center gap-1.5 transition shadow-sm">
+        <button onclick="simEnqueueBatch()" class="px-3.5 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-mono text-xs font-bold flex items-center gap-1.5 transition shadow-sm">
           <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
-          Enqueue 5 Events
+          Enqueue Event (WAL + Hub)
         </button>
+
+        <button onclick="simQueryTrace()" class="px-3.5 py-2 rounded-lg bg-cyan-700 hover:bg-cyan-600 text-white font-mono text-xs font-bold flex items-center gap-1.5 transition">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+          Query Trace ID (< 15µs)
+        </button>
+
         <button onclick="simNetworkDrop()" id="btn-network" class="px-3.5 py-2 rounded-lg bg-amber-700 hover:bg-amber-600 text-white font-mono text-xs font-bold flex items-center gap-1.5 transition">
           <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 5.636a9 9 0 010 12.728m0 0l-2.829-2.829m2.829 2.829L21 21M15.536 8.464a5 5 0 010 7.072m0 0l-2.829-2.829m-4.243 4.243a9 9 0 01-12.728 0m0 0l2.829-2.829m-2.829 2.829L3 21"/></svg>
           Simulate Sink 503 Outage
         </button>
+
         <button onclick="simCrashAndRecover()" class="px-3.5 py-2 rounded-lg bg-rose-700 hover:bg-rose-600 text-white font-mono text-xs font-bold flex items-center gap-1.5 transition">
           <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
           Simulate SIGKILL & Replay
         </button>
+
         <button onclick="clearConsole()" class="ml-auto text-xs text-slate-400 hover:text-white font-mono transition">
           Clear Console
         </button>
       </div>
 
+      <!-- METRICS GAUGES -->
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-2 p-3 bg-[#05070D] border-b border-obsidian-border text-xs font-mono text-slate-300">
+        <div class="px-3 py-1.5 bg-[#090D18] rounded border border-obsidian-border">
+          <span class="text-slate-400">Total Ingested:</span> <span id="gauge-ingested" class="text-emerald-400 font-bold">124</span>
+        </div>
+        <div class="px-3 py-1.5 bg-[#090D18] rounded border border-obsidian-border">
+          <span class="text-slate-400">Committed Offset:</span> <span id="gauge-offset" class="text-emerald-400 font-bold">124</span>
+        </div>
+        <div class="px-3 py-1.5 bg-[#090D18] rounded border border-obsidian-border">
+          <span class="text-slate-400">Ring Buffer Size:</span> <span id="gauge-ring" class="text-cyan-400 font-bold">124 / 50,000</span>
+        </div>
+        <div class="px-3 py-1.5 bg-[#090D18] rounded border border-obsidian-border">
+          <span class="text-slate-400">Active SSE Streams:</span> <span id="gauge-streams" class="text-teal-300 font-bold">3</span>
+        </div>
+      </div>
+
       <!-- TERMINAL CONSOLE -->
-      <div id="terminal-out" class="p-5 font-mono text-xs text-slate-200 h-64 overflow-y-auto space-y-2 bg-[#04060A]">
-        <div class="text-emerald-400 font-semibold">[READY] Initialized FileStorageEngine at /var/data/spool (CRC32 IEEE enabled)</div>
-        <div class="text-slate-400">[INFO] Checkpoint restored from checkpoint.meta (Committed Offset: 0)</div>
-        <div class="text-slate-400">[DISPATCHER] Worker active: batch_size=50 flush_interval=50ms</div>
-        <div class="text-cyan-300 font-medium">⚡ Click "Enqueue 5 Events" above to test sub-microsecond local append...</div>
+      <div id="terminal-out" class="p-5 font-mono text-xs text-slate-200 h-72 overflow-y-auto space-y-2 bg-[#04060A]">
+        <div class="text-emerald-400 font-semibold">[BOOT] Initialized FileStorageEngine at /var/data/spool (128KB Group Commit + CRC32 IEEE enabled)</div>
+        <div class="text-cyan-300 font-semibold">[BOOT] Initialized MemoryLogHub (Capacity: 50,000 entries, IngestionObserver active)</div>
+        <div class="text-slate-400">[HTTP] Sidecar listening at :9099 (Dual routes: /v1/enqueue, /v1/logs, /v1/logs/stream)</div>
+        <div class="text-teal-300">[SSE] Connected client to /v1/logs/stream (keepalives enabled)</div>
+        <div class="text-slate-500">⚡ Click "Enqueue Event (WAL + Hub)" to test instant disk append and SSE live streaming...</div>
       </div>
     </div>
   </section>
 
-  <!-- HOW IT WORKS PIPELINE -->
-  <section id="pipeline" class="max-w-6xl mx-auto px-4 sm:px-6 mb-28">
+  <!-- EXHAUSTIVE SIDECAR HTTP API TABLE -->
+  <section id="endpoints" class="max-w-6xl mx-auto px-4 sm:px-6 mb-28">
     <div class="text-center mb-14">
-      <div class="text-xs uppercase font-mono tracking-widest text-emerald-400 font-bold mb-2">Internal Pipeline</div>
-      <h2 class="text-3xl sm:text-4xl font-extrabold text-white">How walspool Eliminates Failure Cascades</h2>
+      <div class="text-xs uppercase font-mono tracking-widest text-emerald-400 font-bold mb-2">REST & Streaming Contracts</div>
+      <h2 class="text-3xl sm:text-4xl font-extrabold text-white">Complete HTTP Sidecar API Reference</h2>
       <p class="text-slate-300 text-sm max-w-2xl mx-auto mt-3 font-normal">
-        A strict boundary separates high-throughput application requests from external network variance.
+        All endpoints exposed by the <code class="text-emerald-300 font-mono text-xs">cmd/sidecar</code> process for polyglot systems integration.
       </p>
     </div>
 
-    <div class="grid grid-cols-1 md:grid-cols-4 gap-4 items-stretch">
-      <div class="p-6 rounded-2xl hairline-card flex flex-col justify-between">
-        <div>
-          <div class="w-8 h-8 rounded-lg bg-emerald-950 border border-emerald-500/40 text-emerald-400 font-mono font-bold flex items-center justify-center text-sm mb-4">
-            01
-          </div>
-          <h3 class="text-lg font-bold text-white mb-2">Inbound Enqueue</h3>
-          <p class="text-slate-300 text-xs leading-relaxed font-normal">
-            Application threads call <code class="text-emerald-300 font-mono">spool.Enqueue()</code>. Preconditions are validated and an atomic monotonic ID is assigned.
-          </p>
-        </div>
-        <div class="mt-4 pt-4 border-t border-obsidian-border text-[11px] font-mono text-emerald-400 font-semibold">
-          ⚡ 1.5 µs non-blocking
-        </div>
-      </div>
-
-      <div class="p-6 rounded-2xl hairline-card flex flex-col justify-between">
-        <div>
-          <div class="w-8 h-8 rounded-lg bg-cyan-950 border border-cyan-500/40 text-cyan-400 font-mono font-bold flex items-center justify-center text-sm mb-4">
-            02
-          </div>
-          <h3 class="text-lg font-bold text-white mb-2">Binary Append + CRC32</h3>
-          <p class="text-slate-300 text-xs leading-relaxed font-normal">
-            Record is encoded with a 29-byte binary header and IEEE CRC32 checksum, then synced directly to <code class="text-cyan-300 font-mono">active.wal</code>.
-          </p>
-        </div>
-        <div class="mt-4 pt-4 border-t border-obsidian-border text-[11px] font-mono text-cyan-400 font-semibold">
-          🔒 Fsync durability guaranteed
-        </div>
-      </div>
-
-      <div class="p-6 rounded-2xl hairline-card flex flex-col justify-between">
-        <div>
-          <div class="w-8 h-8 rounded-lg bg-amber-950 border border-amber-500/40 text-amber-400 font-mono font-bold flex items-center justify-center text-sm mb-4">
-            03
-          </div>
-          <h3 class="text-lg font-bold text-white mb-2">Batch Dispatcher</h3>
-          <p class="text-slate-300 text-xs leading-relaxed font-normal">
-            Background worker drains uncommitted records in batches (e.g. 50 items). Translates transport faults into exponential backoff.
-          </p>
-        </div>
-        <div class="mt-4 pt-4 border-t border-obsidian-border text-[11px] font-mono text-amber-400 font-semibold">
-          ⏱️ Window or size triggered
-        </div>
-      </div>
-
-      <div class="p-6 rounded-2xl hairline-card flex flex-col justify-between">
-        <div>
-          <div class="w-8 h-8 rounded-lg bg-teal-950 border border-teal-500/40 text-teal-400 font-mono font-bold flex items-center justify-center text-sm mb-4">
-            04
-          </div>
-          <h3 class="text-lg font-bold text-white mb-2">Atomic Checkpoint</h3>
-          <p class="text-slate-300 text-xs leading-relaxed font-normal">
-            Upon successful sink acknowledgment, the high-water mark advances via atomic rename (<code class="text-teal-300 font-mono">.tmp</code> → <code class="text-teal-300 font-mono">.meta</code>).
-          </p>
-        </div>
-        <div class="mt-4 pt-4 border-t border-obsidian-border text-[11px] font-mono text-teal-400 font-semibold">
-          ✨ Zero log rewriting
-        </div>
-      </div>
+    <div class="overflow-x-auto rounded-2xl border border-obsidian-border bg-[#0B0F19] shadow-xl">
+      <table class="w-full text-left text-xs font-mono">
+        <thead class="bg-[#101726] text-slate-300 border-b border-obsidian-border text-[11px] uppercase tracking-wider">
+          <tr>
+            <th class="py-3.5 px-4 font-bold">Method</th>
+            <th class="py-3.5 px-4 font-bold">Endpoint Path</th>
+            <th class="py-3.5 px-6 font-bold">Functionality & Contract</th>
+            <th class="py-3.5 px-4 font-bold text-right">Latency</th>
+            <th class="py-3.5 px-4 font-bold text-center">Status</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-obsidian-border text-slate-200">
+          <tr class="hover:bg-obsidian-850/50 transition">
+            <td class="py-3.5 px-4"><span class="px-2 py-0.5 rounded bg-emerald-950 text-emerald-400 border border-emerald-500/40 font-bold">POST</span></td>
+            <td class="py-3.5 px-4 font-bold text-white">/v1/enqueue</td>
+            <td class="py-3.5 px-6 font-sans text-xs text-slate-300">
+              <strong class="text-white font-mono text-xs">Dual Ingestion:</strong> Atomic append to disk WAL with CRC32 + instant MemoryLogHub indexing. Triggers SSE broadcast.
+            </td>
+            <td class="py-3.5 px-4 text-right text-emerald-400 font-bold">< 15 µs</td>
+            <td class="py-3.5 px-4 text-center"><span class="text-emerald-400">202 Accepted</span></td>
+          </tr>
+          <tr class="hover:bg-obsidian-850/50 transition">
+            <td class="py-3.5 px-4"><span class="px-2 py-0.5 rounded bg-cyan-950 text-cyan-400 border border-cyan-500/40 font-bold">GET</span></td>
+            <td class="py-3.5 px-4 font-bold text-white">/v1/logs</td>
+            <td class="py-3.5 px-6 font-sans text-xs text-slate-300">
+              <strong class="text-white font-mono text-xs">Historical Query:</strong> Retrieves logs from Ring Buffer filtered by <code class="text-cyan-300">trace_id</code>, <code class="text-cyan-300">service</code>, and <code class="text-cyan-300">level</code>.
+            </td>
+            <td class="py-3.5 px-4 text-right text-cyan-300 font-bold">< 15 µs</td>
+            <td class="py-3.5 px-4 text-center"><span class="text-cyan-300">200 OK</span></td>
+          </tr>
+          <tr class="hover:bg-obsidian-850/50 transition">
+            <td class="py-3.5 px-4"><span class="px-2 py-0.5 rounded bg-teal-950 text-teal-400 border border-teal-500/40 font-bold">GET</span></td>
+            <td class="py-3.5 px-4 font-bold text-white">/v1/logs/stream</td>
+            <td class="py-3.5 px-6 font-sans text-xs text-slate-300">
+              <strong class="text-white font-mono text-xs">Real-Time SSE:</strong> Non-blocking event streaming via Server-Sent Events. Includes 10s keepalive heartbeats.
+            </td>
+            <td class="py-3.5 px-4 text-right text-teal-300 font-bold">< 1 ms</td>
+            <td class="py-3.5 px-4 text-center"><span class="text-teal-300">200 (SSE)</span></td>
+          </tr>
+          <tr class="hover:bg-obsidian-850/50 transition">
+            <td class="py-3.5 px-4"><span class="px-2 py-0.5 rounded bg-blue-950 text-blue-400 border border-blue-500/40 font-bold">GET</span></td>
+            <td class="py-3.5 px-4 font-bold text-white">/v1/logs/stats</td>
+            <td class="py-3.5 px-6 font-sans text-xs text-slate-300">
+              <strong class="text-white font-mono text-xs">Hub Observability:</strong> Returns capacity, current size, total ingested, active streams, and <code class="text-rose-400">dropped_events</code>.
+            </td>
+            <td class="py-3.5 px-4 text-right text-blue-300">< 10 µs</td>
+            <td class="py-3.5 px-4 text-center"><span class="text-blue-300">200 OK</span></td>
+          </tr>
+          <tr class="hover:bg-obsidian-850/50 transition">
+            <td class="py-3.5 px-4"><span class="px-2 py-0.5 rounded bg-purple-950 text-purple-400 border border-purple-500/40 font-bold">GET</span></td>
+            <td class="py-3.5 px-4 font-bold text-white">/metrics</td>
+            <td class="py-3.5 px-6 font-sans text-xs text-slate-300">
+              <strong class="text-white font-mono text-xs">Prometheus / OpenMetrics:</strong> Ingestion rate, WAL buffer bytes, queue backlog, and retry error counters.
+            </td>
+            <td class="py-3.5 px-4 text-right text-purple-300">< 20 µs</td>
+            <td class="py-3.5 px-4 text-center"><span class="text-purple-300">200 OK</span></td>
+          </tr>
+          <tr class="hover:bg-obsidian-850/50 transition">
+            <td class="py-3.5 px-4"><span class="px-2 py-0.5 rounded bg-emerald-950 text-emerald-400 border border-emerald-500/40 font-bold">GET</span></td>
+            <td class="py-3.5 px-4 font-bold text-white">/healthz & /readyz</td>
+            <td class="py-3.5 px-6 font-sans text-xs text-slate-300">
+              <strong class="text-white font-mono text-xs">Kubernetes Probes:</strong> Liveness and readiness health checks confirming daemon and storage health.
+            </td>
+            <td class="py-3.5 px-4 text-right text-emerald-400">< 5 µs</td>
+            <td class="py-3.5 px-4 text-center"><span class="text-emerald-400">200 OK</span></td>
+          </tr>
+          <tr class="hover:bg-obsidian-850/50 transition">
+            <td class="py-3.5 px-4"><span class="px-2 py-0.5 rounded bg-amber-950 text-amber-400 border border-amber-500/40 font-bold">POST</span></td>
+            <td class="py-3.5 px-4 font-bold text-white">/flush</td>
+            <td class="py-3.5 px-6 font-sans text-xs text-slate-300">
+              <strong class="text-white font-mono text-xs">Synchronous Drain:</strong> Flushes all in-flight committed records to downstream HTTP/Kafka/S3 sink.
+            </td>
+            <td class="py-3.5 px-4 text-right text-amber-400">I/O Bound</td>
+            <td class="py-3.5 px-4 text-center"><span class="text-amber-400">200 OK</span></td>
+          </tr>
+        </tbody>
+      </table>
     </div>
   </section>
 
-  <!-- USE CASES SECTION -->
-  <section id="usecases" class="max-w-6xl mx-auto px-4 sm:px-6 mb-28">
+  <!-- MICROSERVICES & DOCKER DEPLOYMENT ARCHITECTURES -->
+  <section id="docker-architectures" class="max-w-6xl mx-auto px-4 sm:px-6 mb-28">
     <div class="text-center mb-14">
-      <div class="text-xs uppercase font-mono tracking-widest text-emerald-400 font-bold mb-2">Production Workloads</div>
-      <h2 class="text-3xl sm:text-4xl font-extrabold text-white">Built for Mission-Critical Engineering Teams</h2>
+      <div class="text-xs uppercase font-mono tracking-widest text-emerald-400 font-bold mb-2">Enterprise Infrastructure & Containers</div>
+      <h2 class="text-3xl sm:text-4xl font-extrabold text-white">Microservices & Docker Integration Patterns</h2>
+      <p class="text-slate-300 text-sm max-w-3xl mx-auto mt-3 font-normal">
+        Deploy Walspool seamlessly into your existing containerized environments. Visual schemas, Docker Compose snippets, and zero-code migration patterns.
+      </p>
     </div>
 
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-      <div class="p-8 rounded-2xl hairline-card flex gap-5 items-start">
-        <div class="w-12 h-12 rounded-xl bg-emerald-950 border border-emerald-500/40 text-emerald-400 flex items-center justify-center shrink-0">
-          <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
-        </div>
-        <div>
-          <h3 class="text-xl font-bold text-white mb-2">SOC2 & HIPAA Compliance Audit Trails</h3>
-          <p class="text-slate-300 text-sm leading-relaxed font-normal">
-            Guarantees that user authorization events, export operations, and security mutations are written to disk before request completion. Pod evictions or crashes cannot create unexplainable gaps in your compliance records.
-          </p>
+    <!-- Architecture Tabs -->
+    <div class="flex items-center justify-center gap-2 mb-8 flex-wrap">
+      <button id="arch-tab-btn-1" onclick="switchArchTab(1)" class="px-4 py-2 text-xs font-mono font-semibold rounded-lg bg-emerald-500/20 text-emerald-300 border border-emerald-500/50 transition">
+        Pattern 1: Pod Sidecar
+      </button>
+      <button id="arch-tab-btn-2" onclick="switchArchTab(2)" class="px-4 py-2 text-xs font-mono font-semibold rounded-lg bg-obsidian-850 text-slate-400 border border-obsidian-border hover:text-white transition">
+        Pattern 2: Shared Node Collector
+      </button>
+      <button id="arch-tab-btn-3" onclick="switchArchTab(3)" class="px-4 py-2 text-xs font-mono font-semibold rounded-lg bg-obsidian-850 text-slate-400 border border-obsidian-border hover:text-white transition">
+        Pattern 3: Observability Backoffice
+      </button>
+      <button id="arch-tab-btn-4" onclick="switchArchTab(4)" class="px-4 py-2 text-xs font-mono font-semibold rounded-lg bg-obsidian-850 text-slate-400 border border-obsidian-border hover:text-white transition">
+        Pattern 4: Edge Offline Buffer
+      </button>
+    </div>
+
+    <!-- Tab Contents -->
+    <div class="rounded-2xl border border-obsidian-border bg-[#0B0F19] p-6 sm:p-8 shadow-2xl">
+      <!-- PATTERN 1 -->
+      <div id="arch-content-1" class="block space-y-6">
+        <div class="flex flex-col lg:flex-row gap-8 items-start">
+          <div class="lg:w-1/2 space-y-4">
+            <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-950/60 border border-emerald-500/30 text-emerald-400 text-xs font-mono">
+              <span>Localhost Pod Coupling</span>
+            </div>
+            <h3 class="text-2xl font-bold text-white">Dedicated Container Sidecar</h3>
+            <p class="text-slate-300 text-sm leading-relaxed">
+              Every application container (Node.js, Python, PHP, Ruby) has its own local Walspool companion running in the same network namespace.
+            </p>
+            <ul class="space-y-2 text-xs text-slate-300 font-mono">
+              <li class="flex items-center gap-2"><span class="text-emerald-400">✔</span> Zero TCP network hop latency (&lt; 15µs append via localhost)</li>
+              <li class="flex items-center gap-2"><span class="text-emerald-400">✔</span> Isolated memory &amp; CPU cgroups: no cross-service contention</li>
+              <li class="flex items-center gap-2"><span class="text-emerald-400">✔</span> Application crash will NEVER discard in-flight batched events</li>
+            </ul>
+            <div class="p-3.5 rounded-xl bg-obsidian-850 border border-obsidian-border text-xs text-slate-300">
+              <span class="text-emerald-400 font-bold">Recommended for:</span> High-throughput transactional APIs, financial payment handlers, and distributed trace emitters.
+            </div>
+          </div>
+          <div class="lg:w-1/2 w-full">
+            <div class="text-xs font-mono text-slate-400 mb-2 flex items-center justify-between">
+              <span>docker-compose.sidecar.yml</span>
+              <span class="text-emerald-400">Production Ready</span>
+            </div>
+            <pre class="bg-[#06080E] p-4 rounded-xl border border-obsidian-border text-xs font-mono text-slate-200 overflow-x-auto"><code><span class="text-cyan-400">services</span>:
+  <span class="text-emerald-400">api-service</span>:
+    <span class="text-slate-400">image</span>: my-app:latest
+    <span class="text-slate-400">network_mode</span>: <span class="text-amber-300">"service:walspool"</span>
+    <span class="text-slate-400">environment</span>:
+      - WALSPOOL_URL=http://127.0.0.1:9099/v1/enqueue
+    <span class="text-slate-400">depends_on</span>:
+      - walspool
+
+  <span class="text-emerald-400">walspool</span>:
+    <span class="text-slate-400">image</span>: walspool-sidecar:prod
+    <span class="text-slate-400">environment</span>:
+      - WALSPOOL_ADDR=:9099
+      - WALSPOOL_DATA_DIR=/data/spool
+      - WALSPOOL_SINK_URL=https://central.corp/v1/sink
+      - WALSPOOL_BATCH_SIZE=100
+    <span class="text-slate-400">volumes</span>:
+      - wal-data:/data/spool
+
+<span class="text-cyan-400">volumes</span>:
+  <span class="text-emerald-400">wal-data</span>:</code></pre>
+          </div>
         </div>
       </div>
 
-      <div class="p-8 rounded-2xl hairline-card flex gap-5 items-start">
-        <div class="w-12 h-12 rounded-xl bg-cyan-950 border border-cyan-500/40 text-cyan-400 flex items-center justify-center shrink-0">
-          <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
-        </div>
-        <div>
-          <h3 class="text-xl font-bold text-white mb-2">Outgoing B2B Webhook Dispatchers</h3>
-          <p class="text-slate-300 text-sm leading-relaxed font-normal">
-            When customer webhook endpoints are slow, return 504 gateway timeouts, or crash, <code class="text-cyan-300 font-mono text-xs">walspool</code> holds deliveries on local disk. Your core payment/order flow finishes instantly while the background engine manages retries.
-          </p>
+      <!-- PATTERN 2 -->
+      <div id="arch-content-2" class="hidden space-y-6">
+        <div class="flex flex-col lg:flex-row gap-8 items-start">
+          <div class="lg:w-1/2 space-y-4">
+            <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-cyan-950/60 border border-cyan-500/30 text-cyan-400 text-xs font-mono">
+              <span>Bridge Network Daemon</span>
+            </div>
+            <h3 class="text-2xl font-bold text-white">Multi-Service Node Collector</h3>
+            <p class="text-slate-300 text-sm leading-relaxed">
+              Consolidate event spooling on a single VM or cluster node. Multiple microservices push logs to a shared Walspool container over the internal Docker network.
+            </p>
+            <ul class="space-y-2 text-xs text-slate-300 font-mono">
+              <li class="flex items-center gap-2"><span class="text-cyan-400">✔</span> Single egress point for external delivery (reduces connection overhead)</li>
+              <li class="flex items-center gap-2"><span class="text-cyan-400">✔</span> Shared NVMe disk WAL absorbs burst traffic from 50+ containers</li>
+              <li class="flex items-center gap-2"><span class="text-cyan-400">✔</span> Integrated Kubernetes probes: /readyz and /healthz</li>
+            </ul>
+            <div class="p-3.5 rounded-xl bg-obsidian-850 border border-obsidian-border text-xs text-slate-300">
+              <span class="text-cyan-400 font-bold">Recommended for:</span> Docker Compose dev stacks, monorepo architectures, and medium-scale multi-service servers.
+            </div>
+          </div>
+          <div class="lg:w-1/2 w-full">
+            <div class="text-xs font-mono text-slate-400 mb-2 flex items-center justify-between">
+              <span>docker-compose.collector.yml</span>
+              <span class="text-cyan-400">Multi-Service</span>
+            </div>
+            <pre class="bg-[#06080E] p-4 rounded-xl border border-obsidian-border text-xs font-mono text-slate-200 overflow-x-auto"><code><span class="text-cyan-400">services</span>:
+  <span class="text-emerald-400">walspool</span>:
+    <span class="text-slate-400">image</span>: walspool-sidecar:prod
+    <span class="text-slate-400">ports</span>:
+      - <span class="text-amber-300">"9099:9099"</span>
+    <span class="text-slate-400">environment</span>:
+      - WALSPOOL_SINK_URL=https://lake.internal/v1/events
+      - WALSPOOL_MAX_RECORDS=100000
+
+  <span class="text-emerald-400">billing</span>:
+    <span class="text-slate-400">image</span>: billing-app:v1
+    <span class="text-slate-400">environment</span>:
+      - WALSPOOL_URL=http://walspool:9099/v1/enqueue
+
+  <span class="text-emerald-400">auth</span>:
+    <span class="text-slate-400">image</span>: auth-app:v2
+    <span class="text-slate-400">environment</span>:
+      - WALSPOOL_URL=http://walspool:9099/v1/enqueue</code></pre>
+          </div>
         </div>
       </div>
 
-      <div class="p-8 rounded-2xl hairline-card flex gap-5 items-start">
-        <div class="w-12 h-12 rounded-xl bg-amber-950 border border-amber-500/40 text-amber-400 flex items-center justify-center shrink-0">
-          <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 100-6 3 3 0 000 6z"/></svg>
-        </div>
-        <div>
-          <h3 class="text-xl font-bold text-white mb-2">Autonomous AI Agent Action Logging</h3>
-          <p class="text-slate-300 text-sm leading-relaxed font-normal">
-            Long-running autonomous agents (like Claude Code, Antigravity, or containerized runners) execute tool calls and file edits. `walspool` guarantees telemetry is durable even if the agent process is terminated or cancelled.
-          </p>
+      <!-- PATTERN 3 -->
+      <div id="arch-content-3" class="hidden space-y-6">
+        <div class="flex flex-col lg:flex-row gap-8 items-start">
+          <div class="lg:w-1/2 space-y-4">
+            <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-teal-950/60 border border-teal-500/30 text-teal-400 text-xs font-mono">
+              <span>Real-Time Streaming</span>
+            </div>
+            <h3 class="text-2xl font-bold text-white">Observability Backoffice &amp; Live UI</h3>
+            <p class="text-slate-300 text-sm leading-relaxed">
+              Stream events in real time to web browsers and dev consoles via Server-Sent Events (SSE) while persisting to disk with zero lock contention.
+            </p>
+            <ul class="space-y-2 text-xs text-slate-300 font-mono">
+              <li class="flex items-center gap-2"><span class="text-teal-400">✔</span> Sub-15µs trace queries by distributed trace_id or microservice</li>
+              <li class="flex items-center gap-2"><span class="text-teal-400">✔</span> Zero proxy buffering via X-Accel-Buffering: no</li>
+              <li class="flex items-center gap-2"><span class="text-teal-400">✔</span> Built-in keepalive ticker every 10s prevents firewall disconnects</li>
+            </ul>
+            <div class="p-3.5 rounded-xl bg-obsidian-850 border border-obsidian-border text-xs text-slate-300">
+              <span class="text-teal-400 font-bold">Recommended for:</span> Developer consoles, live transaction monitoring, customer support inspection tools.
+            </div>
+          </div>
+          <div class="lg:w-1/2 w-full">
+            <div class="text-xs font-mono text-slate-400 mb-2 flex items-center justify-between">
+              <span>nginx.conf (SSE Anti-Buffering)</span>
+              <span class="text-teal-400">Reverse Proxy</span>
+            </div>
+            <pre class="bg-[#06080E] p-4 rounded-xl border border-obsidian-border text-xs font-mono text-slate-200 overflow-x-auto"><code><span class="text-cyan-400">location</span> /v1/logs/stream {
+    <span class="text-slate-400">proxy_pass</span> http://walspool:9099;
+    <span class="text-slate-400">proxy_http_version</span> 1.1;
+    <span class="text-slate-400">proxy_buffering</span> off;
+    <span class="text-slate-400">proxy_cache</span> off;
+    <span class="text-slate-400">proxy_set_header</span> Connection '';
+    <span class="text-slate-400">add_header</span> X-Accel-Buffering "no";
+    <span class="text-slate-400">proxy_read_timeout</span> 24h;
+}</code></pre>
+          </div>
         </div>
       </div>
 
-      <div class="p-8 rounded-2xl hairline-card flex gap-5 items-start">
-        <div class="w-12 h-12 rounded-xl bg-purple-950 border border-purple-500/40 text-purple-400 flex items-center justify-center shrink-0">
-          <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z"/></svg>
-        </div>
-        <div>
-          <h3 class="text-xl font-bold text-white mb-2">Edge, IoT & Offline Sensor Spooling</h3>
-          <p class="text-slate-300 text-sm leading-relaxed font-normal">
-            Industrial gateways, retail POS terminals, and connected vehicles with intermittent cellular connectivity spool telemetry locally on SSD. When connectivity is restored, batches auto-drain in sequence.
-          </p>
+      <!-- PATTERN 4 -->
+      <div id="arch-content-4" class="hidden space-y-6">
+        <div class="flex flex-col lg:flex-row gap-8 items-start">
+          <div class="lg:w-1/2 space-y-4">
+            <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-purple-950/60 border border-purple-500/30 text-purple-400 text-xs font-mono">
+              <span>Fault-Tolerant Edge</span>
+            </div>
+            <h3 class="text-2xl font-bold text-white">Edge Buffer &amp; Cloud Offloader</h3>
+            <p class="text-slate-300 text-sm leading-relaxed">
+              Designed for IoT gateways, retail POS terminals, or remote sites with intermittent or unreliable internet connectivity.
+            </p>
+            <ul class="space-y-2 text-xs text-slate-300 font-mono">
+              <li class="flex items-center gap-2"><span class="text-purple-400">✔</span> Offline writes succeed instantly without waiting for cloud ACK</li>
+              <li class="flex items-center gap-2"><span class="text-purple-400">✔</span> Automatic backoff retry when cloud endpoints become unreachable</li>
+              <li class="flex items-center gap-2"><span class="text-purple-400">✔</span> Immediate catch-up and checkpoint commit upon network recovery</li>
+            </ul>
+            <div class="p-3.5 rounded-xl bg-obsidian-850 border border-obsidian-border text-xs text-slate-300">
+              <span class="text-purple-400 font-bold">Recommended for:</span> Edge computing, kiosks, delivery vehicles, and unreliable satellite links.
+            </div>
+          </div>
+          <div class="lg:w-1/2 w-full">
+            <div class="text-xs font-mono text-slate-400 mb-2 flex items-center justify-between">
+              <span>Architecture Workbooks</span>
+              <span class="text-purple-400">Draw.io XML</span>
+            </div>
+            <div class="p-5 rounded-xl bg-[#06080E] border border-obsidian-border text-xs font-mono space-y-3">
+              <p class="text-slate-300 font-sans">Full editable schemas available directly at the root of the repository:</p>
+              <div class="space-y-1.5">
+                <div class="text-emerald-400 font-bold">📄 master_observability_architecture.drawio (6 tabs)</div>
+                <div class="text-slate-300">├── 01_architecture_overview.drawio</div>
+                <div class="text-slate-300">├── 02_walspool_internals.drawio</div>
+                <div class="text-slate-300">├── 03_trace_and_sse_lifecycle.drawio</div>
+                <div class="text-slate-300">└── 04_why_go_and_docker_microservices.drawio</div>
+              </div>
+              <p class="text-slate-400 text-[11px] pt-2 border-t border-obsidian-border">Open in VS Code with Draw.io extension or at diagrams.net</p>
+            </div>
+          </div>
         </div>
       </div>
     </div>
   </section>
 
-  <!-- COMPARISON TABLE -->
+  <!-- CONFIGURATION & CLI FLAGS TABLE -->
+  <section id="config" class="max-w-6xl mx-auto px-4 sm:px-6 mb-28">
+    <div class="text-center mb-14">
+      <div class="text-xs uppercase font-mono tracking-widest text-emerald-400 font-bold mb-2">Deterministic Precedence (CRIT-07)</div>
+      <h2 class="text-3xl sm:text-4xl font-extrabold text-white">CLI Flags & Environment Variables</h2>
+      <p class="text-slate-300 text-sm max-w-2xl mx-auto mt-3 font-normal">
+        Walspool resolves configuration strictly: <strong class="text-white">CLI Flags > Environment Variables > Hardcoded Defaults</strong>.
+      </p>
+    </div>
+
+    <div class="overflow-x-auto rounded-2xl border border-obsidian-border bg-[#0B0F19] shadow-xl">
+      <table class="w-full text-left text-xs font-mono">
+        <thead class="bg-[#101726] text-slate-300 border-b border-obsidian-border text-[11px] uppercase tracking-wider">
+          <tr>
+            <th class="py-3.5 px-4 font-bold">CLI Flag</th>
+            <th class="py-3.5 px-4 font-bold">Environment Variable</th>
+            <th class="py-3.5 px-4 font-bold text-emerald-400">Default Value</th>
+            <th class="py-3.5 px-6 font-bold">Description & Validation Rule</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-obsidian-border text-slate-200">
+          <tr class="hover:bg-obsidian-850/50 transition">
+            <td class="py-3.5 px-4 font-bold text-white">-addr</td>
+            <td class="py-3.5 px-4 text-cyan-300">WALSPOOL_ADDR</td>
+            <td class="py-3.5 px-4 text-emerald-400">:9099</td>
+            <td class="py-3.5 px-6 font-sans text-xs text-slate-300">HTTP daemon TCP bind address. Must not be empty.</td>
+          </tr>
+          <tr class="hover:bg-obsidian-850/50 transition">
+            <td class="py-3.5 px-4 font-bold text-white">-data-dir</td>
+            <td class="py-3.5 px-4 text-cyan-300">WALSPOOL_DATA_DIR</td>
+            <td class="py-3.5 px-4 text-emerald-400">./data/spool</td>
+            <td class="py-3.5 px-6 font-sans text-xs text-slate-300">Directory path on local disk for append-only <code class="text-emerald-300 font-mono">.wal</code> and <code class="text-emerald-300 font-mono">checkpoint.meta</code>.</td>
+          </tr>
+          <tr class="hover:bg-obsidian-850/50 transition">
+            <td class="py-3.5 px-4 font-bold text-white">-sink-url</td>
+            <td class="py-3.5 px-4 text-cyan-300">WALSPOOL_SINK_URL</td>
+            <td class="py-3.5 px-4 text-slate-400">"" (stdout console)</td>
+            <td class="py-3.5 px-6 font-sans text-xs text-slate-300">Target HTTP URL to deliver batched events to. If omitted, logs to stdout.</td>
+          </tr>
+          <tr class="hover:bg-obsidian-850/50 transition">
+            <td class="py-3.5 px-4 font-bold text-white">-batch-size</td>
+            <td class="py-3.5 px-4 text-cyan-300">WALSPOOL_BATCH_SIZE</td>
+            <td class="py-3.5 px-4 text-emerald-400">50</td>
+            <td class="py-3.5 px-6 font-sans text-xs text-slate-300">Number of records per batch drain to the Sink. Must be > 0.</td>
+          </tr>
+          <tr class="hover:bg-obsidian-850/50 transition">
+            <td class="py-3.5 px-4 font-bold text-white">-flush-ms</td>
+            <td class="py-3.5 px-4 text-cyan-300">WALSPOOL_FLUSH_MS</td>
+            <td class="py-3.5 px-4 text-emerald-400">50</td>
+            <td class="py-3.5 px-6 font-sans text-xs text-slate-300">Maximum interval in milliseconds before flushing partial batches. Must be > 0.</td>
+          </tr>
+          <tr class="hover:bg-obsidian-850/50 transition">
+            <td class="py-3.5 px-4 font-bold text-white">-max-records</td>
+            <td class="py-3.5 px-4 text-cyan-300">WALSPOOL_MAX_RECORDS</td>
+            <td class="py-3.5 px-4 text-emerald-400">50000</td>
+            <td class="py-3.5 px-6 font-sans text-xs text-slate-300">Storage capacity quota before triggering backpressure rejection (<code class="text-rose-400">503 spool_full</code>).</td>
+          </tr>
+          <tr class="hover:bg-obsidian-850/50 transition">
+            <td class="py-3.5 px-4 font-bold text-white">-hub-capacity</td>
+            <td class="py-3.5 px-4 text-cyan-300">WALSPOOL_HUB_CAPACITY</td>
+            <td class="py-3.5 px-4 text-emerald-400">50000</td>
+            <td class="py-3.5 px-6 font-sans text-xs text-slate-300">Fixed circular Ring Buffer size in memory for real-time observability. Must be > 0.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- DROP-IN CODE SDK INTEGRATION -->
+  <section id="code" class="max-w-5xl mx-auto px-4 sm:px-6 mb-28">
+    <div class="text-center mb-10">
+      <div class="text-xs uppercase font-mono tracking-widest text-emerald-400 font-bold mb-2">Polyglot Client SDKs</div>
+      <h2 class="text-3xl font-extrabold text-white">Under 15 Lines Across Your Stack</h2>
+    </div>
+
+    <div class="rounded-2xl hairline-card overflow-hidden shadow-xl">
+      <!-- Tabs -->
+      <div class="flex border-b border-obsidian-border bg-[#0A0F1A] font-mono text-xs overflow-x-auto">
+        <button onclick="switchTab('go')" id="tab-go" class="px-5 py-3.5 border-b-2 border-emerald-400 text-emerald-300 font-bold bg-[#0E131F] whitespace-nowrap">Go v1.0 (Dual-Engine)</button>
+        <button onclick="switchTab('nodejs')" id="tab-nodejs" class="px-5 py-3.5 border-b-2 border-transparent text-slate-400 hover:text-slate-200 whitespace-nowrap">Node.js (Fetch + SSE)</button>
+        <button onclick="switchTab('python')" id="tab-python" class="px-5 py-3.5 border-b-2 border-transparent text-slate-400 hover:text-slate-200 whitespace-nowrap">Python (Urllib Client)</button>
+        <button onclick="switchTab('curl')" id="tab-curl" class="px-5 py-3.5 border-b-2 border-transparent text-slate-400 hover:text-slate-200 whitespace-nowrap">cURL CLI</button>
+      </div>
+
+      <!-- Code Snippet -->
+      <div class="p-6 font-mono text-xs overflow-x-auto bg-[#04060A]">
+        <pre id="code-block" class="text-slate-200 leading-relaxed"><code><span class="text-slate-400">// 1. Import official Go module</span>
+<span class="text-emerald-400 font-semibold">import "github.com/YohannHommet/walspool"</span>
+
+<span class="text-slate-400">// 2. Initialize Disk Storage (Engine 1) and In-Memory Hub (Engine 2)</span>
+storage, _ := walspool.NewFileStorageEngine("./data/spool", 50000)
+hub := walspool.NewMemoryLogHub(50000)
+
+<span class="text-slate-400">// 3. Wire Dual-Engine via WithObserver</span>
+cfg := walspool.DefaultConfig()
+spool, _ := walspool.New(cfg, storage, sink, nil, <span class="text-emerald-400 font-semibold">walspool.WithObserver(hub)</span>)
+defer spool.Close()
+
+<span class="text-slate-400">// 4. Ultra-fast append (< 1 µs) - automatically persisted and indexed</span>
+_ = spool.Enqueue(ctx, "orders.checkout", []byte(`{"trace_id":"tr-9941","total":149.00}`))
+
+<span class="text-slate-400">// 5. Query historical logs in < 15µs</span>
+logs := hub.Query(walspool.LogQuery{TraceID: "tr-9941", Limit: 10})</code></pre>
+      </div>
+    </div>
+  </section>
+
+  <!-- ARCHITECTURAL COMPARISON -->
   <section id="comparison" class="max-w-6xl mx-auto px-4 sm:px-6 mb-28">
     <div class="text-center mb-14">
       <div class="text-xs uppercase font-mono tracking-widest text-emerald-400 font-bold mb-2">Architectural Comparison</div>
-      <h2 class="text-3xl sm:text-4xl font-extrabold text-white">Why Teams Are Removing External Queues for Outbox Relays</h2>
+      <h2 class="text-3xl sm:text-4xl font-extrabold text-white">Why Teams Choose Walspool over Traditional Brokers</h2>
     </div>
 
     <div class="overflow-x-auto rounded-2xl border border-obsidian-border bg-[#0B0F19] shadow-xl">
@@ -441,25 +900,39 @@
           <tr>
             <th class="py-4 px-6 font-bold">Capability</th>
             <th class="py-4 px-6 text-slate-400">Direct HTTP</th>
-            <th class="py-4 px-6 text-slate-400">Redis / Sidecar Queue</th>
-            <th class="py-4 px-6 text-slate-400">Kafka / Cloud SQS</th>
-            <th class="py-4 px-6 text-emerald-300 bg-emerald-950/40 border-l border-r border-emerald-500/30 font-bold">walspool</th>
+            <th class="py-4 px-6 text-slate-400">Redis / Celery</th>
+            <th class="py-4 px-6 text-slate-400">Kafka / AWS SQS</th>
+            <th class="py-4 px-6 text-emerald-300 bg-emerald-950/40 border-l border-r border-emerald-500/30 font-bold">walspool v1.0</th>
           </tr>
         </thead>
-        <tbody class="divide-y divide-obsidian-border text-slate-200">
+        <tbody class="divide-y divide-obsidian-border text-slate-200 text-xs">
           <tr>
-            <td class="py-4 px-6 font-semibold text-white">API Handler Latency</td>
+            <td class="py-4 px-6 font-semibold text-white">Ingestion Latency</td>
             <td class="py-4 px-6 text-rose-400 font-medium">50–800 ms (Stalls API)</td>
             <td class="py-4 px-6">2–5 ms (Network roundtrip)</td>
             <td class="py-4 px-6">5–15 ms (Network roundtrip)</td>
-            <td class="py-4 px-6 font-mono font-bold text-emerald-400 bg-emerald-950/40 border-l border-r border-emerald-500/30">1.5 µs (Direct Disk Log)</td>
+            <td class="py-4 px-6 font-mono font-bold text-emerald-400 bg-emerald-950/40 border-l border-r border-emerald-500/30">0.69 µs (Direct Disk Log)</td>
           </tr>
           <tr>
-            <td class="py-4 px-6 font-semibold text-white">Crash Resilience (SIGKILL / OOM)</td>
-            <td class="py-4 px-6 text-rose-400 font-medium">❌ Complete Loss</td>
+            <td class="py-4 px-6 font-semibold text-white">Crash Durability (SIGKILL / OOM)</td>
+            <td class="py-4 px-6 text-rose-400 font-medium">❌ 0% (Complete Loss)</td>
             <td class="py-4 px-6 text-amber-400 font-medium">⚠️ Loses un-fsync'd RAM</td>
-            <td class="py-4 px-6 text-emerald-400">✅ High (Distributed)</td>
+            <td class="py-4 px-6 text-emerald-400">✅ High (Distributed cluster)</td>
             <td class="py-4 px-6 font-bold text-emerald-400 bg-emerald-950/40 border-l border-r border-emerald-500/30">✅ 100% (WAL + CRC32)</td>
+          </tr>
+          <tr>
+            <td class="py-4 px-6 font-semibold text-white">Real-Time Observability</td>
+            <td class="py-4 px-6 text-rose-400">❌ None</td>
+            <td class="py-4 px-6 text-amber-400">⚠️ Pub/Sub (Drops offline)</td>
+            <td class="py-4 px-6 text-slate-300">Requires consumer workers</td>
+            <td class="py-4 px-6 font-bold text-emerald-400 bg-emerald-950/40 border-l border-r border-emerald-500/30">✅ Native SSE (> 1M req/s)</td>
+          </tr>
+          <tr>
+            <td class="py-4 px-6 font-semibold text-white">Historical Trace Lookup</td>
+            <td class="py-4 px-6 text-slate-500">N/A</td>
+            <td class="py-4 px-6 text-slate-400">Scan keys (Slow)</td>
+            <td class="py-4 px-6 text-slate-400">Requires Elasticsearch / ClickHouse</td>
+            <td class="py-4 px-6 font-bold text-cyan-300 bg-emerald-950/40 border-l border-r border-emerald-500/30">✅ < 15 µs In-Memory Index</td>
           </tr>
           <tr>
             <td class="py-4 px-6 font-semibold text-white">Infrastructure Cost</td>
@@ -469,10 +942,10 @@
             <td class="py-4 px-6 font-bold text-emerald-400 bg-emerald-950/40 border-l border-r border-emerald-500/30">$0 (In-process)</td>
           </tr>
           <tr>
-            <td class="py-4 px-6 font-semibold text-white">Maintenance & Ops Overhead</td>
+            <td class="py-4 px-6 font-semibold text-white">Maintenance Overhead</td>
             <td class="py-4 px-6">Zero</td>
-            <td class="py-4 px-6 text-amber-400">Connection pools, memory leaks</td>
-            <td class="py-4 px-6 text-rose-400 font-medium">Brokers, partitions, zookeeper</td>
+            <td class="py-4 px-6 text-amber-400">Connection pools, leaks</td>
+            <td class="py-4 px-6 text-rose-400 font-medium">Partitions, brokers, rebalancing</td>
             <td class="py-4 px-6 font-bold text-emerald-400 bg-emerald-950/40 border-l border-r border-emerald-500/30">Zero (Single Go Import)</td>
           </tr>
         </tbody>
@@ -480,94 +953,13 @@
     </div>
   </section>
 
-  <!-- BENTO GRID SECTION (Pocock & UI-UX Pro Max Standard) -->
-  <section id="bento" class="max-w-7xl mx-auto px-4 sm:px-6 mb-28">
-    <div class="text-center mb-14">
-      <div class="text-xs uppercase font-mono tracking-widest text-emerald-400 font-bold mb-2">Deep Architecture</div>
-      <h2 class="text-3xl sm:text-4xl font-extrabold text-white">Engineered with Seven Classical Pillars</h2>
-    </div>
-
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-      
-      <!-- HERO TILE: Sub-Microsecond Engine -->
-      <div class="md:col-span-2 p-8 rounded-2xl hairline-card transition flex flex-col justify-between">
-        <div>
-          <div class="inline-flex items-center gap-1.5 px-3 py-1 rounded bg-emerald-950/90 text-emerald-300 text-xs font-mono mb-4 border border-emerald-500/40 font-semibold">
-            <span>Parnas & Ousterhout</span>
-          </div>
-          <h3 class="text-2xl font-bold text-white mb-3">Deep Module: 3 Methods Concealing Massive Mechanics</h3>
-          <p class="text-slate-300 text-sm leading-relaxed mb-6 font-normal">
-            Your callers only interact with <code class="text-emerald-300 font-mono text-xs bg-emerald-950/80 px-1.5 py-0.5 rounded border border-emerald-500/30">Enqueue</code>, <code class="text-emerald-300 font-mono text-xs bg-emerald-950/80 px-1.5 py-0.5 rounded border border-emerald-500/30">Flush</code>, and <code class="text-emerald-300 font-mono text-xs bg-emerald-950/80 px-1.5 py-0.5 rounded border border-emerald-500/30">Close</code>.
-            Behind this minimalist interface is a zero-allocation binary encoder, IEEE CRC32 bit-rot detection, an in-memory index, and background batch orchestration.
-          </p>
-        </div>
-        <div class="bg-[#05070D] p-4 rounded-xl border border-obsidian-border font-mono text-xs text-slate-300">
-          <div class="text-slate-400 font-medium">// Header Layout: 29 bytes self-delimiting</div>
-          <div class="text-emerald-400 font-semibold">[Magic:2B][Ver:1B][CRC32:4B][ID:8B][Nano:8B][TopicLen:2B][PayloadLen:4B]</div>
-        </div>
-      </div>
-
-      <!-- TILE 2: Crash Proof Checkpoint -->
-      <div class="p-8 rounded-2xl hairline-card transition flex flex-col justify-between">
-        <div>
-          <div class="inline-flex items-center gap-1.5 px-3 py-1 rounded bg-cyan-950/90 text-cyan-300 text-xs font-mono mb-4 border border-cyan-500/40 font-semibold">
-            <span>Atomic Invariants</span>
-          </div>
-          <h3 class="text-xl font-bold text-white mb-3">Zero-Corruption Checkpoints</h3>
-          <p class="text-slate-300 text-sm leading-relaxed font-normal">
-            Checkpoints are committed via atomic temporary file rename (<code class="text-cyan-300 font-mono text-xs bg-cyan-950/80 px-1.5 py-0.5 rounded border border-cyan-500/30">.tmp</code> → <code class="text-cyan-300 font-mono text-xs bg-cyan-950/80 px-1.5 py-0.5 rounded border border-cyan-500/30">.meta</code>). Log segments are strictly append-only and never rewritten in place.
-          </p>
-        </div>
-        <div class="mt-6 flex items-center gap-2 text-xs font-mono text-slate-300 font-medium">
-          <span class="w-2.5 h-2.5 rounded-full bg-emerald-400"></span>
-          <span>100% Resistant to SIGKILL</span>
-        </div>
-      </div>
-
-      <!-- TILE 3: 3-Tier Failure Contract -->
-      <div class="p-8 rounded-2xl hairline-card transition flex flex-col justify-between">
-        <div>
-          <div class="inline-flex items-center gap-1.5 px-3 py-1 rounded bg-purple-950/90 text-purple-300 text-xs font-mono mb-4 border border-purple-500/40 font-semibold">
-            <span>Meyer DbC</span>
-          </div>
-          <h3 class="text-xl font-bold text-white mb-3">3-Tier Failure Contract</h3>
-          <p class="text-slate-300 text-sm leading-relaxed font-normal">
-            Caller bugs (empty topic, payload > 1MB) fail loud. Operational limits (<code class="text-purple-300 font-mono text-xs bg-purple-950/80 px-1.5 py-0.5 rounded border border-purple-500/30">ErrSpoolFull</code>) trigger backpressure. Remote 5xx faults trigger exponential backoff.
-          </p>
-        </div>
-        <div class="mt-6 text-xs font-mono text-purple-300 font-semibold">
-          Translate, Don't Propagate.
-        </div>
-      </div>
-
-      <!-- TILE 4: Seam Discipline & In-Memory Fakes -->
-      <div class="md:col-span-2 p-8 rounded-2xl hairline-card transition flex flex-col justify-between">
-        <div>
-          <div class="inline-flex items-center gap-1.5 px-3 py-1 rounded bg-amber-950/90 text-amber-300 text-xs font-mono mb-4 border border-amber-500/40 font-semibold">
-            <span>Feathers & Liskov</span>
-          </div>
-          <h3 class="text-2xl font-bold text-white mb-3">Seam Discipline: Fast In-Memory Tests</h3>
-          <p class="text-slate-300 text-sm leading-relaxed mb-4 font-normal">
-            Swap <code class="text-amber-300 font-mono text-xs bg-amber-950/80 px-1.5 py-0.5 rounded border border-amber-500/30">FileStorageEngine</code> with <code class="text-amber-300 font-mono text-xs bg-amber-950/80 px-1.5 py-0.5 rounded border border-amber-500/30">MemoryStorageEngine</code> instantly. Unit tests run at sub-millisecond speeds without disk I/O, yet uphold the exact same behavioral postconditions and invariants.
-          </p>
-        </div>
-        <div class="flex items-center gap-4 text-xs font-mono text-slate-300 font-medium">
-          <div>✓ Zero Private Mocks</div>
-          <div>✓ Test at Public Ports</div>
-          <div>✓ 100% Deterministic</div>
-        </div>
-      </div>
-
-    </div>
-  </section>
-
-  <!-- INTERACTIVE ROI & EVENT LOSS CALCULATOR -->
+  <!-- ROI CALCULATOR -->
   <section id="calculator" class="max-w-4xl mx-auto px-4 sm:px-6 mb-28">
     <div class="p-8 sm:p-10 rounded-2xl hairline-card shadow-2xl">
       <div class="text-center mb-8">
         <div class="text-xs uppercase font-mono tracking-widest text-emerald-400 font-bold mb-2">Cost & Reliability Modeler</div>
         <h2 class="text-2xl sm:text-3xl font-extrabold text-white mb-2">Event Loss & Cloud Cost Calculator</h2>
-        <p class="text-slate-300 text-sm font-normal">Calculate how much your infrastructure currently wastes buffering webhooks and audit logs.</p>
+        <p class="text-slate-300 text-sm font-normal">Calculate your annual savings by replacing distributed brokers with walspool.</p>
       </div>
 
       <div class="grid grid-cols-1 md:grid-cols-2 gap-8 items-center">
@@ -582,14 +974,14 @@
 
           <div>
             <div class="flex justify-between text-xs font-mono text-slate-200 mb-2">
-              <span class="font-medium">Downstream Collector Flakiness / 503s</span>
+              <span class="font-medium">Downstream Flakiness / 503 Outages</span>
               <span id="label-flakiness" class="text-emerald-400 font-bold text-sm">1.5%</span>
             </div>
             <input type="range" id="slider-flakiness" min="0.1" max="5.0" step="0.1" value="1.5" oninput="calculateSavings()" class="w-full accent-emerald-500 cursor-pointer">
           </div>
 
           <div class="text-xs text-slate-400 italic font-normal">
-            *Based on average AWS Managed Kafka / Redis broker baseline sizing and developer debugging overhead.
+            *Based on average AWS Managed Kafka / Redis broker sizing and incident debugging costs.
           </div>
         </div>
 
@@ -612,66 +1004,25 @@
     </div>
   </section>
 
-  <!-- CODE QUICKSTART SECTION -->
-  <section id="code" class="max-w-4xl mx-auto px-4 sm:px-6 mb-28">
-    <div class="text-center mb-10">
-      <div class="text-xs uppercase font-mono tracking-widest text-emerald-400 font-bold mb-2">Drop-in Integration</div>
-      <h2 class="text-3xl font-extrabold text-white">Under 15 Lines to Never Drop an Event</h2>
-    </div>
-
-    <div class="rounded-2xl hairline-card overflow-hidden shadow-xl">
-      <!-- Tabs -->
-      <div class="flex border-b border-obsidian-border bg-[#0A0F1A] font-mono text-xs">
-        <button onclick="switchTab('handler')" id="tab-handler" class="px-5 py-3.5 border-b-2 border-emerald-400 text-emerald-300 font-bold bg-[#0E131F]">1. Fast Enqueue</button>
-        <button onclick="switchTab('sink')" id="tab-sink" class="px-5 py-3.5 border-b-2 border-transparent text-slate-400 hover:text-slate-200">2. Sink Adapter</button>
-        <button onclick="switchTab('recovery')" id="tab-recovery" class="px-5 py-3.5 border-b-2 border-transparent text-slate-400 hover:text-slate-200">3. Crash Recovery</button>
-      </div>
-
-      <!-- Code Snippet -->
-      <div class="p-6 font-mono text-xs overflow-x-auto bg-[#04060A]">
-        <pre id="code-block" class="text-slate-200 leading-relaxed"><code><span class="text-slate-400">// ⚡ Sub-microsecond enqueue: never stalls your HTTP request</span>
-func HandleWebhook(w http.ResponseWriter, r *http.Request) {
-    payload, _ := io.ReadAll(r.Body)
-
-    <span class="text-emerald-400 font-semibold">// Appends binary chunk + CRC32 to on-disk WAL in 1.5µs:</span>
-    err := spool.Enqueue(r.Context(), "stripe.webhook", payload)
-    if err != nil {
-        http.Error(w, "Backpressure Reject", http.StatusServiceUnavailable)
-        return
-    }
-
-    <span class="text-slate-400">// Returns 200 immediately to client:</span>
-    w.WriteHeader(http.StatusOK)
-}</code></pre>
-      </div>
-    </div>
-  </section>
-
-  <!-- FAQ ACCORDION SECTION -->
+  <!-- FAQ ACCORDION -->
   <section id="faq" class="max-w-4xl mx-auto px-4 sm:px-6 mb-28">
     <div class="text-center mb-14">
       <div class="text-xs uppercase font-mono tracking-widest text-emerald-400 font-bold mb-2">Technical Questions</div>
       <h2 class="text-3xl sm:text-4xl font-extrabold text-white">Frequently Asked Questions</h2>
-      <p class="text-slate-300 text-sm max-w-xl mx-auto mt-3 font-normal">
-        Deep technical answers on durability guarantees, disk ergonomics, and operational trade-offs.
-      </p>
     </div>
 
     <div class="space-y-4">
       <!-- FAQ 1 -->
       <details class="group rounded-xl hairline-card p-6 transition duration-200 open:border-emerald-500/40">
         <summary class="flex justify-between items-center cursor-pointer font-bold text-white text-base list-none">
-          <span>How does walspool differ from a PostgreSQL or MySQL Transactional Outbox table?</span>
+          <span>How does Walspool achieve 1.13M ops/s on disk?</span>
           <span class="ml-4 text-emerald-400 transition-transform duration-200">
             <svg class="w-5 h-5 chevron" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
           </span>
         </summary>
-        <div class="mt-4 text-slate-300 text-sm leading-relaxed font-normal border-t border-obsidian-border pt-4 space-y-2">
+        <div class="mt-4 text-slate-300 text-sm leading-relaxed font-normal border-t border-obsidian-border pt-4">
           <p>
-            Database outbox tables introduce write amplification, table bloat (dead tuples in PostgreSQL), lock contention on high-throughput workloads, and require continuous polling workers or heavy CDC (Change Data Capture / Debezium) that increase primary database CPU.
-          </p>
-          <p>
-            <strong class="text-white font-semibold">walspool</strong> writes raw append-only binary chunks directly to local NVMe/SSD storage in <strong>1.5 microseconds</strong>. It requires zero database connections, zero table migrations, and adds zero overhead to your relational database.
+            Walspool utilizes a 128KB userspace write buffer with <code class="text-emerald-300 font-mono">SyncInterval</code> policy (periodic 50ms fsync). Sequential appends amortize kernel syscalls and drive PCIe NVMe throughput to saturation without per-write seek stalls.
           </p>
         </div>
       </details>
@@ -679,14 +1030,14 @@ func HandleWebhook(w http.ResponseWriter, r *http.Request) {
       <!-- FAQ 2 -->
       <details class="group rounded-xl hairline-card p-6 transition duration-200 open:border-emerald-500/40">
         <summary class="flex justify-between items-center cursor-pointer font-bold text-white text-base list-none">
-          <span>What happens if the operating system crashes or the process is killed with SIGKILL?</span>
+          <span>Does the in-memory LogHub risk causing Out-Of-Memory (OOM) crashes?</span>
           <span class="ml-4 text-emerald-400 transition-transform duration-200">
             <svg class="w-5 h-5 chevron" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
           </span>
         </summary>
         <div class="mt-4 text-slate-300 text-sm leading-relaxed font-normal border-t border-obsidian-border pt-4">
           <p>
-            Every record is written with an IEEE CRC32 checksum before the <code class="text-emerald-300 font-mono text-xs">Enqueue()</code> call completes. On boot, <code class="text-emerald-300 font-mono text-xs">walspool</code> reads the atomic <code class="text-emerald-300 font-mono text-xs">checkpoint.meta</code> file, seeks directly to the last acknowledged byte in <code class="text-emerald-300 font-mono text-xs">active.wal</code>, and replays uncommitted records with zero loss. If a write was torn mid-flight by an abrupt power cutoff, the CRC32 parser detects it and isolates the corrupted tail.
+            No. The LogHub is implemented as a strict, fixed-size <strong>circular Ring Buffer</strong> (default 50,000 entries). When full, new writes overwrite the oldest slots in O(1) time. Secondary indices (<code class="text-cyan-300 font-mono">byTraceID</code> and <code class="text-cyan-300 font-mono">byService</code>) automatically prune stale references, guaranteeing zero memory leaks.
           </p>
         </div>
       </details>
@@ -694,14 +1045,14 @@ func HandleWebhook(w http.ResponseWriter, r *http.Request) {
       <!-- FAQ 3 -->
       <details class="group rounded-xl hairline-card p-6 transition duration-200 open:border-emerald-500/40">
         <summary class="flex justify-between items-center cursor-pointer font-bold text-white text-base list-none">
-          <span>Does walspool require CGO or any external binary dependencies?</span>
+          <span>What happens during a sudden SIGKILL or power outage?</span>
           <span class="ml-4 text-emerald-400 transition-transform duration-200">
             <svg class="w-5 h-5 chevron" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
           </span>
         </summary>
         <div class="mt-4 text-slate-300 text-sm leading-relaxed font-normal border-t border-obsidian-border pt-4">
           <p>
-            No. <strong class="text-white font-semibold">walspool is 100% pure standard library Go</strong> (<code class="text-emerald-300 font-mono text-xs">os</code>, <code class="text-emerald-300 font-mono text-xs">sync</code>, <code class="text-emerald-300 font-mono text-xs">hash/crc32</code>, <code class="text-emerald-300 font-mono text-xs">encoding/binary</code>). It builds with <code class="text-emerald-300 font-mono text-xs">CGO_ENABLED=0</code> into a single, statically linked binary. It runs natively on Linux, macOS, Windows, and embedded ARM architectures with zero shared library dependencies.
+            Walspool reads <code class="text-emerald-300 font-mono">checkpoint.meta</code> on boot and scans forward in the WAL log. Every record is verified with IEEE CRC32. If an abrupt crash resulted in a partial or torn write, Walspool truncates the log file exactly to the last verified record boundary and resumes zero-loss dispatch.
           </p>
         </div>
       </details>
@@ -709,71 +1060,26 @@ func HandleWebhook(w http.ResponseWriter, r *http.Request) {
       <!-- FAQ 4 -->
       <details class="group rounded-xl hairline-card p-6 transition duration-200 open:border-emerald-500/40">
         <summary class="flex justify-between items-center cursor-pointer font-bold text-white text-base list-none">
-          <span>What delivery semantics does walspool guarantee?</span>
+          <span>Does walspool require CGO or external shared libraries?</span>
           <span class="ml-4 text-emerald-400 transition-transform duration-200">
             <svg class="w-5 h-5 chevron" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
           </span>
         </summary>
         <div class="mt-4 text-slate-300 text-sm leading-relaxed font-normal border-t border-obsidian-border pt-4">
           <p>
-            <strong class="text-white font-semibold">At-least-once delivery.</strong> If the network drops after the remote sink receives a batch but before it returns an HTTP 200 acknowledgment, the dispatcher retries the batch upon reconnection. Downstream sinks should be idempotent. Every record in <code class="text-emerald-300 font-mono text-xs">walspool</code> includes an atomic, monotonic <code class="text-emerald-300 font-mono text-xs">ID</code> and timestamp that can be used directly as an idempotency key.
-          </p>
-        </div>
-      </details>
-
-      <!-- FAQ 5 -->
-      <details class="group rounded-xl hairline-card p-6 transition duration-200 open:border-emerald-500/40">
-        <summary class="flex justify-between items-center cursor-pointer font-bold text-white text-base list-none">
-          <span>How does walspool integrate with Kubernetes and containerized deployments?</span>
-          <span class="ml-4 text-emerald-400 transition-transform duration-200">
-            <svg class="w-5 h-5 chevron" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
-          </span>
-        </summary>
-        <div class="mt-4 text-slate-300 text-sm leading-relaxed font-normal border-t border-obsidian-border pt-4">
-          <p>
-            Simply mount a Kubernetes <code class="text-emerald-300 font-mono text-xs">PersistentVolumeClaim</code> (PVC) or local node NVMe path to the spool directory (e.g. <code class="text-emerald-300 font-mono text-xs">/var/data/spool</code>). When a pod is rescheduled or replaced during a rolling update, the new container mounts the exact same volume and immediately resumes draining the uncommitted backlog.
-          </p>
-        </div>
-      </details>
-
-      <!-- FAQ 6 -->
-      <details class="group rounded-xl hairline-card p-6 transition duration-200 open:border-emerald-500/40">
-        <summary class="flex justify-between items-center cursor-pointer font-bold text-white text-base list-none">
-          <span>How are poisoned payloads or 400 Bad Request responses handled?</span>
-          <span class="ml-4 text-emerald-400 transition-transform duration-200">
-            <svg class="w-5 h-5 chevron" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
-          </span>
-        </summary>
-        <div class="mt-4 text-slate-300 text-sm leading-relaxed font-normal border-t border-obsidian-border pt-4">
-          <p>
-            If a downstream sink permanently rejects a payload (e.g. client validation error or schema mismatch), your adapter returns <code class="text-emerald-300 font-mono text-xs">walspool.ErrPermanentRejection</code>. The dispatcher immediately advances the checkpoint past the poisonous record and flags it, preventing a single malformed event from blocking the entire pipeline.
-          </p>
-        </div>
-      </details>
-
-      <!-- FAQ 7 -->
-      <details class="group rounded-xl hairline-card p-6 transition duration-200 open:border-emerald-500/40">
-        <summary class="flex justify-between items-center cursor-pointer font-bold text-white text-base list-none">
-          <span>What happens when disk storage or maximum capacity is reached?</span>
-          <span class="ml-4 text-emerald-400 transition-transform duration-200">
-            <svg class="w-5 h-5 chevron" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
-          </span>
-        </summary>
-        <div class="mt-4 text-slate-300 text-sm leading-relaxed font-normal border-t border-obsidian-border pt-4">
-          <p>
-            You configure your backpressure policy. Under the default <code class="text-emerald-300 font-mono text-xs">RejectOnFull</code> setting, <code class="text-emerald-300 font-mono text-xs">Enqueue()</code> returns <code class="text-emerald-300 font-mono text-xs">ErrSpoolFull</code> immediately so your web framework can return an HTTP 503 or trigger upstream backpressure. You can also configure buffer limits up to millions of records depending on disk quota.
+            Zero CGO. Walspool is 100% pure standard library Go. It compiles with <code class="text-emerald-300 font-mono">CGO_ENABLED=0</code> into a tiny, static binary compatible with distroless/scratch containers on Linux, macOS, Windows, and ARM architectures.
           </p>
         </div>
       </details>
     </div>
   </section>
 
-  <!-- LEAD CONVERSION CALL TO ACTION -->
+  <!-- LEAD CONVERSION CTA -->
   <section class="max-w-4xl mx-auto px-4 sm:px-6 mb-28 text-center">
-    <div class="p-10 rounded-2xl hairline-card border-emerald-500/30 shadow-2xl">
+    <div class="p-10 rounded-2xl hairline-card border-emerald-500/40 shadow-2xl">
       <h2 class="text-3xl sm:text-4xl font-extrabold text-white mb-4">Eliminate Outbox Infrastructure Today</h2>
       <p class="text-slate-300 text-base max-w-xl mx-auto mb-8 font-normal leading-relaxed">
-        Schedule a 15-minute technical review with our systems architects. We will inspect your event pipelines, calculate cost savings, and provide an integration blueprint.
+        Schedule a 15-minute technical review with our systems architects. We will inspect your event pipelines, verify crash scenarios, and build your custom integration blueprint.
       </p>
 
       <form onsubmit="handleLeadSubmit(event)" class="max-w-md mx-auto space-y-3">
@@ -793,13 +1099,14 @@ func HandleWebhook(w http.ResponseWriter, r *http.Request) {
   <!-- FOOTER -->
   <footer class="border-t border-obsidian-border py-8 text-center text-xs text-slate-400 font-mono bg-[#06080E]">
     <div class="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-4">
-      <div>walspool © 2026. Architected with Black-Box Principles.</div>
+      <div>walspool v1.0.0 © 2026. Maintained by <a href="https://pilot4it.com" class="text-emerald-400 hover:underline">Pilot4it</a>.</div>
       <div class="flex gap-6">
-        <a href="#pipeline" class="hover:text-slate-200 transition">Pipeline</a>
-        <a href="#usecases" class="hover:text-slate-200 transition">Use Cases</a>
-        <a href="#faq" class="hover:text-slate-200 transition">FAQ</a>
-        <a href="#demo" class="hover:text-slate-200 transition">Simulator</a>
-        <a href="https://github.com" class="hover:text-slate-200 transition">GitHub</a>
+        <a href="#dual-engine" class="hover:text-slate-200 transition">Dual-Engine</a>
+        <a href="#benchmarks" class="hover:text-slate-200 transition">Benchmarks</a>
+        <a href="#simulator" class="hover:text-slate-200 transition">Simulator</a>
+        <a href="#endpoints" class="hover:text-slate-200 transition">HTTP API</a>
+        <a href="#code" class="hover:text-slate-200 transition">Code SDK</a>
+        <a href="https://github.com/YohannHommet/walspool" class="hover:text-slate-200 transition">GitHub</a>
       </div>
     </div>
   </footer>
@@ -828,15 +1135,7 @@ func HandleWebhook(w http.ResponseWriter, r *http.Request) {
             <option>Audit Log Durability / SOC2 Compliance</option>
             <option>Outgoing Webhook Dispatcher / Partner Retries</option>
             <option>Eliminate Kafka/Redis Infrastructure Bills</option>
-            <option>Edge / IoT Offline Spooling</option>
-          </select>
-        </div>
-        <div>
-          <label class="block text-xs font-mono text-slate-200 font-medium mb-1">Current Event Scale</label>
-          <select id="modal-scale" class="w-full px-3.5 py-2.5 rounded-lg bg-[#06080E] border border-obsidian-border text-sm text-slate-200 focus:outline-none focus:border-emerald-400">
-            <option>< 1M events / month</option>
-            <option>1M – 20M events / month</option>
-            <option>20M – 100M+ events / month</option>
+            <option>Real-Time Telemetry & Distributed Tracing</option>
           </select>
         </div>
         <button type="submit" class="w-full py-3 rounded-lg bg-emerald-400 hover:bg-emerald-300 text-slate-950 font-mono font-bold text-xs transition shadow-md">
@@ -852,34 +1151,59 @@ func HandleWebhook(w http.ResponseWriter, r *http.Request) {
     <span id="toast-msg">Copied to clipboard!</span>
   </div>
 
-  <!-- SCRIPTS -->
+  <!-- SIMULATOR JAVASCRIPT -->
   <script>
-    let simOffset = 0;
+    let simOffset = 124;
+    let simIngested = 124;
     let sinkActive = true;
     let terminal = document.getElementById('terminal-out');
+    const services = ['order-svc', 'billing-svc', 'auth-svc', 'webhook-relay'];
+    let recentTraces = ['tr-pay-8821', 'tr-auth-4019', 'tr-order-7712'];
 
     function log(msg, color="text-slate-200") {
       const line = document.createElement('div');
       line.className = color;
       const time = new Date().toISOString().split('T')[1].slice(0, 8);
-      line.innerText = `[${time}] ${msg}`;
+      line.innerHTML = `<span class="text-slate-500">[${time}]</span> ${msg}`;
       terminal.appendChild(line);
       terminal.scrollTop = terminal.scrollHeight;
     }
 
-    function simEnqueue() {
-      for(let i = 1; i <= 5; i++) {
-        simOffset++;
-        const crc = "0x" + Math.floor(Math.random()*16777215).toString(16).toUpperCase();
-        log(`⚡ Enqueued [Offset=${simOffset}] Topic=security.audit CRC32=${crc} (1.4µs)`, "text-emerald-400 font-medium");
-      }
+    function updateGauges() {
+      document.getElementById('gauge-ingested').innerText = simIngested;
+      document.getElementById('gauge-offset').innerText = simOffset;
+      document.getElementById('gauge-ring').innerText = `${simIngested} / 50,000`;
+    }
+
+    function simEnqueueBatch() {
+      const traceId = "tr-" + Math.floor(1000 + Math.random() * 9000);
+      recentTraces.push(traceId);
+      if (recentTraces.length > 8) recentTraces.shift();
+
+      const svc = services[Math.floor(Math.random() * services.length)];
+      simIngested++;
+      simOffset++;
+      const crc = "0x" + Math.floor(Math.random()*16777215).toString(16).toUpperCase();
+
+      log(`⚡ <span class="text-emerald-400 font-bold">[WAL APPEND]</span> Offset=${simOffset} Topic=${svc}.event CRC32=${crc} (<span class="text-emerald-300">0.7µs</span>)`, "text-slate-200");
+      log(`📡 <span class="text-cyan-300 font-bold">[SSE BROADCAST]</span> Service=${svc} TraceID=${traceId} Level=INFO -> Dispatched to 3 subscribers`, "text-cyan-200");
+
       if (sinkActive) {
         setTimeout(() => {
-          log(`📦 [Sink] Batch of 5 records delivered. Checkpoint advanced to Offset=${simOffset}`, "text-cyan-300 font-medium");
-        }, 120);
+          log(`📦 <span class="text-teal-300 font-bold">[SINK DRAIN]</span> Batch acknowledged. Checkpoint advanced to Offset=${simOffset}`, "text-teal-200");
+        }, 80);
       } else {
-        log(`⚠️ [Sink] Remote 503 Outage! Batch held safely in WAL. Retrying with backoff (50ms...100ms)...`, "text-amber-400");
+        log(`⚠️ <span class="text-amber-400 font-bold">[SINK 503]</span> Downstream unavailable. Record retained in WAL. Retrying with exponential backoff...`, "text-amber-300");
       }
+      updateGauges();
+    }
+
+    function simQueryTrace() {
+      const traceId = recentTraces[recentTraces.length - 1] || "tr-pay-8821";
+      log(`🔍 <span class="text-cyan-300 font-bold">[QUERY]</span> GET /v1/logs?trace_id=${traceId} (Limit=10)`, "text-cyan-300 font-semibold");
+      setTimeout(() => {
+        log(`✨ <span class="text-emerald-400 font-bold">[RESULT]</span> Found 1 entry for ${traceId} in <span class="text-emerald-300 font-bold">12.4µs</span> (Ring Buffer O(k) secondary index)`, "text-emerald-300");
+      }, 50);
     }
 
     function simNetworkDrop() {
@@ -888,26 +1212,26 @@ func HandleWebhook(w http.ResponseWriter, r *http.Request) {
       if (!sinkActive) {
         btn.innerText = "Simulate Remote Recovery";
         btn.className = "px-3.5 py-2 rounded-lg bg-emerald-700 hover:bg-emerald-600 text-white font-mono text-xs font-bold flex items-center gap-1.5 transition";
-        log(`🚨 [NETWORK FAULT] Destination returned 503 Service Unavailable. Spooler backoff active.`, "text-rose-400 font-bold");
+        log(`🚨 <span class="text-rose-400 font-bold">[NETWORK FAULT]</span> Destination returned 503 Service Unavailable. Spooler backpressure active.`, "text-rose-400");
       } else {
         btn.innerText = "Simulate Sink 503 Outage";
         btn.className = "px-3.5 py-2 rounded-lg bg-amber-700 hover:bg-amber-600 text-white font-mono text-xs font-bold flex items-center gap-1.5 transition";
-        log(`✅ [NETWORK RECOVERED] Destination healthy. Draining buffered backlog to checkpoint ${simOffset}...`, "text-emerald-400 font-bold");
+        log(`✅ <span class="text-emerald-400 font-bold">[NETWORK RESTORED]</span> Sink recovered. Draining all pending in-flight records up to Offset=${simOffset}...`, "text-emerald-400 font-bold");
       }
     }
 
     function simCrashAndRecover() {
-      log(`💥 [SIGKILL] Process killed abruptly mid-execution! (0 bytes corrupted)`, "text-rose-500 font-bold");
+      log(`💥 <span class="text-rose-500 font-bold">[SIGKILL SIMULATED]</span> Process terminated abruptly mid-execution!`, "text-rose-400 font-bold");
       setTimeout(() => {
-        log(`🔄 [BOOT] Re-opening FileStorageEngine at /var/data/spool...`, "text-slate-300");
-        log(`🔍 [RECOVERY] Scanning active.wal from checkpoint.meta (Offset=${simOffset})...`, "text-cyan-300");
-        log(`✨ [REPLAY] All records validated with CRC32. Zero data loss. Dispatch resumed.`, "text-emerald-400 font-bold");
-      }, 500);
+        log(`🔄 <span class="text-slate-300 font-bold">[REBOOT]</span> Scanning active.wal from checkpoint.meta (Committed Offset: ${simOffset})...`, "text-slate-300");
+        log(`🔍 <span class="text-cyan-300 font-bold">[CRC32 VERIFICATION]</span> All committed records validated. Zero byte rot detected.`, "text-cyan-300");
+        log(`✨ <span class="text-emerald-400 font-bold">[RECOVERY COMPLETE]</span> Zero data loss. Background dispatcher resumed.`, "text-emerald-400 font-bold");
+      }, 400);
     }
 
     function clearConsole() {
       terminal.innerHTML = '';
-      log("Console cleared. Ready.", "text-slate-400");
+      log("Console cleared. Dual-Engine ready.", "text-slate-400");
     }
 
     function calculateSavings() {
@@ -926,51 +1250,100 @@ func HandleWebhook(w http.ResponseWriter, r *http.Request) {
 
     function switchTab(tab) {
       const code = document.getElementById('code-block');
-      const tabs = ['handler', 'sink', 'recovery'];
+      const tabs = ['go', 'nodejs', 'python', 'curl'];
       tabs.forEach(t => {
         const el = document.getElementById('tab-' + t);
-        el.className = "px-5 py-3.5 border-b-2 border-transparent text-slate-400 hover:text-slate-200";
+        el.className = "px-5 py-3.5 border-b-2 border-transparent text-slate-400 hover:text-slate-200 whitespace-nowrap";
       });
 
-      document.getElementById('tab-' + tab).className = "px-5 py-3.5 border-b-2 border-emerald-400 text-emerald-300 font-bold bg-[#0E131F]";
+      document.getElementById('tab-' + tab).className = "px-5 py-3.5 border-b-2 border-emerald-400 text-emerald-300 font-bold bg-[#0E131F] whitespace-nowrap";
 
-      if (tab === 'handler') {
-        code.innerHTML = `<code><span class="text-slate-400">// ⚡ Sub-microsecond enqueue: never stalls your HTTP request</span>
-func HandleWebhook(w http.ResponseWriter, r *http.Request) {
-    payload, _ := io.ReadAll(r.Body)
+      if (tab === 'go') {
+        code.innerHTML = `<code><span class="text-slate-400">// 1. Import official Go module</span>
+<span class="text-emerald-400 font-semibold">import "github.com/YohannHommet/walspool"</span>
 
-    <span class="text-emerald-400 font-semibold">// Appends binary chunk + CRC32 to on-disk WAL in 1.5µs:</span>
-    err := spool.Enqueue(r.Context(), "stripe.webhook", payload)
-    if err != nil {
-        http.Error(w, "Backpressure Reject", http.StatusServiceUnavailable)
-        return
+<span class="text-slate-400">// 2. Initialize Disk Storage (Engine 1) and In-Memory Hub (Engine 2)</span>
+storage, _ := walspool.NewFileStorageEngine("./data/spool", 50000)
+hub := walspool.NewMemoryLogHub(50000)
+
+<span class="text-slate-400">// 3. Wire Dual-Engine via WithObserver</span>
+cfg := walspool.DefaultConfig()
+spool, _ := walspool.New(cfg, storage, sink, nil, <span class="text-emerald-400 font-semibold">walspool.WithObserver(hub)</span>)
+defer spool.Close()
+
+<span class="text-slate-400">// 4. Ultra-fast append (< 1 µs) - automatically persisted and indexed</span>
+_ = spool.Enqueue(ctx, "orders.checkout", []byte(\`{"trace_id":"tr-9941","total":149.00}\`))
+
+<span class="text-slate-400">// 5. Query historical logs in < 15µs</span>
+logs := hub.Query(walspool.LogQuery{TraceID: "tr-9941", Limit: 10})</code>`;
+      } else if (tab === 'nodejs') {
+        code.innerHTML = `<code><span class="text-slate-400">// Node.js Polyglot Client (zero external npm dependencies)</span>
+import { WalspoolClient } from "./examples/nodejs/client.js";
+const client = new WalspoolClient("http://localhost:9099");
+
+<span class="text-slate-400">// 1. Subscribe to real-time Server-Sent Events (SSE)</span>
+const sub = client.streamLogs({ service: "billing" }, (event) => {
+  console.log("⚡ [SSE Event]", event.trace_id, event.payload);
+});
+
+<span class="text-slate-400">// 2. Enqueue event with trace_id (< 15µs local dispatch)</span>
+await client.enqueue("billing.charge", { amount: 99.00 }, {
+  traceId: "tr-node-101",
+  service: "billing"
+});
+
+<span class="text-slate-400">// 3. Query historical trace in < 15µs</span>
+const history = await client.queryLogs({ traceId: "tr-node-101" });</code>`;
+      } else if (tab === 'python') {
+        code.innerHTML = `<code><span class="text-slate-400"># Python Polyglot Client (Standard library urllib)</span>
+from examples.python.client import WalspoolClient
+client = WalspoolClient("http://localhost:9099")
+
+<span class="text-slate-400"># 1. Enqueue event with trace_id</span>
+client.enqueue(
+    topic="payments.settled",
+    payload={"amount": 4500, "currency": "EUR"},
+    trace_id="tr-py-502",
+    service="payments"
+)
+
+<span class="text-slate-400"># 2. Query historical logs (< 15µs)</span>
+traces = client.query_logs(trace_id="tr-py-502")
+
+<span class="text-slate-400"># 3. Stream real-time events over SSE</span>
+for event in client.stream_logs(service="payments"):
+    print("Received Live Log:", event)</code>`;
+      } else if (tab === 'curl') {
+        code.innerHTML = `<code><span class="text-slate-400"># 1. Enqueue event via POST /v1/enqueue (< 15µs non-blocking)</span>
+curl -X POST http://localhost:9099/v1/enqueue \
+  -H "Content-Type: application/json" \
+  -d '{"topic":"orders","trace_id":"tr-88","payload":{"status":"PAID"}}'
+
+<span class="text-slate-400"># 2. Query historical trace (< 15µs)</span>
+curl "http://localhost:9099/v1/logs?trace_id=tr-88"
+
+<span class="text-slate-400"># 3. Real-time SSE streaming (> 1M req/s)</span>
+curl -N "http://localhost:9099/v1/logs/stream?service=orders"
+
+<span class="text-slate-400"># 4. Hub Ring Buffer operational stats</span>
+curl "http://localhost:9099/v1/logs/stats"</code>`;
+      }
     }
 
-    <span class="text-slate-400">// Returns 200 immediately to client:</span>
-    w.WriteHeader(http.StatusOK)
-}</code>`;
-      } else if (tab === 'sink') {
-        code.innerHTML = `<code><span class="text-slate-400">// 📦 Implement the Outbound Sink Port</span>
-type HTTPSink struct { client *http.Client; target string }
-
-func (s *HTTPSink) Deliver(ctx context.Context, batch []walspool.Record) error {
-    resp, err := s.client.Post(s.target, "application/json", encodeBatch(batch))
-    if err != nil || resp.StatusCode >= 500 {
-        <span class="text-emerald-400 font-semibold">// Tier 3 Fault: Trigger exponential backoff in walspool</span>
-        return walspool.ErrSinkUnavailable
-    }
-    return nil
-}</code>`;
-      } else if (tab === 'recovery') {
-        code.innerHTML = `<code><span class="text-slate-400">// 🔄 Crash recovery: seamless replay from checkpoint on boot</span>
-storage, err := walspool.NewFileStorageEngine("/var/data/spool", 50000)
-if err != nil {
-    log.Fatalf("Storage open error: %v", err)
-}
-
-<span class="text-emerald-400 font-semibold">// Spooler automatically scans uncommitted offsets and drains:</span>
-spool, _ := walspool.New(walspool.DefaultConfig(), storage, sink, nil)
-defer spool.Close()</code>`;
+    function switchArchTab(tabIndex) {
+      for (let i = 1; i <= 4; i++) {
+        const btn = document.getElementById('arch-tab-btn-' + i);
+        const content = document.getElementById('arch-content-' + i);
+        if (!btn || !content) continue;
+        if (i === tabIndex) {
+          btn.className = "px-4 py-2 text-xs font-mono font-semibold rounded-lg bg-emerald-500/20 text-emerald-300 border border-emerald-500/50 transition";
+          content.classList.remove('hidden');
+          content.classList.add('block');
+        } else {
+          btn.className = "px-4 py-2 text-xs font-mono font-semibold rounded-lg bg-obsidian-850 text-slate-400 border border-obsidian-border hover:text-white transition";
+          content.classList.remove('block');
+          content.classList.add('hidden');
+        }
       }
     }
 

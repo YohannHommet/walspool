@@ -333,6 +333,112 @@ func TestConcurrentEnqueue_RaceFree(t *testing.T) {
 	}
 }
 
+// 8. CRIT-04 / Bug #9: Concurrent Flush and Close must never deadlock
+func TestConcurrentFlushAndClose_NoDeadlock(t *testing.T) {
+	storage := walspool.NewMemoryStorageEngine(5000)
+	sink := &recordingSink{}
+
+	cfg := walspool.DefaultConfig()
+	cfg.BatchSize = 10
+	cfg.FlushInterval = 5 * time.Millisecond
+
+	spool, err := walspool.New(cfg, storage, sink, nil)
+	if err != nil {
+		t.Fatalf("failed to init spooler: %v", err)
+	}
+
+	ctx := context.Background()
+	for i := 0; i < 100; i++ {
+		_ = spool.Enqueue(ctx, "telemetry.flushclose", []byte("sample-data"))
+	}
+
+	const flusherCount = 20
+	var wg sync.WaitGroup
+	wg.Add(flusherCount)
+
+	for i := 0; i < flusherCount; i++ {
+		go func() {
+			defer wg.Done()
+			flushCtx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+			defer cancel()
+			err := spool.Flush(flushCtx)
+			if err != nil && !errors.Is(err, walspool.ErrSpoolerClosed) {
+				t.Errorf("unexpected error from Flush: %v", err)
+			}
+		}()
+	}
+
+	// Stagger slightly and Close while flushes are actively pending
+	time.Sleep(2 * time.Millisecond)
+	if err := spool.Close(); err != nil {
+		t.Fatalf("spool close failed: %v", err)
+	}
+
+	// Ensure all concurrent flushers return without deadlock within timeout
+	done := make(chan struct{})
+	go func() {
+		wg.Wait()
+		close(done)
+	}()
+
+	select {
+	case <-done:
+		// Succeeded: no deadlock
+	case <-time.After(3 * time.Second):
+		t.Fatal("deadlock detected: Flush concurrent with Close hung indefinitely")
+	}
+
+	// Postcondition: any subsequent Flush or Enqueue on closed spooler must return ErrSpoolerClosed
+	if err := spool.Flush(ctx); !errors.Is(err, walspool.ErrSpoolerClosed) {
+		t.Fatalf("expected ErrSpoolerClosed on closed spool Flush, got %v", err)
+	}
+	if err := spool.Enqueue(ctx, "test", []byte("data")); !errors.Is(err, walspool.ErrSpoolerClosed) {
+		t.Fatalf("expected ErrSpoolerClosed on closed spool Enqueue, got %v", err)
+	}
+}
+
+// 9. Meyer DbC & Concurrency: Enqueue respects ctx.Err() and handles Close() without race
+func TestEnqueue_ContextAndConcurrentClose(t *testing.T) {
+	storage := walspool.NewMemoryStorageEngine(1000)
+	sink := &recordingSink{}
+
+	spool, err := walspool.New(walspool.DefaultConfig(), storage, sink, nil)
+	if err != nil {
+		t.Fatalf("failed to init spooler: %v", err)
+	}
+	defer spool.Close()
+
+	// 1. Pre-canceled context must fail immediately with ctx.Err()
+	canceledCtx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	err = spool.Enqueue(canceledCtx, "telemetry.canceled", []byte("payload"))
+	if !errors.Is(err, context.Canceled) {
+		t.Fatalf("expected context.Canceled error, got %v", err)
+	}
+
+	// 2. High concurrency enqueue during Close to verify TOCTOU safety and atomic RLock
+	const workers = 15
+	var wg sync.WaitGroup
+	wg.Add(workers)
+
+	for w := 0; w < workers; w++ {
+		go func() {
+			defer wg.Done()
+			for i := 0; i < 50; i++ {
+				err := spool.Enqueue(context.Background(), "telemetry.race", []byte("val"))
+				if err != nil && !errors.Is(err, walspool.ErrSpoolerClosed) {
+					t.Errorf("unexpected enqueue error: %v", err)
+				}
+			}
+		}()
+	}
+
+	time.Sleep(1 * time.Millisecond)
+	_ = spool.Close()
+	wg.Wait()
+}
+
 func BenchmarkSpoolerEnqueue_InMemory(b *testing.B) {
 	storage := walspool.NewMemoryStorageEngine(b.N + 1000)
 	sink := &recordingSink{}
@@ -349,5 +455,190 @@ func BenchmarkSpoolerEnqueue_InMemory(b *testing.B) {
 	b.ReportAllocs()
 	for i := 0; i < b.N; i++ {
 		_ = spool.Enqueue(ctx, "bench.events", payload)
+	}
+}
+
+// 10. Phase 2: UnmarshalBinary with excess bytes / padding must succeed and ignore padding (MAJ-04)
+func TestRecord_UnmarshalBinary_Padding(t *testing.T) {
+	orig := walspool.Record{
+		ID:        42,
+		Timestamp: time.Unix(1700000000, 0),
+		Topic:     "system.metrics",
+		Payload:   []byte(`{"cpu":85.4,"mem":60.2}`),
+	}
+
+	data, err := orig.MarshalBinary()
+	if err != nil {
+		t.Fatalf("MarshalBinary failed: %v", err)
+	}
+
+	// Append trailing sector padding / excess bytes
+	padding := []byte("EXTRA_TRAILING_SECTOR_PADDING_DATA_1234567890")
+	dataWithPadding := append(data, padding...)
+
+	var rec walspool.Record
+	if err := rec.UnmarshalBinary(dataWithPadding); err != nil {
+		t.Fatalf("UnmarshalBinary failed on padded buffer: %v", err)
+	}
+
+	if rec.ID != orig.ID {
+		t.Errorf("expected ID %d, got %d", orig.ID, rec.ID)
+	}
+	if rec.Topic != orig.Topic {
+		t.Errorf("expected Topic %q, got %q", orig.Topic, rec.Topic)
+	}
+	if string(rec.Payload) != string(orig.Payload) {
+		t.Errorf("expected Payload %q, got %q", string(orig.Payload), string(rec.Payload))
+	}
+	if len(rec.Payload) != len(orig.Payload) {
+		t.Errorf("expected Payload length %d, got %d (padding was not stripped)", len(orig.Payload), len(rec.Payload))
+	}
+}
+
+// 11. Phase 2: UnmarshalBinary with truncated data must return ErrTruncatedData (MAJ-04)
+func TestRecord_UnmarshalBinary_Truncated(t *testing.T) {
+	orig := walspool.Record{
+		ID:        100,
+		Timestamp: time.Unix(1700000000, 0),
+		Topic:     "audit.events",
+		Payload:   []byte(`{"action":"login","user":"alice"}`),
+	}
+
+	data, err := orig.MarshalBinary()
+	if err != nil {
+		t.Fatalf("MarshalBinary failed: %v", err)
+	}
+
+	// 1. Buffer smaller than headerSize (29 bytes)
+	for l := 0; l < 29; l++ {
+		var rec walspool.Record
+		err := rec.UnmarshalBinary(data[:l])
+		if !errors.Is(err, walspool.ErrTruncatedData) {
+			t.Errorf("expected ErrTruncatedData for header len %d, got %v", l, err)
+		}
+	}
+
+	// 2. Buffer with valid header but truncated body (topic or payload truncated)
+	for l := 29; l < len(data); l++ {
+		var rec walspool.Record
+		err := rec.UnmarshalBinary(data[:l])
+		if !errors.Is(err, walspool.ErrTruncatedData) {
+			t.Errorf("expected ErrTruncatedData for truncated body len %d, got %v", l, err)
+		}
+	}
+}
+
+// 12. Phase 2: Defensive Copy Isolation test (MAJ-02)
+func TestSpooler_DefensiveCopy_Isolation(t *testing.T) {
+	storage := walspool.NewMemoryStorageEngine(100)
+	sink := &recordingSink{
+		failureCount: 100, // hold in storage so we can inspect storage engine directly
+		failErr:      walspool.ErrSinkUnavailable,
+	}
+
+	spool, err := walspool.New(walspool.DefaultConfig(), storage, sink, nil)
+	if err != nil {
+		t.Fatalf("failed to init spooler: %v", err)
+	}
+	defer spool.Close()
+
+	// Caller creates a mutable byte buffer
+	mutablePayload := []byte("original-unmutated-payload-bytes")
+
+	if err := spool.Enqueue(context.Background(), "telemetry.defensive", mutablePayload); err != nil {
+		t.Fatalf("enqueue failed: %v", err)
+	}
+
+	// Caller immediately mutates the underlying byte array post-enqueue
+	for i := range mutablePayload {
+		mutablePayload[i] = 'X'
+	}
+
+	// Verify storage engine retains the unmutated original bytes
+	batch, err := storage.ReadBatch(1)
+	if err != nil {
+		t.Fatalf("ReadBatch failed: %v", err)
+	}
+	if len(batch) != 1 {
+		t.Fatalf("expected 1 record in storage, got %d", len(batch))
+	}
+
+	expected := "original-unmutated-payload-bytes"
+	if string(batch[0].Payload) != expected {
+		t.Fatalf("defensive copy violated! Storage record was mutated: got %q, expected %q", string(batch[0].Payload), expected)
+	}
+}
+
+// 13. Phase 2: IngestionObserver Port notification test (MAJ-03)
+type mockIngestionObserver struct {
+	mu       sync.Mutex
+	ingested []walspool.Record
+}
+
+func (m *mockIngestionObserver) OnIngested(rec walspool.Record) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.ingested = append(m.ingested, rec)
+}
+
+func (m *mockIngestionObserver) count() int {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return len(m.ingested)
+}
+
+func (m *mockIngestionObserver) records() []walspool.Record {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	copied := make([]walspool.Record, len(m.ingested))
+	copy(copied, m.ingested)
+	return copied
+}
+
+func TestSpooler_IngestionObserver_Notification(t *testing.T) {
+	storage := walspool.NewMemoryStorageEngine(100)
+	sink := &recordingSink{}
+	mockObs := &mockIngestionObserver{}
+
+	spool, err := walspool.New(walspool.DefaultConfig(), storage, sink, nil, walspool.WithObserver(mockObs))
+	if err != nil {
+		t.Fatalf("failed to init spooler: %v", err)
+	}
+	defer spool.Close()
+
+	ctx := context.Background()
+	testRecords := []struct {
+		topic   string
+		payload []byte
+	}{
+		{"audit.auth", []byte(`{"user":"admin","action":"login"}`)},
+		{"audit.billing", []byte(`{"invoice":42,"amount":150}`)},
+		{"audit.security", []byte(`{"ip":"10.0.0.1","threat":false}`)},
+	}
+
+	for _, tr := range testRecords {
+		if err := spool.Enqueue(ctx, tr.topic, tr.payload); err != nil {
+			t.Fatalf("enqueue failed: %v", err)
+		}
+	}
+
+	if mockObs.count() != 3 {
+		t.Fatalf("expected 3 records notified to observer, got %d", mockObs.count())
+	}
+
+	recs := mockObs.records()
+	for i, tr := range testRecords {
+		if recs[i].Topic != tr.topic {
+			t.Errorf("record %d topic mismatch: expected %s, got %s", i, tr.topic, recs[i].Topic)
+		}
+		if string(recs[i].Payload) != string(tr.payload) {
+			t.Errorf("record %d payload mismatch: expected %s, got %s", i, string(tr.payload), string(recs[i].Payload))
+		}
+		if recs[i].Offset != walspool.Offset(i) {
+			t.Errorf("record %d offset mismatch: expected %d, got %d", i, i, recs[i].Offset)
+		}
+		if recs[i].ID == 0 {
+			t.Errorf("record %d ID must not be zero", i)
+		}
 	}
 }

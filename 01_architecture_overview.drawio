@@ -1,0 +1,272 @@
+<?xml version='1.0' encoding='utf-8'?>
+<mxfile host="app.diagrams.net" modified="2026-09-04T10:00:00.000Z" agent="Antigravity System Architect" version="21.0.0" type="device">
+  <diagram id="overview-architecture" name="Vue d'Ensemble Architecture &amp; Orchestration Réseau">
+    <mxGraphModel dx="1720" dy="1160" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1720" pageHeight="1160" background="#ffffff" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="banner_bg" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#1e293b;strokeColor=#0f172a;shadow=1;arcSize=6;" vertex="1" parent="1">
+          <mxGeometry x="40" y="20" width="1640" height="75" as="geometry" />
+        </mxCell>
+        <mxCell id="banner_title" value="Ignimission Platform — Vue d'Ensemble de l'Architecture &amp;amp; Orchestration Conteneurs / Réseau" style="text;html=1;fontSize=18;fontStyle=1;fontColor=#ffffff;verticalAlign=middle;align=left;spacingLeft=15;" vertex="1" parent="1">
+          <mxGeometry x="45" y="24" width="1050" height="32" as="geometry" />
+        </mxCell>
+        <mxCell id="banner_sub" value="Pipeline Observabilité Temps Réel (SSE text/event-stream), Débuffering Nginx Reverse Proxy, API Gateway (LoopBack 4), Microservice IA (Django) &amp;amp; Démon Walspool Sidecar sur l'Hôte" style="text;html=1;fontSize=11;fontColor=#94a3b8;verticalAlign=middle;align=left;spacingLeft=15;" vertex="1" parent="1">
+          <mxGeometry x="45" y="54" width="1050" height="28" as="geometry" />
+        </mxCell>
+        <mxCell id="badge_dom" value="Domaine : test.ignimission.inside" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#334155;strokeColor=#475569;fontSize=10;fontColor=#f8fafc;fontStyle=1;align=center;arcSize=20;" vertex="1" parent="1">
+          <mxGeometry x="1105" y="30" width="180" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="badge_net" value="Docker Bridge : 172.99.0.0/24" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#334155;strokeColor=#475569;fontSize=10;fontColor=#38bdf8;fontStyle=1;align=center;arcSize=20;" vertex="1" parent="1">
+          <mxGeometry x="1295" y="30" width="175" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="badge_gw" value="Hôte Gateway : 172.99.0.1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#334155;strokeColor=#475569;fontSize=10;fontColor=#34d399;fontStyle=1;align=center;arcSize=20;" vertex="1" parent="1">
+          <mxGeometry x="1480" y="30" width="185" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="badge_trace" value="Traçabilité distribuée de bout en bout : en-tête x-request-id (UUIDv4) propagé sur tous les sauts réseau" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#0f172a;strokeColor=#334155;fontSize=10;fontColor=#cbd5e1;align=center;arcSize=20;" vertex="1" parent="1">
+          <mxGeometry x="1105" y="58" width="560" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="zone_client" value="ESPACE CLIENT WEB (NAVIGATEUR)&lt;br/&gt;&lt;span style=&quot;font-size:10px;font-weight:normal;color:#b45309;&quot;&gt;Application Single Page (SPA) Platform sous Vue 3 &amp;amp; TypeScript&lt;/span&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fffbeb;strokeColor=#d97706;strokeWidth=2;dashed=1;shadow=1;arcSize=6;verticalAlign=top;align=center;spacingTop=12;fontStyle=1;fontSize=13;fontColor=#92400e;" vertex="1" parent="1">
+          <mxGeometry x="40" y="110" width="320" height="830" as="geometry" />
+        </mxCell>
+        <mxCell id="card_browser" value="&lt;b&gt;Navigateur Web (Poste Client)&lt;/b&gt;&lt;hr style=&quot;border:0;border-top:1px solid #fcd34d;margin:4px 0 8px 0;&quot;/&gt;&lt;b&gt;URL :&lt;/b&gt; &lt;code style=&quot;color:#b45309;font-size:9px;&quot;&gt;https://test.ignimission.inside/platform/observability&lt;/code&gt;&lt;br/&gt;&lt;b&gt;Moteur :&lt;/b&gt; Chromium / Firefox / WebKit&lt;br/&gt;&lt;b&gt;Protocole externe :&lt;/b&gt; HTTPS / TLS 1.3 (HTTP/2)&lt;br/&gt;&lt;b&gt;En-têtes émis :&lt;/b&gt;&lt;br/&gt;• &lt;code&gt;Accept: text/event-stream&lt;/code&gt; (Flux SSE)&lt;br/&gt;• &lt;code&gt;x-request-id: &amp;lt;uuid&amp;gt;&lt;/code&gt; (Trace context)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#d97706;strokeWidth=1.5;shadow=1;arcSize=6;align=left;spacingLeft=12;spacingRight=8;spacingTop=8;verticalAlign=top;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="55" y="165" width="290" height="145" as="geometry" />
+        </mxCell>
+        <mxCell id="card_spa" value="&lt;b&gt;Module Observabilité Platform (Vue 3)&lt;/b&gt;&lt;hr style=&quot;border:0;border-top:1px solid #fcd34d;margin:4px 0 8px 0;&quot;/&gt;&lt;b&gt;Package :&lt;/b&gt; &lt;code&gt;@ignimission/platform&lt;/code&gt;&lt;br/&gt;&lt;b&gt;Composants UI interactifs :&lt;/b&gt;&lt;br/&gt;• &lt;b&gt;LiveLogViewer :&lt;/b&gt; Défilement fluide, pause, recherche texte&lt;br/&gt;• &lt;b&gt;TraceInspector :&lt;/b&gt; Arbre des spans reliés par &lt;code&gt;trace_id&lt;/code&gt;&lt;br/&gt;• &lt;b&gt;FilterBar :&lt;/b&gt; Sélecteurs dynamiques de service (&lt;code&gt;aipi&lt;/code&gt;, &lt;code&gt;api-gateway&lt;/code&gt;) &amp;amp; sévérité (&lt;code&gt;INFO&lt;/code&gt;, &lt;code&gt;WARN&lt;/code&gt;, &lt;code&gt;ERROR&lt;/code&gt;)&lt;br/&gt;• &lt;b&gt;Virtual Scroller :&lt;/b&gt; Rendu plafonné pour préserver le CPU" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#d97706;strokeWidth=1.5;shadow=1;arcSize=6;align=left;spacingLeft=12;spacingRight=8;spacingTop=8;verticalAlign=top;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="55" y="325" width="290" height="175" as="geometry" />
+        </mxCell>
+        <mxCell id="card_store" value="&lt;b&gt;Store Pinia : useObservabilityStore&lt;/b&gt;&lt;hr style=&quot;border:0;border-top:1px solid #fcd34d;margin:4px 0 8px 0;&quot;/&gt;&lt;b&gt;Gestion d'état réactive :&lt;/b&gt;&lt;br/&gt;• &lt;code&gt;logs[]&lt;/code&gt; : Buffer circulaire actif (max 500 logs DOM)&lt;br/&gt;• &lt;code&gt;pausedLogsQueue[]&lt;/code&gt; : Rétention en pause manuelle&lt;br/&gt;• &lt;code&gt;connectionStatus&lt;/code&gt; : &lt;code&gt;connecting|connected|paused&lt;/code&gt;&lt;br/&gt;• &lt;b&gt;Auto-reconnexion :&lt;/b&gt; Timer avec backoff exponentiel&lt;br/&gt;• &lt;b&gt;Détection Keepalive :&lt;/b&gt; Surveillance de trame heartbeat" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#d97706;strokeWidth=1.5;shadow=1;arcSize=6;align=left;spacingLeft=12;spacingRight=8;spacingTop=8;verticalAlign=top;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="55" y="515" width="290" height="185" as="geometry" />
+        </mxCell>
+        <mxCell id="card_client_net" value="&lt;b&gt;Clients Réseau Navigateur&lt;/b&gt;&lt;hr style=&quot;border:0;border-top:1px solid #fcd34d;margin:4px 0 8px 0;&quot;/&gt;&lt;b&gt;1. W3C EventSource (Streaming SSE) :&lt;/b&gt;&lt;br/&gt;• &lt;code&gt;new EventSource('/api/v1/observability/logs/stream')&lt;/code&gt;&lt;br/&gt;• Connexion semi-duplex maintenue ouverte&lt;br/&gt;• Événements &lt;code&gt;onmessage&lt;/code&gt; parsés en &lt;code&gt;StandardLogEvent&lt;/code&gt;&lt;br/&gt;&lt;br/&gt;&lt;b&gt;2. Fetch API (Requêtes REST unitaires) :&lt;/b&gt;&lt;br/&gt;• &lt;code&gt;GET /api/v1/observability/logs?trace_id=...&lt;/code&gt;&lt;br/&gt;• Récupération d'historique et inspection de traces" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#d97706;strokeWidth=1.5;shadow=1;arcSize=6;align=left;spacingLeft=12;spacingRight=8;spacingTop=8;verticalAlign=top;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="55" y="715" width="290" height="205" as="geometry" />
+        </mxCell>
+        <mxCell id="zone_docker" value="RÉSEAU DOCKER BRIDGE : backend (172.99.0.0/24)&lt;br/&gt;&lt;span style=&quot;font-size:10px;font-weight:normal;color:#475569;&quot;&gt;Passerelle Hôte Linux : 172.99.0.1 | Résolution DNS interne Docker (embedded service discovery)&lt;/span&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8fafc;strokeColor=#475569;strokeWidth=2;dashed=1;shadow=1;arcSize=6;verticalAlign=top;align=center;spacingTop=12;fontStyle=1;fontSize=13;fontColor=#1e293b;" vertex="1" parent="1">
+          <mxGeometry x="380" y="110" width="760" height="830" as="geometry" />
+        </mxCell>
+        <mxCell id="box_cms" value="Conteneur : docker-cms-1&lt;br/&gt;&lt;span style=&quot;font-size:10px;font-weight:normal;color:#0284c7;&quot;&gt;Nginx 1.25+ Reverse Proxy &amp;amp; Gateway Ingress&lt;/span&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f0f9ff;strokeColor=#0284c7;strokeWidth=2;shadow=1;arcSize=6;verticalAlign=top;align=center;spacingTop=10;fontStyle=1;fontSize=12;fontColor=#0369a1;" vertex="1" parent="1">
+          <mxGeometry x="395" y="165" width="350" height="340" as="geometry" />
+        </mxCell>
+        <mxCell id="badge_cms_ports" value="Host: 80/443 &amp;rarr; Conteneur: 8080/8443" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#0284c7;strokeColor=#0369a1;fontSize=9;fontColor=#ffffff;fontStyle=1;align=center;arcSize=20;" vertex="1" parent="1">
+          <mxGeometry x="470" y="202" width="200" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="cms_ssl" value="&lt;b&gt;Terminaison SSL &amp;amp; VirtualHost&lt;/b&gt;&lt;br/&gt;• &lt;code&gt;server_name test.ignimission.inside;&lt;/code&gt;&lt;br/&gt;• &lt;code&gt;ssl_certificate /ii/ssl/fullchain.pem;&lt;/code&gt;&lt;br/&gt;• &lt;code&gt;ssl_certificate_key /ii/ssl/privkey.pem;&lt;/code&gt;&lt;br/&gt;• Redirection HTTP &amp;rarr; HTTPS stricte (301)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#0284c7;strokeWidth=1;align=left;spacingLeft=10;spacingRight=6;spacingTop=6;verticalAlign=top;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="410" y="228" width="320" height="75" as="geometry" />
+        </mxCell>
+        <mxCell id="cms_platform" value="&lt;b&gt;Route /platform/ (Fichiers Statiques SPA)&lt;/b&gt;&lt;br/&gt;• &lt;code&gt;location /platform { alias /var/www/frontend/apps/platform/dist; }&lt;/code&gt;&lt;br/&gt;• &lt;code&gt;try_files $uri $uri/ @platform;&lt;/code&gt; (HTML5 History fallback)&lt;br/&gt;• Sert les bundles compilés Vite/Vue 3 directement au navigateur" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#0284c7;strokeWidth=1;align=left;spacingLeft=10;spacingRight=6;spacingTop=6;verticalAlign=top;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="410" y="310" width="320" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="cms_sse" value="&lt;b&gt;Route /api/ &amp;amp; Débuffering SSE Critique&lt;/b&gt;&lt;br/&gt;• &lt;code&gt;proxy_pass https://api-gateway:8443/api/;&lt;/code&gt;&lt;br/&gt;• &lt;b style=&quot;color:#b91c1c;&quot;&gt;proxy_buffering off;&lt;/b&gt; (Transmission temps réel immédiate)&lt;br/&gt;• &lt;b style=&quot;color:#b91c1c;&quot;&gt;add_header X-Accel-Buffering &amp;quot;no&amp;quot;;&lt;/b&gt; (Bypass buffer Nginx)&lt;br/&gt;• &lt;code&gt;proxy_set_header X-Forwarded-Ssl on; Host $host;&lt;/code&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#0284c7;strokeWidth=1.5;align=left;spacingLeft=10;spacingRight=6;spacingTop=6;verticalAlign=top;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="410" y="397" width="320" height="95" as="geometry" />
+        </mxCell>
+        <mxCell id="box_gateway" value="Conteneur : docker-api-gateway-1&lt;br/&gt;&lt;span style=&quot;font-size:10px;font-weight:normal;color:#0d9488;&quot;&gt;Node.js / LoopBack 4 API Gateway&lt;/span&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f0fdfa;strokeColor=#0d9488;strokeWidth=2;shadow=1;arcSize=6;verticalAlign=top;align=center;spacingTop=10;fontStyle=1;fontSize=12;fontColor=#0f766e;" vertex="1" parent="1">
+          <mxGeometry x="765" y="165" width="360" height="340" as="geometry" />
+        </mxCell>
+        <mxCell id="badge_gw_ports" value="HTTPS : 8443 | HTTP : 3004 | SSE : 3005" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#0d9488;strokeColor=#0f766e;fontSize=9;fontColor=#ffffff;fontStyle=1;align=center;arcSize=20;" vertex="1" parent="1">
+          <mxGeometry x="845" y="202" width="200" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="gw_ctrl" value="&lt;b&gt;ObservabilityController (@loopback/rest)&lt;/b&gt;&lt;br/&gt;• &lt;code&gt;GET /api/v1/observability/logs&lt;/code&gt; (Requêtes REST unitaires)&lt;br/&gt;• &lt;code&gt;GET /api/v1/observability/logs/stream&lt;/code&gt; (Abonnement SSE)&lt;br/&gt;• Injection &amp;amp; propagation stricte de l'en-tête &lt;code&gt;x-request-id&lt;/code&gt;&lt;br/&gt;• Cible dynamique configurée par &lt;code&gt;URL_SRV_WALSPOOL&lt;/code&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#0d9488;strokeWidth=1;align=left;spacingLeft=10;spacingRight=6;spacingTop=6;verticalAlign=top;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="780" y="228" width="330" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="gw_sse_pipe" value="&lt;b&gt;SSE Proxy Pipeline (Streaming Continu)&lt;/b&gt;&lt;br/&gt;• Relais continu vers Hôte : &lt;code&gt;http://172.99.0.1:9099/v1/logs/stream&lt;/code&gt;&lt;br/&gt;• &lt;code&gt;Content-Type: text/event-stream; charset=utf-8&lt;/code&gt;&lt;br/&gt;• &lt;code&gt;Cache-Control: no-cache, no-transform&lt;/code&gt; | &lt;code&gt;Connection: keep-alive&lt;/code&gt;&lt;br/&gt;• &lt;b style=&quot;color:#0f766e;&quot;&gt;upstreamRes.pipe(res)&lt;/b&gt; (Transfert sans buffering mémoire)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#0d9488;strokeWidth=1.5;align=left;spacingLeft=10;spacingRight=6;spacingTop=6;verticalAlign=top;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="780" y="315" width="330" height="90" as="geometry" />
+        </mxCell>
+        <mxCell id="gw_logger" value="&lt;b&gt;GatewayLogger (Observabilité Interne)&lt;/b&gt;&lt;br/&gt;• Détection conteneur : &lt;code&gt;/.dockerenv &amp;rarr; http://172.99.0.1:9099&lt;/code&gt;&lt;br/&gt;• Journalise les accès et erreurs Gateway via &lt;code&gt;POST /v1/enqueue&lt;/code&gt;&lt;br/&gt;• Format conforme à &lt;code&gt;StandardLogEvent&lt;/code&gt; (service: api-gateway)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#0d9488;strokeWidth=1;align=left;spacingLeft=10;spacingRight=6;spacingTop=6;verticalAlign=top;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="780" y="412" width="330" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="box_aipi" value="Conteneur : docker-aipi-1&lt;br/&gt;&lt;span style=&quot;font-size:10px;font-weight:normal;color:#7c3aed;&quot;&gt;Microservice IA Python 3.12 / Django &amp;amp; Inférence LLM&lt;/span&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#faf5ff;strokeColor=#7c3aed;strokeWidth=2;shadow=1;arcSize=6;verticalAlign=top;align=center;spacingTop=10;fontStyle=1;fontSize=12;fontColor=#5b21b6;" vertex="1" parent="1">
+          <mxGeometry x="395" y="520" width="730" height="405" as="geometry" />
+        </mxCell>
+        <mxCell id="badge_aipi_ports" value="Port Interne : 3006 (HTTPS runserver_plus) | Process Supervisord" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#7c3aed;strokeColor=#5b21b6;fontSize=9;fontColor=#ffffff;fontStyle=1;align=center;arcSize=20;" vertex="1" parent="1">
+          <mxGeometry x="615" y="555" width="290" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="aipi_app" value="&lt;b&gt;Application Django IA &amp;amp; RAG&lt;/b&gt;&lt;hr style=&quot;border:0;border-top:1px solid #ddd6fe;margin:4px 0 8px 0;&quot;/&gt;&lt;b&gt;Modules &amp;amp; Services :&lt;/b&gt;&lt;br/&gt;• Traitement NLP, RAG &amp;amp; Embeddings&lt;br/&gt;• Workers asynchrones Supervisord :&lt;br/&gt;  - &lt;code&gt;aipi-rag-operations-ingest&lt;/code&gt;&lt;br/&gt;  - &lt;code&gt;aipi-rag-operations-update&lt;/code&gt;&lt;br/&gt;• Contexte de corrélation &lt;code&gt;trace_id&lt;/code&gt;&lt;br/&gt;• Émission logs applicatifs standards :&lt;br/&gt;  &lt;code&gt;logger = logging.getLogger('aipi')&lt;/code&gt;&lt;br/&gt;  &lt;code&gt;logger.info('Inference completed')&lt;/code&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#7c3aed;strokeWidth=1;align=left;spacingLeft=10;spacingRight=6;spacingTop=8;verticalAlign=top;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="410" y="585" width="220" height="325" as="geometry" />
+        </mxCell>
+        <mxCell id="aipi_handler" value="&lt;b&gt;WalspoolHandler (logging.Handler)&lt;/b&gt;&lt;hr style=&quot;border:0;border-top:1px solid #ddd6fe;margin:4px 0 8px 0;&quot;/&gt;&lt;b&gt;Gestionnaire de logs non-bloquant :&lt;/b&gt;&lt;br/&gt;• Déclaré dans &lt;code&gt;settings.py:LOGGING&lt;/code&gt;&lt;br/&gt;• &lt;b&gt;Schéma StandardLogEvent :&lt;/b&gt;&lt;br/&gt;  - &lt;code&gt;timestamp: ISO-8601 UTC&lt;/code&gt;&lt;br/&gt;  - &lt;code&gt;service: 'aipi'&lt;/code&gt;&lt;br/&gt;  - &lt;code&gt;trace_id: &amp;lt;uuid&amp;gt;&lt;/code&gt; (issu de &lt;code&gt;x-request-id&lt;/code&gt;)&lt;br/&gt;  - &lt;code&gt;level: 'INFO'|'WARN'|'ERROR'&lt;/code&gt;&lt;br/&gt;  - &lt;code&gt;payload: { prompt, latency, ... }&lt;/code&gt;&lt;br/&gt;• &lt;b&gt;Queue interne bornée :&lt;/b&gt;&lt;br/&gt;  &lt;code&gt;queue.Queue(maxsize=5000)&lt;/code&gt;&lt;br/&gt;• &lt;b&gt;Sécurité :&lt;/b&gt; Drop contrôlé si saturation pour préserver la mémoire vive" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#7c3aed;strokeWidth=1.5;align=left;spacingLeft=10;spacingRight=6;spacingTop=8;verticalAlign=top;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="645" y="585" width="235" height="325" as="geometry" />
+        </mxCell>
+        <mxCell id="aipi_worker" value="&lt;b&gt;WalspoolLogWorker (Thread Démon)&lt;/b&gt;&lt;hr style=&quot;border:0;border-top:1px solid #ddd6fe;margin:4px 0 8px 0;&quot;/&gt;&lt;b&gt;Worker d'arrière-plan asynchrone :&lt;/b&gt;&lt;br/&gt;• Thread dédié &lt;code&gt;WalspoolLogWorker&lt;/code&gt;&lt;br/&gt;• Déqueue en continu les logs de la file&lt;br/&gt;• &lt;b&gt;Envoi HTTP POST non-bloquant :&lt;/b&gt;&lt;br/&gt;  &lt;code style=&quot;color:#7c3aed;font-weight:bold;&quot;&gt;http://172.99.0.1:9099/v1/enqueue&lt;/code&gt;&lt;br/&gt;• &lt;b&gt;Tolérance aux pannes (Failsafe) :&lt;/b&gt;&lt;br/&gt;  Si Walspool est éteint ou inaccessible, aucun impact sur l'API IA&lt;br/&gt;• Timeout HTTP strict : 2.0 secondes" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#7c3aed;strokeWidth=1.5;align=left;spacingLeft=10;spacingRight=6;spacingTop=8;verticalAlign=top;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="895" y="585" width="215" height="325" as="geometry" />
+        </mxCell>
+        <mxCell id="zone_host" value="MACHINE HÔTE LINUX (HOST SYSTEM)&lt;br/&gt;&lt;span style=&quot;font-size:10px;font-weight:normal;color:#047857;&quot;&gt;Passerelle Docker : 172.99.0.1 | Démon natif Go Walspool Sidecar &amp;amp; Persistance NVMe&lt;/span&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ecfdf5;strokeColor=#059669;strokeWidth=2;dashed=1;shadow=1;arcSize=6;verticalAlign=top;align=center;spacingTop=12;fontStyle=1;fontSize=13;fontColor=#065f46;" vertex="1" parent="1">
+          <mxGeometry x="1160" y="110" width="520" height="830" as="geometry" />
+        </mxCell>
+        <mxCell id="box_walspool" value="Démon Walspool Sidecar (Processus Natif Go)&lt;br/&gt;&lt;span style=&quot;font-size:10px;font-weight:normal;color:#059669;&quot;&gt;Écoute HTTP &amp;amp; SSE : 172.99.0.1:9099 | Sub-microsecond In-Process Engine&lt;/span&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#059669;strokeWidth=2;shadow=1;arcSize=6;verticalAlign=top;align=center;spacingTop=10;fontStyle=1;fontSize=12;fontColor=#065f46;" vertex="1" parent="1">
+          <mxGeometry x="1175" y="165" width="490" height="340" as="geometry" />
+        </mxCell>
+        <mxCell id="badge_walspool_ports" value="Port d'écoute : 172.99.0.1:9099 | Binaire autonome Go 1.25" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#059669;strokeColor=#047857;fontSize=9;fontColor=#ffffff;fontStyle=1;align=center;arcSize=20;" vertex="1" parent="1">
+          <mxGeometry x="1295" y="202" width="250" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="walspool_http" value="&lt;b&gt;Serveur HTTP &amp;amp; Routeur d'API (:9099)&lt;/b&gt;&lt;br/&gt;• &lt;code&gt;POST /v1/enqueue&lt;/code&gt; : Ingestion ultra-rapide (1.5 µs) &amp;amp; transmission LogHub&lt;br/&gt;• &lt;code&gt;GET  /v1/logs&lt;/code&gt; : Recherche filtrée (&lt;code&gt;trace_id&lt;/code&gt;, &lt;code&gt;service&lt;/code&gt;, &lt;code&gt;level&lt;/code&gt;, &lt;code&gt;limit&lt;/code&gt;)&lt;br/&gt;• &lt;code&gt;GET  /healthz&lt;/code&gt; : Sonde de vivacité | &lt;code&gt;GET /v1/logs/stats&lt;/code&gt; | &lt;code&gt;POST /flush&lt;/code&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f0fdf4;strokeColor=#059669;strokeWidth=1;align=left;spacingLeft=10;spacingRight=6;spacingTop=6;verticalAlign=top;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="1190" y="228" width="460" height="75" as="geometry" />
+        </mxCell>
+        <mxCell id="walspool_hub" value="&lt;b&gt;LogHub In-Memory Ring Buffer (Index Circulaire)&lt;/b&gt;&lt;br/&gt;• Capacité en mémoire vive : 50,000 enregistrements récents&lt;br/&gt;• Indexation temps réel O(1) par &lt;code&gt;trace_id&lt;/code&gt;, &lt;code&gt;service&lt;/code&gt;, &lt;code&gt;severity&lt;/code&gt;&lt;br/&gt;• Distribution Pub/Sub sans verrouillage lourd vers tous les abonnés SSE actifs" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f0fdf4;strokeColor=#059669;strokeWidth=1.5;align=left;spacingLeft=10;spacingRight=6;spacingTop=6;verticalAlign=top;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="1190" y="310" width="460" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="walspool_sse" value="&lt;b&gt;Moteur de Diffusion SSE (/v1/logs/stream)&lt;/b&gt;&lt;br/&gt;• Souscription dynamique avec filtrage à chaud par service et sévérité&lt;br/&gt;• &lt;b style=&quot;color:#047857;&quot;&gt;Heartbeat automatique toutes les 10s :&lt;/b&gt; &lt;code&gt;: keepalive&#10;&#10;&lt;/code&gt;&lt;br/&gt;• Débit démontré : &lt;b&gt;885,000 rec/sec&lt;/b&gt; (zéro allocation en régime permanent)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f0fdf4;strokeColor=#059669;strokeWidth=1.5;align=left;spacingLeft=10;spacingRight=6;spacingTop=6;verticalAlign=top;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="1190" y="397" width="460" height="95" as="geometry" />
+        </mxCell>
+        <mxCell id="box_durability" value="Moteur WAL (Write-Ahead Log) &amp;amp; Persistance Hôte&lt;br/&gt;&lt;span style=&quot;font-size:10px;font-weight:normal;color:#047857;&quot;&gt;Résilience totale aux crashs &amp;amp; Intégrité binaire certifiée&lt;/span&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#047857;strokeWidth=2;shadow=1;arcSize=6;verticalAlign=top;align=center;spacingTop=10;fontStyle=1;fontSize=12;fontColor=#065f46;" vertex="1" parent="1">
+          <mxGeometry x="1175" y="520" width="490" height="405" as="geometry" />
+        </mxCell>
+        <mxCell id="walspool_engine" value="&lt;b&gt;Moteur WAL In-Process (Sub-Microsecond Append)&lt;/b&gt;&lt;br/&gt;• Latence d'écriture disque : &lt;b&gt;22 µs&lt;/b&gt; (avec fsync) / &lt;b&gt;1.5 µs&lt;/b&gt; (Ring Buffer RAM)&lt;br/&gt;• Checksum &lt;b&gt;IEEE CRC32&lt;/b&gt; vérifié systématiquement sur chaque enregistrement&lt;br/&gt;• Checkpoint atomique via swap sécurisé : &lt;code&gt;.tmp&lt;/code&gt; &amp;rarr; &lt;code&gt;.meta&lt;/code&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f0fdf4;strokeColor=#047857;strokeWidth=1.5;align=left;spacingLeft=10;spacingRight=6;spacingTop=6;verticalAlign=top;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="1190" y="570" width="460" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="walspool_storage" value="&lt;b&gt;Disque Local NVMe (Hôte)&lt;/b&gt;&lt;br/&gt;• Répertoire : &lt;code&gt;./data/spool/&lt;/code&gt;&lt;br/&gt;• Segments binaires : &lt;code&gt;*.wal&lt;/code&gt;&lt;br/&gt;• Pointeur d'offset : &lt;code&gt;checkpoint.meta&lt;/code&gt;&lt;br/&gt;• Reprise sans perte après arrêt brutal" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8fafc;strokeColor=#334155;strokeWidth=1;align=left;spacingLeft=10;spacingRight=6;spacingTop=6;verticalAlign=top;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="1190" y="660" width="220" height="115" as="geometry" />
+        </mxCell>
+        <mxCell id="walspool_drain" value="&lt;b&gt;Batch Drain Worker&lt;/b&gt;&lt;br/&gt;• Évacuation par lots : 50 rec / 50 ms&lt;br/&gt;• Cible externe : Sink HTTPS / S3&lt;br/&gt;• Backoff exponentiel sur erreur 5xx&lt;br/&gt;• Découplage strict des latences distantes" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8fafc;strokeColor=#059669;strokeWidth=1;align=left;spacingLeft=10;spacingRight=6;spacingTop=6;verticalAlign=top;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="1430" y="660" width="220" height="115" as="geometry" />
+        </mxCell>
+        <mxCell id="walspool_guarantees" value="&lt;b&gt;Garanties Opérationnelles Walspool :&lt;/b&gt;&lt;br/&gt;• &lt;b&gt;Zéro Dépendance :&lt;/b&gt; Aucun cluster lourd (pas de Kafka, ni RabbitMQ, ni Redis)&lt;br/&gt;• &lt;b&gt;Isolation des Pannes :&lt;/b&gt; Le crash d'un conteneur ne détruit jamais les logs hôte&lt;br/&gt;• &lt;b&gt;Empreinte Éco-responsable :&lt;/b&gt; Démon Go statique compact, RAM &amp;lt; 30 Mo&lt;br/&gt;• &lt;b&gt;Protection Backpressure :&lt;/b&gt; Quota de stockage configurable (rejet gracieux 503)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ecfdf5;strokeColor=#10b981;strokeWidth=1;align=left;spacingLeft=10;spacingRight=6;spacingTop=6;verticalAlign=top;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="1190" y="785" width="460" height="125" as="geometry" />
+        </mxCell>
+        <mxCell id="box_legend" value="LÉGENDE DÉTAILLÉE : FLUX DE DONNÉES, PROTOCOLES RÉSEAU, PORTS &amp;amp; EN-TÊTES CLÉS" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#94a3b8;strokeWidth=1.5;shadow=1;arcSize=6;verticalAlign=top;align=center;spacingTop=8;fontStyle=1;fontSize=12;fontColor=#1e293b;" vertex="1" parent="1">
+          <mxGeometry x="40" y="955" width="1640" height="185" as="geometry" />
+        </mxCell>
+        <mxCell id="leg_col1" value="&lt;b style=&quot;color:#0f766e;&quot;&gt;FLUX 1 : STREAMING SSE TEMPS RÉEL&lt;/b&gt;&lt;hr style=&quot;border:0;border-top:1px solid #ccfbf1;margin:3px 0 6px 0;&quot;/&gt;&lt;b&gt;Sens :&lt;/b&gt; Walspool &amp;rarr; Gateway &amp;rarr; Nginx &amp;rarr; Navigateur&lt;br/&gt;&lt;b&gt;Protocole :&lt;/b&gt; &lt;code&gt;text/event-stream&lt;/code&gt; (HTTP/1.1 &amp;amp; HTTP/2)&lt;br/&gt;&lt;b&gt;Débuffering Nginx :&lt;/b&gt;&lt;br/&gt;• &lt;code&gt;proxy_buffering: off&lt;/code&gt; (débit immédiat)&lt;br/&gt;• &lt;code&gt;X-Accel-Buffering: no&lt;/code&gt; (désactive le cache proxy)&lt;br/&gt;&lt;b&gt;Heartbeat :&lt;/b&gt; &lt;code&gt;: keepalive&lt;/code&gt; toutes les 10 secondes" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f0fdfa;strokeColor=#0d9488;strokeWidth=1.5;align=left;spacingLeft=8;spacingRight=6;spacingTop=6;verticalAlign=top;fontSize=9.5;" vertex="1" parent="1">
+          <mxGeometry x="55" y="985" width="310" height="140" as="geometry" />
+        </mxCell>
+        <mxCell id="leg_col2" value="&lt;b style=&quot;color:#5b21b6;&quot;&gt;FLUX 2 : INGESTION LOGS IA ASYNCHRONE&lt;/b&gt;&lt;hr style=&quot;border:0;border-top:1px solid #ede9fe;margin:3px 0 6px 0;&quot;/&gt;&lt;b&gt;Sens :&lt;/b&gt; Conteneur IA (Django) &amp;rarr; Démon Walspool (:9099)&lt;br/&gt;&lt;b&gt;Protocole :&lt;/b&gt; HTTP POST &lt;code&gt;/v1/enqueue&lt;/code&gt; (Payload JSON)&lt;br/&gt;&lt;b&gt;Mécanisme interne :&lt;/b&gt;&lt;br/&gt;• Thread démon d'arrière-plan dédié&lt;br/&gt;• File d'attente mémoire bornée (5000 items)&lt;br/&gt;• Failsafe : non-bloquant, drop gracieux si saturation" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#faf5ff;strokeColor=#7c3aed;strokeWidth=1.5;align=left;spacingLeft=8;spacingRight=6;spacingTop=6;verticalAlign=top;fontSize=9.5;" vertex="1" parent="1">
+          <mxGeometry x="380" y="985" width="310" height="140" as="geometry" />
+        </mxCell>
+        <mxCell id="leg_col3" value="&lt;b style=&quot;color:#0369a1;&quot;&gt;FLUX 3 : REQUÊTES REST &amp;amp; HISTORIQUE&lt;/b&gt;&lt;hr style=&quot;border:0;border-top:1px solid #e0f2fe;margin:3px 0 6px 0;&quot;/&gt;&lt;b&gt;Sens :&lt;/b&gt; Navigateur &amp;rarr; Nginx &amp;rarr; API Gateway &amp;rarr; Walspool&lt;br/&gt;&lt;b&gt;Protocole :&lt;/b&gt; HTTPS / JSON (&lt;code&gt;GET /api/v1/observability/logs&lt;/code&gt;)&lt;br/&gt;&lt;b&gt;Source de données :&lt;/b&gt; Interrogation du Ring Buffer (LogHub)&lt;br/&gt;&lt;b&gt;Critères :&lt;/b&gt; &lt;code&gt;trace_id&lt;/code&gt;, &lt;code&gt;service&lt;/code&gt;, &lt;code&gt;level&lt;/code&gt;, &lt;code&gt;limit&lt;/code&gt;&lt;br/&gt;&lt;b&gt;Tolérance :&lt;/b&gt; Timeout 5s et fallback HTTP 502/504 documenté" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f0fdf4;strokeColor=#0284c7;strokeWidth=1.5;align=left;spacingLeft=8;spacingRight=6;spacingTop=6;verticalAlign=top;fontSize=9.5;" vertex="1" parent="1">
+          <mxGeometry x="705" y="985" width="310" height="140" as="geometry" />
+        </mxCell>
+        <mxCell id="leg_col4" value="&lt;b style=&quot;color:#b45309;&quot;&gt;EN-TÊTES CLÉS &amp;amp; SÉCURITÉ RÉSEAU&lt;/b&gt;&lt;hr style=&quot;border:0;border-top:1px solid #fef3c7;margin:3px 0 6px 0;&quot;/&gt;&lt;b&gt;x-request-id :&lt;/b&gt; UUIDv4 propagé pour corréler les traces&lt;br/&gt;&lt;b&gt;Terminaison TLS 1.3 :&lt;/b&gt; Gérée sur le port 443 par &lt;code&gt;docker-cms-1&lt;/code&gt;&lt;br/&gt;&lt;b&gt;Réseau Bridge :&lt;/b&gt; &lt;code&gt;172.99.0.0/24&lt;/code&gt; avec passerelle hôte &lt;code&gt;172.99.0.1&lt;/code&gt;&lt;br/&gt;&lt;b&gt;Isolation :&lt;/b&gt; Services internes LoopBack et Django non exposés directement sur Internet" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fffbeb;strokeColor=#d97706;strokeWidth=1.5;align=left;spacingLeft=8;spacingRight=6;spacingTop=6;verticalAlign=top;fontSize=9.5;" vertex="1" parent="1">
+          <mxGeometry x="1030" y="985" width="310" height="140" as="geometry" />
+        </mxCell>
+        <mxCell id="leg_col5" value="&lt;b style=&quot;color:#065f46;&quot;&gt;PERSISTANCE &amp;amp; DRAIN WAL HÔTE&lt;/b&gt;&lt;hr style=&quot;border:0;border-top:1px solid #d1fae5;margin:3px 0 6px 0;&quot;/&gt;&lt;b&gt;Format :&lt;/b&gt; Enregistrement binaire avec CRC32 IEEE sur NVMe&lt;br/&gt;&lt;b&gt;Atomicité :&lt;/b&gt; Remplacement atomique de &lt;code&gt;checkpoint.meta&lt;/code&gt;&lt;br/&gt;&lt;b&gt;Batch Drain :&lt;/b&gt; Vidange par lots (50 items) vers puits distant optionnel&lt;br/&gt;&lt;b&gt;Performance :&lt;/b&gt; Jusqu'à 885,000 ops/sec en RAM, 45,000 ops/sec sur disque" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ecfdf5;strokeColor=#059669;strokeWidth=1.5;align=left;spacingLeft=8;spacingRight=6;spacingTop=6;verticalAlign=top;fontSize=9.5;" vertex="1" parent="1">
+          <mxGeometry x="1355" y="985" width="310" height="140" as="geometry" />
+        </mxCell>
+        <mxCell id="edge_1" value="1. HTTPS / TLS 1.3 (:443)&#10;GET /platform/observability&#10;[x-request-id]" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#0284c7;strokeWidth=2.5;fontColor=#0369a1;fontSize=9;fontStyle=1;labelBackgroundColor=#ffffff;" edge="1" parent="1" source="card_browser" target="cms_ssl">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="345" y="235" />
+              <mxPoint x="410" y="235" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge_2" value="2. Distribution SPA (/platform/)&#10;Bundle JS/CSS Platform" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#0284c7;strokeWidth=2;dashed=1;fontColor=#0369a1;fontSize=9;labelBackgroundColor=#ffffff;" edge="1" parent="1" source="cms_platform" target="card_spa">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="410" y="350" />
+              <mxPoint x="375" y="350" />
+              <mxPoint x="375" y="385" />
+              <mxPoint x="345" y="385" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge_3" value="3. EventSource SSE Connect&#10;GET /api/v1/observability/logs/stream&#10;Accept: text/event-stream | x-request-id" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#0d9488;strokeWidth=2.5;fontColor=#0f766e;fontSize=9;fontStyle=1;labelBackgroundColor=#ffffff;" edge="1" parent="1" source="card_client_net" target="cms_sse">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="345" y="780" />
+              <mxPoint x="370" y="780" />
+              <mxPoint x="370" y="445" />
+              <mxPoint x="410" y="445" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge_4" value="4. Proxy Pass (HTTPS :8443)&#10;proxy_buffering off&#10;X-Accel-Buffering: no" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#0d9488;strokeWidth=2.5;fontColor=#0f766e;fontSize=9;fontStyle=1;labelBackgroundColor=#ffffff;" edge="1" parent="1" source="cms_sse" target="gw_sse_pipe">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="730" y="445" />
+              <mxPoint x="755" y="445" />
+              <mxPoint x="755" y="360" />
+              <mxPoint x="780" y="360" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge_5" value="5. Proxy SSE vers Hôte&#10;GET http://172.99.0.1:9099/v1/logs/stream&#10;(upstreamRes.pipe)" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#0d9488;strokeWidth=2.5;fontColor=#0f766e;fontSize=9;fontStyle=1;labelBackgroundColor=#ffffff;" edge="1" parent="1" source="gw_sse_pipe" target="walspool_http">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1110" y="340" />
+              <mxPoint x="1145" y="340" />
+              <mxPoint x="1145" y="260" />
+              <mxPoint x="1190" y="260" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge_6" value="6. Flux SSE PUSH Continu (text/event-stream)&#10;JSON StandardLogEvent + : keepalive (10s)" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#10b981;strokeWidth=3;fontColor=#047857;fontSize=9;fontStyle=1;labelBackgroundColor=#ffffff;" edge="1" parent="1" source="walspool_sse" target="gw_sse_pipe">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1190" y="445" />
+              <mxPoint x="1155" y="445" />
+              <mxPoint x="1155" y="385" />
+              <mxPoint x="1110" y="385" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge_7" value="7. Émission Logs IA Asynchrone (HTTP POST /v1/enqueue)&#10;Target: http://172.99.0.1:9099 (service: aipi)" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#7c3aed;strokeWidth=2.5;fontColor=#5b21b6;fontSize=9;fontStyle=1;labelBackgroundColor=#ffffff;" edge="1" parent="1" source="aipi_worker" target="walspool_http">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1110" y="745" />
+              <mxPoint x="1148" y="745" />
+              <mxPoint x="1148" y="280" />
+              <mxPoint x="1190" y="280" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge_8" value="8. GatewayLogger POST /v1/enqueue (service: api-gateway)" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#0d9488;strokeWidth=1.5;dashed=1;fontColor=#0f766e;fontSize=8.5;labelBackgroundColor=#ffffff;" edge="1" parent="1" source="gw_logger" target="walspool_http">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1110" y="452" />
+              <mxPoint x="1140" y="452" />
+              <mxPoint x="1140" y="240" />
+              <mxPoint x="1190" y="240" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge_9" value="9. Append WAL NVMe (1.5 µs) + CRC32&#10;Swap atomique .tmp -&gt; .meta" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#047857;strokeWidth=2.5;fontColor=#065f46;fontSize=8.5;fontStyle=1;labelBackgroundColor=#ffffff;" edge="1" parent="1" source="walspool_engine" target="walspool_storage">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1300" y="650" />
+              <mxPoint x="1300" y="660" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge_10" value="10. Vidange par lots (50 rec / 50 ms)" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#475569;strokeWidth=1.5;dashed=1;fontColor=#334155;fontSize=8.5;labelBackgroundColor=#ffffff;" edge="1" parent="1" source="walspool_engine" target="walspool_drain">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1540" y="650" />
+              <mxPoint x="1540" y="660" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge_aipi_int_1" value="logger.info()" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#7c3aed;strokeWidth=1.5;fontColor=#5b21b6;fontSize=8.5;labelBackgroundColor=#ffffff;" edge="1" parent="1" source="aipi_app" target="aipi_handler">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="630" y="745" />
+              <mxPoint x="645" y="745" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge_aipi_int_2" value="queue.put()" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#7c3aed;strokeWidth=1.5;fontColor=#5b21b6;fontSize=8.5;labelBackgroundColor=#ffffff;" edge="1" parent="1" source="aipi_handler" target="aipi_worker">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="880" y="745" />
+              <mxPoint x="895" y="745" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge_client_int_1" value="es.onmessage &amp;rarr; addLog()" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#d97706;strokeWidth=1.5;fontColor=#b45309;fontSize=8.5;labelBackgroundColor=#ffffff;" edge="1" parent="1" source="card_client_net" target="card_store">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="200" y="715" />
+              <mxPoint x="200" y="700" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge_client_int_2" value="computed(logs) réactif" style="edgeStyle=orthogonalEdgeStyle;rounded=1;orthogonalLoop=1;jettySize=auto;html=1;strokeColor=#d97706;strokeWidth=1.5;fontColor=#b45309;fontSize=8.5;labelBackgroundColor=#ffffff;" edge="1" parent="1" source="card_store" target="card_spa">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="200" y="515" />
+              <mxPoint x="200" y="500" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

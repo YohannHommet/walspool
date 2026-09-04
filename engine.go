@@ -11,12 +11,12 @@ import (
 
 // Config holds configuration parameters for the Spooler.
 type Config struct {
-	BatchSize      int
-	FlushInterval  time.Duration
-	InitialBackoff time.Duration
-	MaxBackoff     time.Duration
-	MaxPayloadSize int
-	MaxCapacity    int
+	BatchSize      int           // Number of records per batch drain.
+	FlushInterval  time.Duration // Maximum wait time before dispatching an incomplete batch.
+	InitialBackoff time.Duration // Initial retry delay upon transient sink errors.
+	MaxBackoff     time.Duration // Maximum retry delay cap for exponential backoff.
+	MaxPayloadSize int           // Maximum allowed record payload size in bytes (Meyer DbC precondition).
+	MaxCapacity    int           // Default backpressure quota (maximum pending uncommitted records allowed in storage).
 }
 
 // DefaultConfig provides production-safe baseline defaults.
@@ -31,17 +31,35 @@ func DefaultConfig() Config {
 	}
 }
 
+// Option configures an Engine instance.
+type Option func(*Engine)
+
+// WithObserver registers an IngestionObserver to be notified on successful record ingestion.
+func WithObserver(obs IngestionObserver) Option {
+	return func(e *Engine) {
+		if obs != nil {
+			e.observers = append(e.observers, obs)
+		}
+	}
+}
+
+type flushRequest struct {
+	ctx context.Context
+	ack chan error
+}
+
 // Engine implements the Spooler interface.
 // High leverage: encapsulates WAL coordination, batching, backpressure, and exponential backoff.
 type Engine struct {
-	cfg     Config
-	storage StorageEngine
-	sink    Sink
-	clock   Clock
+	cfg       Config
+	storage   StorageEngine
+	sink      Sink
+	clock     Clock
+	observers []IngestionObserver
 
 	idCounter uint64
 	notifyCh  chan struct{}
-	flushCh   chan chan error
+	flushCh   chan flushRequest
 	stopCh    chan struct{}
 	doneWg    sync.WaitGroup
 
@@ -49,8 +67,8 @@ type Engine struct {
 	closed bool
 }
 
-// New creates and starts a Spooler with injected dependencies.
-func New(cfg Config, storage StorageEngine, sink Sink, clock Clock) (*Engine, error) {
+// New creates and starts a Spooler with injected dependencies and functional options.
+func New(cfg Config, storage StorageEngine, sink Sink, clock Clock, opts ...Option) (*Engine, error) {
 	if storage == nil || sink == nil {
 		return nil, fmt.Errorf("%w: storage and sink dependencies must not be nil", ErrPreconditionViolated)
 	}
@@ -69,13 +87,20 @@ func New(cfg Config, storage StorageEngine, sink Sink, clock Clock) (*Engine, er
 	}
 
 	e := &Engine{
-		cfg:      cfg,
-		storage:  storage,
-		sink:     sink,
-		clock:    clock,
-		notifyCh: make(chan struct{}, 1),
-		flushCh:  make(chan chan error),
-		stopCh:   make(chan struct{}),
+		cfg:       cfg,
+		storage:   storage,
+		sink:      sink,
+		clock:     clock,
+		notifyCh:  make(chan struct{}, 1),
+		flushCh:   make(chan flushRequest),
+		stopCh:    make(chan struct{}),
+		observers: make([]IngestionObserver, 0),
+	}
+
+	for _, opt := range opts {
+		if opt != nil {
+			opt(e)
+		}
 	}
 
 	e.doneWg.Add(1)
@@ -85,6 +110,10 @@ func New(cfg Config, storage StorageEngine, sink Sink, clock Clock) (*Engine, er
 }
 
 func (e *Engine) Enqueue(ctx context.Context, topic string, payload []byte) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+
 	// Precondition Verification (Meyer DbC - Client Fault)
 	if topic == "" {
 		return fmt.Errorf("%w: topic must not be empty", ErrPreconditionViolated)
@@ -97,22 +126,30 @@ func (e *Engine) Enqueue(ctx context.Context, topic string, payload []byte) erro
 	}
 
 	e.mu.RLock()
-	closed := e.closed
-	e.mu.RUnlock()
-	if closed {
+	defer e.mu.RUnlock()
+	if e.closed {
 		return ErrSpoolerClosed
 	}
+
+	// Defensive copy: insulate internal storage from caller mutating slice post-enqueue
+	payloadCopy := append([]byte(nil), payload...)
 
 	rec := Record{
 		ID:        atomic.AddUint64(&e.idCounter, 1),
 		Timestamp: e.clock.Now(),
 		Topic:     topic,
-		Payload:   payload,
+		Payload:   payloadCopy,
 	}
 
-	if _, err := e.storage.Append(rec); err != nil {
+	offset, err := e.storage.Append(rec)
+	if err != nil {
 		// Tier 2 (ErrSpoolFull) or Tier 3 (ErrStorageUnavailable)
 		return err
+	}
+	rec.Offset = offset
+
+	for _, obs := range e.observers {
+		obs.OnIngested(rec)
 	}
 
 	// Wake up dispatcher non-blockingly
@@ -125,6 +162,10 @@ func (e *Engine) Enqueue(ctx context.Context, topic string, payload []byte) erro
 }
 
 func (e *Engine) Flush(ctx context.Context) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+
 	e.mu.RLock()
 	closed := e.closed
 	e.mu.RUnlock()
@@ -133,15 +174,20 @@ func (e *Engine) Flush(ctx context.Context) error {
 	}
 
 	ack := make(chan error, 1)
+	req := flushRequest{ctx: ctx, ack: ack}
 	select {
 	case <-ctx.Done():
 		return ctx.Err()
-	case e.flushCh <- ack:
+	case <-e.stopCh:
+		return ErrSpoolerClosed
+	case e.flushCh <- req:
 	}
 
 	select {
 	case <-ctx.Done():
 		return ctx.Err()
+	case <-e.stopCh:
+		return ErrSpoolerClosed
 	case err := <-ack:
 		return err
 	}
@@ -185,8 +231,8 @@ func (e *Engine) runDispatcher() {
 
 		// Handle flush requests if all pending records are drained
 		select {
-		case ack := <-e.flushCh:
-			ack <- e.drainAll()
+		case req := <-e.flushCh:
+			req.ack <- e.drainAll(req.ctx)
 			continue
 		default:
 		}
@@ -198,10 +244,12 @@ func (e *Engine) runDispatcher() {
 
 		select {
 		case <-e.stopCh:
-			_ = e.drainAll()
+			shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			_ = e.drainAll(shutdownCtx)
+			cancel()
 			return
-		case ack := <-e.flushCh:
-			ack <- e.drainAll()
+		case req := <-e.flushCh:
+			req.ack <- e.drainAll(req.ctx)
 		case <-e.notifyCh:
 		case <-e.clock.After(e.cfg.FlushInterval):
 		}
@@ -248,14 +296,27 @@ func (e *Engine) calculateNextBackoff(current time.Duration) time.Duration {
 	return next
 }
 
-func (e *Engine) drainAll() error {
+func (e *Engine) drainAll(ctx context.Context) error {
+	currentBackoff := e.cfg.InitialBackoff
 	for {
 		drained, err := e.drainPendingBatches()
 		if err != nil {
+			if IsTransient(err) {
+				select {
+				case <-e.stopCh:
+					return ErrSpoolerClosed
+				case <-ctx.Done():
+					return ctx.Err()
+				case <-e.clock.After(currentBackoff):
+					currentBackoff = e.calculateNextBackoff(currentBackoff)
+					continue
+				}
+			}
 			return err
 		}
 		if !drained {
 			return nil
 		}
+		currentBackoff = e.cfg.InitialBackoff
 	}
 }

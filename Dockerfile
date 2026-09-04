@@ -4,20 +4,29 @@ WORKDIR /app
 COPY go.mod ./
 COPY *.go ./
 COPY cmd/ ./cmd/
-RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -o /walspool-sidecar ./cmd/sidecar
+RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w -extldflags '-static'" -o /walspool-sidecar ./cmd/sidecar
 
 # Production Stage
 FROM alpine:3.19
-RUN apk --no-cache add ca-certificates
+RUN apk --no-cache add ca-certificates tzdata && \
+    addgroup -g 10001 -S walspool && \
+    adduser -u 10001 -S walspool -G walspool && \
+    mkdir -p /data/spool && \
+    chown -R walspool:walspool /data/spool
+
 WORKDIR /
 COPY --from=builder /walspool-sidecar /usr/local/bin/walspool-sidecar
 
 # Spool directory volume
 VOLUME /data/spool
-ENV WALSPOOL_ADDR=":9099"
-ENV WALSPOOL_DATA_DIR="/data/spool"
-ENV WALSPOOL_BATCH_SIZE="50"
-ENV WALSPOOL_FLUSH_MS="50"
 
+ENV WALSPOOL_ADDR=":9099" \
+    WALSPOOL_DATA_DIR="/data/spool" \
+    WALSPOOL_BATCH_SIZE="50" \
+    WALSPOOL_FLUSH_MS="50" \
+    WALSPOOL_LOG_FORMAT="json" \
+    WALSPOOL_LOG_LEVEL="info"
+
+USER 10001:10001
 EXPOSE 9099
-ENTRYPOINT ["walspool-sidecar"]
+ENTRYPOINT ["/usr/local/bin/walspool-sidecar"]

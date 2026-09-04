@@ -8,11 +8,15 @@ import (
 	"flag"
 	"fmt"
 	"io"
-	"log"
+	"log/slog"
 	"net/http"
 	"os"
 	"os/signal"
+	"sort"
 	"strconv"
+	"strings"
+	"sync"
+	"sync/atomic"
 	"syscall"
 	"time"
 
@@ -23,6 +27,7 @@ import (
 type HTTPSink struct {
 	TargetURL  string
 	HTTPClient *http.Client
+	Metrics    *SidecarMetrics
 }
 
 type BatchItem struct {
@@ -37,7 +42,10 @@ func (s *HTTPSink) Deliver(ctx context.Context, batch []walspool.Record) error {
 	if s.TargetURL == "" {
 		// If no target sink configured, log to stdout for testing/demo
 		for _, rec := range batch {
-			log.Printf("[SINK CONSOLE] Shipped Offset=%d Topic=%s Payload=%s", rec.Offset, rec.Topic, string(rec.Payload))
+			slog.Info("[SINK CONSOLE] Shipped", "offset", rec.Offset, "topic", rec.Topic, "payload", string(rec.Payload))
+			if s.Metrics != nil {
+				s.Metrics.RecordDelivered(rec.Topic)
+			}
 		}
 		return nil
 	}
@@ -81,13 +89,25 @@ func (s *HTTPSink) Deliver(ctx context.Context, batch []walspool.Record) error {
 	defer resp.Body.Close()
 
 	if resp.StatusCode >= 200 && resp.StatusCode < 300 {
+		if s.Metrics != nil {
+			for _, rec := range batch {
+				s.Metrics.RecordDelivered(rec.Topic)
+			}
+		}
 		return nil
 	}
 
-	// 4xx client errors mean downstream rejected this payload format permanently
+	// HTTP 429 (Too Many Requests) and HTTP 408 (Request Timeout) are transient conditions -> retry with backoff
+	if resp.StatusCode == http.StatusTooManyRequests || resp.StatusCode == http.StatusRequestTimeout {
+		respBody, _ := io.ReadAll(io.LimitReader(resp.Body, 512))
+		slog.Warn("[SINK TRANSIENT] Downstream transient error", "status", resp.StatusCode, "body", string(respBody))
+		return fmt.Errorf("%w: destination returned transient HTTP %d", walspool.ErrSinkUnavailable, resp.StatusCode)
+	}
+
+	// 4xx client errors mean downstream rejected this payload format permanently (400, 422, etc.)
 	if resp.StatusCode >= 400 && resp.StatusCode < 500 {
 		respBody, _ := io.ReadAll(io.LimitReader(resp.Body, 512))
-		log.Printf("[SINK 4XX] Downstream permanently rejected batch (%d): %s", resp.StatusCode, string(respBody))
+		slog.Error("[SINK 4XX] Downstream permanently rejected batch", "status", resp.StatusCode, "body", string(respBody))
 		return walspool.ErrPermanentRejection
 	}
 
@@ -95,18 +115,205 @@ func (s *HTTPSink) Deliver(ctx context.Context, batch []walspool.Record) error {
 	return fmt.Errorf("%w: destination returned HTTP %d", walspool.ErrSinkUnavailable, resp.StatusCode)
 }
 
-// SidecarServer exposes an HTTP API for polyglot services (Python, Node, Ruby, Rust, etc.).
-type SidecarServer struct {
-	spooler walspool.Spooler
+// SidecarMetrics collects operational counters and gauges for Prometheus exposition.
+type SidecarMetrics struct {
+	mu        sync.RWMutex
+	ingested  map[string]uint64
+	delivered map[string]uint64
 }
 
-func NewSidecarServer(spooler walspool.Spooler) *SidecarServer {
-	return &SidecarServer{spooler: spooler}
+// NewSidecarMetrics constructs a new thread-safe SidecarMetrics registry.
+func NewSidecarMetrics() *SidecarMetrics {
+	return &SidecarMetrics{
+		ingested:  make(map[string]uint64),
+		delivered: make(map[string]uint64),
+	}
+}
+
+// RecordIngested increments the counter for a given topic.
+func (m *SidecarMetrics) RecordIngested(topic string) {
+	m.mu.Lock()
+	m.ingested[topic]++
+	m.mu.Unlock()
+}
+
+// RecordDelivered increments the delivered counter for a given topic.
+func (m *SidecarMetrics) RecordDelivered(topic string) {
+	m.mu.Lock()
+	m.delivered[topic]++
+	m.mu.Unlock()
+}
+
+// Ingested returns the current ingested count for a topic.
+func (m *SidecarMetrics) Ingested(topic string) uint64 {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	return m.ingested[topic]
+}
+
+// Delivered returns the current delivered count for a topic.
+func (m *SidecarMetrics) Delivered(topic string) uint64 {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	return m.delivered[topic]
+}
+
+func escapeLabelValue(s string) string {
+	s = strings.ReplaceAll(s, `\`, `\\`)
+	s = strings.ReplaceAll(s, "\n", `\n`)
+	s = strings.ReplaceAll(s, `"`, `\"`)
+	return s
+}
+
+// FormatPrometheus formats all collected metrics according to the Prometheus text-based exposition standard.
+func (m *SidecarMetrics) FormatPrometheus(hub walspool.LogHub, storage walspool.StorageEngine) string {
+	var activeSSE int
+	var droppedEvents uint64
+	var ringCap int
+	var ringCount int
+	if hub != nil {
+		stats := hub.Stats()
+		activeSSE = stats.ActiveStreams
+		droppedEvents = stats.DroppedEvents
+		ringCap = stats.Capacity
+		ringCount = stats.CurrentSize
+	}
+
+	uncommitted := 0
+	if storage != nil {
+		if count, err := storage.UncommittedCount(); err == nil {
+			uncommitted = count
+		}
+	}
+
+	m.mu.RLock()
+	ingestedKeys := make([]string, 0, len(m.ingested))
+	for k := range m.ingested {
+		ingestedKeys = append(ingestedKeys, k)
+	}
+	sort.Strings(ingestedKeys)
+
+	deliveredKeys := make([]string, 0, len(m.delivered))
+	for k := range m.delivered {
+		deliveredKeys = append(deliveredKeys, k)
+	}
+	sort.Strings(deliveredKeys)
+
+	var buf bytes.Buffer
+
+	// walspool_ingested_records_total
+	buf.WriteString("# HELP walspool_ingested_records_total Total number of records ingested by topic\n")
+	buf.WriteString("# TYPE walspool_ingested_records_total counter\n")
+	for _, k := range ingestedKeys {
+		fmt.Fprintf(&buf, "walspool_ingested_records_total{topic=\"%s\"} %d\n", escapeLabelValue(k), m.ingested[k])
+	}
+
+	// walspool_delivered_records_total
+	buf.WriteString("# HELP walspool_delivered_records_total Total number of delivered records to sink by topic\n")
+	buf.WriteString("# TYPE walspool_delivered_records_total counter\n")
+	for _, k := range deliveredKeys {
+		fmt.Fprintf(&buf, "walspool_delivered_records_total{topic=\"%s\"} %d\n", escapeLabelValue(k), m.delivered[k])
+	}
+	m.mu.RUnlock()
+
+	// walspool_active_sse_subscribers
+	buf.WriteString("# HELP walspool_active_sse_subscribers Current number of active SSE streaming subscribers\n")
+	buf.WriteString("# TYPE walspool_active_sse_subscribers gauge\n")
+	fmt.Fprintf(&buf, "walspool_active_sse_subscribers %d\n", activeSSE)
+
+	// walspool_uncommitted_records
+	buf.WriteString("# HELP walspool_uncommitted_records Current number of uncommitted records pending delivery in storage\n")
+	buf.WriteString("# TYPE walspool_uncommitted_records gauge\n")
+	fmt.Fprintf(&buf, "walspool_uncommitted_records %d\n", uncommitted)
+
+	// walspool_dropped_events_total
+	buf.WriteString("# HELP walspool_dropped_events_total Total dropped events due to hub ring buffer overflow\n")
+	buf.WriteString("# TYPE walspool_dropped_events_total counter\n")
+	fmt.Fprintf(&buf, "walspool_dropped_events_total %d\n", droppedEvents)
+
+	// walspool_ring_buffer_capacity
+	buf.WriteString("# HELP walspool_ring_buffer_capacity Maximum capacity of log hub ring buffer\n")
+	buf.WriteString("# TYPE walspool_ring_buffer_capacity gauge\n")
+	fmt.Fprintf(&buf, "walspool_ring_buffer_capacity %d\n", ringCap)
+
+	// walspool_ring_buffer_count
+	buf.WriteString("# HELP walspool_ring_buffer_count Current count of log entries in ring buffer\n")
+	buf.WriteString("# TYPE walspool_ring_buffer_count gauge\n")
+	fmt.Fprintf(&buf, "walspool_ring_buffer_count %d\n", ringCount)
+
+	return buf.String()
+}
+
+// SidecarServer exposes an HTTP API for polyglot services (Python, Node, Ruby, Rust, etc.).
+// It integrates disk WAL spooling with in-memory log indexing and real-time SSE streaming.
+type SidecarServer struct {
+	spooler      walspool.Spooler
+	hub          walspool.LogHub
+	storage      walspool.StorageEngine
+	metrics      *SidecarMetrics
+	shuttingDown atomic.Bool
+}
+
+// NewSidecarServer constructs a SidecarServer. Optional LogHub can be injected (e.g. for testing).
+func NewSidecarServer(spooler walspool.Spooler, hub ...walspool.LogHub) *SidecarServer {
+	var h walspool.LogHub
+	if len(hub) > 0 && hub[0] != nil {
+		h = hub[0]
+	} else {
+		h = walspool.NewMemoryLogHub(walspool.DefaultHubCapacity)
+	}
+	return &SidecarServer{
+		spooler: spooler,
+		hub:     h,
+		metrics: NewSidecarMetrics(),
+	}
+}
+
+// WithStorage sets the underlying storage engine for readiness checks and metrics collection.
+func (s *SidecarServer) WithStorage(storage walspool.StorageEngine) *SidecarServer {
+	s.storage = storage
+	return s
+}
+
+// WithMetrics injects a custom metrics registry into the server.
+func (s *SidecarServer) WithMetrics(metrics *SidecarMetrics) *SidecarServer {
+	if metrics != nil {
+		s.metrics = metrics
+	}
+	return s
+}
+
+// Hub returns the underlying LogHub instance.
+func (s *SidecarServer) Hub() walspool.LogHub {
+	return s.hub
+}
+
+// Metrics returns the underlying SidecarMetrics instance.
+func (s *SidecarServer) Metrics() *SidecarMetrics {
+	return s.metrics
+}
+
+// Storage returns the underlying StorageEngine instance.
+func (s *SidecarServer) Storage() walspool.StorageEngine {
+	return s.storage
+}
+
+// MarkShuttingDown marks the sidecar as undergoing graceful shutdown.
+func (s *SidecarServer) MarkShuttingDown() {
+	s.shuttingDown.Store(true)
+}
+
+// IsShuttingDown returns true if graceful shutdown has started.
+func (s *SidecarServer) IsShuttingDown() bool {
+	return s.shuttingDown.Load()
 }
 
 type EnqueueRequest struct {
 	Topic   string          `json:"topic"`
 	Payload json.RawMessage `json:"payload"`
+	TraceID string          `json:"trace_id,omitempty"`
+	Service string          `json:"service,omitempty"`
+	Level   string          `json:"level,omitempty"`
 }
 
 type EnqueueResponse struct {
@@ -118,9 +325,19 @@ type EnqueueResponse struct {
 func (s *SidecarServer) Routes() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/healthz", s.handleHealthz)
+	mux.HandleFunc("/readyz", s.handleReadyz)
+	mux.HandleFunc("/metrics", s.handleMetrics)
 	mux.HandleFunc("/enqueue", s.handleEnqueue)
 	mux.HandleFunc("/v1/enqueue", s.handleEnqueue)
 	mux.HandleFunc("/flush", s.handleFlush)
+	mux.HandleFunc("/v1/logs", s.handleLogsQuery)
+	mux.HandleFunc("/v1/logs/stream", s.handleLogsStream)
+	mux.HandleFunc("/v1/logs/stats", s.handleLogsStats)
+	// Convenience aliases
+	mux.HandleFunc("/logs", s.handleLogsQuery)
+	mux.HandleFunc("/logs/stream", s.handleLogsStream)
+	mux.HandleFunc("/logs/stats", s.handleLogsStats)
+	mux.HandleFunc("/v1/metrics", s.handleMetrics)
 	return mux
 }
 
@@ -131,8 +348,45 @@ func (s *SidecarServer) handleHealthz(w http.ResponseWriter, r *http.Request) {
 	}
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	_, _ = w.Write([]byte(`{"status":"ok","engine":"walspool"}
-`))
+	_, _ = w.Write([]byte(`{"status":"ok","engine":"walspool"}` + "\n"))
+}
+
+func (s *SidecarServer) handleReadyz(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+
+	if s.IsShuttingDown() {
+		w.WriteHeader(http.StatusServiceUnavailable)
+		_, _ = w.Write([]byte(`{"status":"shutting_down","ready":false}` + "\n"))
+		return
+	}
+
+	if s.storage != nil {
+		if _, err := s.storage.UncommittedCount(); err != nil {
+			w.WriteHeader(http.StatusServiceUnavailable)
+			_, _ = w.Write([]byte(fmt.Sprintf(`{"status":"storage_unavailable","ready":false,"error":%q}`+"\n", err.Error())))
+			return
+		}
+	}
+
+	w.WriteHeader(http.StatusOK)
+	_, _ = w.Write([]byte(`{"status":"ready","ready":true}` + "\n"))
+}
+
+func (s *SidecarServer) handleMetrics(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	w.Header().Set("Content-Type", "text/plain; version=0.0.4; charset=utf-8")
+	w.WriteHeader(http.StatusOK)
+	if s.metrics != nil {
+		output := s.metrics.FormatPrometheus(s.hub, s.storage)
+		_, _ = w.Write([]byte(output))
+	}
 }
 
 func (s *SidecarServer) handleEnqueue(w http.ResponseWriter, r *http.Request) {
@@ -153,6 +407,10 @@ func (s *SidecarServer) handleEnqueue(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if req.Topic == "" && req.Service != "" {
+		req.Topic = req.Service
+	}
+
 	if req.Topic == "" {
 		http.Error(w, `{"error":"topic cannot be empty"}`, http.StatusBadRequest)
 		return
@@ -162,29 +420,61 @@ func (s *SidecarServer) handleEnqueue(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Sub-microsecond append to local disk WAL
-	err = s.spooler.Enqueue(r.Context(), req.Topic, []byte(req.Payload))
+	// If top-level metadata was supplied in EnqueueRequest and payload is a JSON object,
+	// ensure payload retains it so WAL log and IngestionObserver receive complete metadata.
+	payloadBytes := []byte(req.Payload)
+	if req.TraceID != "" || req.Service != "" || req.Level != "" {
+		trimmed := bytes.TrimSpace(payloadBytes)
+		if len(trimmed) > 0 && trimmed[0] == '{' {
+			var obj map[string]any
+			if json.Unmarshal(trimmed, &obj) == nil && obj != nil {
+				modified := false
+				if req.TraceID != "" && obj["trace_id"] == nil && obj["traceId"] == nil {
+					obj["trace_id"] = req.TraceID
+					modified = true
+				}
+				if req.Service != "" && obj["service"] == nil {
+					obj["service"] = req.Service
+					modified = true
+				}
+				if req.Level != "" && obj["level"] == nil && obj["severity"] == nil {
+					obj["level"] = req.Level
+					modified = true
+				}
+				if modified {
+					if merged, err := json.Marshal(obj); err == nil {
+						payloadBytes = merged
+					}
+				}
+			}
+		}
+	}
+
+	// 1. Sub-microsecond append to local disk WAL with CRC32 integrity
+	// Persists on WAL and automatically notifies registered IngestionObserver (e.g. MemoryLogHub)
+	err = s.spooler.Enqueue(r.Context(), req.Topic, payloadBytes)
 	if err != nil {
 		if errors.Is(err, walspool.ErrSpoolFull) {
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusServiceUnavailable)
-			_, _ = w.Write([]byte(`{"error":"spool_full","message":"storage quota exceeded, backpressure active"}
-`))
+			_, _ = w.Write([]byte(`{"error":"spool_full","message":"storage quota exceeded, backpressure active"}` + "\n"))
 			return
 		}
 		if errors.Is(err, walspool.ErrPreconditionViolated) {
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusBadRequest)
-			_, _ = w.Write([]byte(fmt.Sprintf(`{"error":"precondition_failed","message":%q}
-`, err.Error())))
+			_, _ = w.Write([]byte(fmt.Sprintf(`{"error":"precondition_failed","message":%q}`+"\n", err.Error())))
 			return
 		}
 
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusInternalServerError)
-		_, _ = w.Write([]byte(fmt.Sprintf(`{"error":"internal_error","message":%q}
-`, err.Error())))
+		_, _ = w.Write([]byte(fmt.Sprintf(`{"error":"internal_error","message":%q}`+"\n", err.Error())))
 		return
+	}
+
+	if s.metrics != nil {
+		s.metrics.RecordIngested(req.Topic)
 	}
 
 	w.Header().Set("Content-Type", "application/json")
@@ -192,8 +482,134 @@ func (s *SidecarServer) handleEnqueue(w http.ResponseWriter, r *http.Request) {
 	_ = json.NewEncoder(w).Encode(EnqueueResponse{
 		Status: "accepted",
 		Topic:  req.Topic,
-		Size:   len(req.Payload),
+		Size:   len(payloadBytes),
 	})
+}
+
+func (s *SidecarServer) handleLogsQuery(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	query := r.URL.Query()
+	traceID := strings.TrimSpace(query.Get("trace_id"))
+	service := strings.TrimSpace(query.Get("service"))
+	level := strings.TrimSpace(query.Get("level"))
+	limitStr := strings.TrimSpace(query.Get("limit"))
+
+	limit := 100
+	if limitStr != "" {
+		if val, err := strconv.Atoi(limitStr); err == nil && val > 0 {
+			limit = val
+		}
+	}
+
+	q := walspool.LogQuery{
+		TraceID: traceID,
+		Service: service,
+		Level:   level,
+		Limit:   limit,
+	}
+
+	var logs []walspool.LogEntry
+	if s.hub != nil {
+		logs = s.hub.Query(q)
+	}
+	if logs == nil {
+		logs = make([]walspool.LogEntry, 0)
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	_ = json.NewEncoder(w).Encode(logs)
+}
+
+func (s *SidecarServer) handleLogsStream(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	flusher, ok := w.(http.Flusher)
+	if !ok {
+		http.Error(w, "Streaming unsupported", http.StatusInternalServerError)
+		return
+	}
+
+	if s.hub == nil {
+		http.Error(w, "Hub unavailable", http.StatusServiceUnavailable)
+		return
+	}
+
+	service := strings.TrimSpace(r.URL.Query().Get("service"))
+	level := strings.TrimSpace(r.URL.Query().Get("level"))
+
+	w.Header().Set("Content-Type", "text/event-stream")
+	w.Header().Set("Cache-Control", "no-cache")
+	w.Header().Set("Connection", "keep-alive")
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+	w.Header().Set("X-Accel-Buffering", "no")
+	w.WriteHeader(http.StatusOK)
+	flusher.Flush()
+
+	filter := walspool.StreamFilter{
+		Service: service,
+		Level:   level,
+	}
+
+	_, logCh, cancel := s.hub.Subscribe(filter)
+	defer cancel()
+
+	ctx := r.Context()
+	ticker := time.NewTicker(10 * time.Second)
+	defer ticker.Stop()
+
+	// Initial comment to immediately flush headers and confirm stream
+	if _, err := fmt.Fprintf(w, ": connected\n\n"); err != nil {
+		return
+	}
+	flusher.Flush()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			if _, err := fmt.Fprintf(w, ": keepalive\n\n"); err != nil {
+				return
+			}
+			flusher.Flush()
+		case entry, ok := <-logCh:
+			if !ok {
+				return
+			}
+			data, err := json.Marshal(entry)
+			if err != nil {
+				continue
+			}
+			if _, err := fmt.Fprintf(w, "data: %s\n\n", data); err != nil {
+				return
+			}
+			flusher.Flush()
+		}
+	}
+}
+
+func (s *SidecarServer) handleLogsStats(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	var stats walspool.HubStats
+	if s.hub != nil {
+		stats = s.hub.Stats()
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	_ = json.NewEncoder(w).Encode(stats)
 }
 
 func (s *SidecarServer) handleFlush(w http.ResponseWriter, r *http.Request) {
@@ -209,67 +625,256 @@ func (s *SidecarServer) handleFlush(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	_, _ = w.Write([]byte(`{"status":"flushed"}
-`))
+	_, _ = w.Write([]byte(`{"status":"flushed"}` + "\n"))
 }
 
-func getEnv(key, defaultVal string) string {
-	if val, ok := os.LookupEnv(key); ok && val != "" {
-		return val
+// SidecarConfig encapsulates validated runtime configuration for the sidecar process.
+type SidecarConfig struct {
+	Addr          string
+	DataDir       string
+	TargetSinkURL string
+	BatchSize     int
+	FlushMs       int
+	MaxRecords    int
+	HubCapacity   int
+	LogFormat     string
+	LogLevel      string
+}
+
+// Validate enforces strict invariants across configuration values.
+func (c *SidecarConfig) Validate() error {
+	if strings.TrimSpace(c.Addr) == "" {
+		return fmt.Errorf("%w: addr must not be empty", walspool.ErrPreconditionViolated)
 	}
-	return defaultVal
+	if c.BatchSize <= 0 {
+		return fmt.Errorf("%w: batch-size must be > 0 (got %d)", walspool.ErrPreconditionViolated, c.BatchSize)
+	}
+	if c.FlushMs <= 0 {
+		return fmt.Errorf("%w: flush-ms must be > 0 (got %d)", walspool.ErrPreconditionViolated, c.FlushMs)
+	}
+	if c.MaxRecords <= 0 {
+		return fmt.Errorf("%w: max-records must be > 0 (got %d)", walspool.ErrPreconditionViolated, c.MaxRecords)
+	}
+	if c.HubCapacity <= 0 {
+		return fmt.Errorf("%w: hub-capacity must be > 0 (got %d)", walspool.ErrPreconditionViolated, c.HubCapacity)
+	}
+	switch strings.ToLower(strings.TrimSpace(c.LogFormat)) {
+	case "text", "json":
+		// valid
+	default:
+		return fmt.Errorf("%w: invalid log-format %q (must be text or json)", walspool.ErrPreconditionViolated, c.LogFormat)
+	}
+	switch strings.ToLower(strings.TrimSpace(c.LogLevel)) {
+	case "debug", "info", "warn", "error":
+		// valid
+	default:
+		return fmt.Errorf("%w: invalid log-level %q (must be debug, info, warn, or error)", walspool.ErrPreconditionViolated, c.LogLevel)
+	}
+	return nil
+}
+
+// ParseConfig resolves configuration by prioritizing CLI flags over environment variables,
+// which in turn take precedence over hardcoded defaults (CRIT-07).
+func ParseConfig(args []string, lookupEnv func(string) (string, bool)) (*SidecarConfig, error) {
+	if lookupEnv == nil {
+		lookupEnv = os.LookupEnv
+	}
+
+	getEnvStr := func(key, defaultVal string) string {
+		if val, ok := lookupEnv(key); ok && val != "" {
+			return val
+		}
+		return defaultVal
+	}
+
+	getEnvInt := func(key string, defaultVal int) int {
+		if val, ok := lookupEnv(key); ok && val != "" {
+			if v, err := strconv.Atoi(val); err == nil {
+				return v
+			}
+		}
+		return defaultVal
+	}
+
+	fs := flag.NewFlagSet("walspool-sidecar", flag.ContinueOnError)
+
+	var cfg SidecarConfig
+	fs.StringVar(&cfg.Addr, "addr", getEnvStr("WALSPOOL_ADDR", ":9099"), "HTTP bind address")
+	fs.StringVar(&cfg.DataDir, "data-dir", getEnvStr("WALSPOOL_DATA_DIR", "./data/spool"), "Spool directory for WAL files")
+	fs.StringVar(&cfg.TargetSinkURL, "sink-url", getEnvStr("WALSPOOL_SINK_URL", ""), "Target HTTP URL to deliver batches to")
+	fs.IntVar(&cfg.BatchSize, "batch-size", getEnvInt("WALSPOOL_BATCH_SIZE", 50), "Batch size for background drain")
+	fs.IntVar(&cfg.FlushMs, "flush-ms", getEnvInt("WALSPOOL_FLUSH_MS", 50), "Flush interval in milliseconds")
+	fs.IntVar(&cfg.MaxRecords, "max-records", getEnvInt("WALSPOOL_MAX_RECORDS", 50000), "Maximum records quota before backpressure reject")
+	fs.IntVar(&cfg.HubCapacity, "hub-capacity", getEnvInt("WALSPOOL_HUB_CAPACITY", 50000), "In-memory ring buffer capacity for logs hub")
+	fs.StringVar(&cfg.LogFormat, "log-format", getEnvStr("WALSPOOL_LOG_FORMAT", "text"), "Log output format (text|json)")
+	fs.StringVar(&cfg.LogLevel, "log-level", getEnvStr("WALSPOOL_LOG_LEVEL", "info"), "Log level (debug|info|warn|error)")
+
+	if err := fs.Parse(args); err != nil {
+		return nil, err
+	}
+
+	if err := cfg.Validate(); err != nil {
+		return nil, err
+	}
+
+	return &cfg, nil
+}
+
+// SetupLogger configures the default slog logger based on format and level.
+func SetupLogger(format, levelStr string) *slog.Logger {
+	return SetupLoggerWithWriter(os.Stdout, format, levelStr)
+}
+
+// SetupLoggerWithWriter configures the default slog logger directing output to the given writer.
+func SetupLoggerWithWriter(w io.Writer, format, levelStr string) *slog.Logger {
+	var level slog.Level
+	switch strings.ToLower(strings.TrimSpace(levelStr)) {
+	case "debug":
+		level = slog.LevelDebug
+	case "warn":
+		level = slog.LevelWarn
+	case "error":
+		level = slog.LevelError
+	case "info":
+		fallthrough
+	default:
+		level = slog.LevelInfo
+	}
+
+	opts := &slog.HandlerOptions{
+		Level: level,
+	}
+
+	var handler slog.Handler
+	if strings.ToLower(strings.TrimSpace(format)) == "json" {
+		handler = slog.NewJSONHandler(w, opts)
+	} else {
+		handler = slog.NewTextHandler(w, opts)
+	}
+
+	logger := slog.New(handler)
+	slog.SetDefault(logger)
+	return logger
+}
+
+// HTTPServer abstracts the shutdown method of an HTTP server for testability.
+type HTTPServer interface {
+	Shutdown(ctx context.Context) error
+}
+
+// ShutdownSignaler notifies an entity that a shutdown sequence has commenced.
+type ShutdownSignaler interface {
+	MarkShuttingDown()
+}
+
+// GracefulShutdown executes the secure 4-step shutdown sequence (CRIT-03, MAJ-07):
+// 0. Signal shutting down state to signalers (e.g. SidecarServer readyz probe)
+// 1. hub.Close() (closes subscriber channels and immediately unblocks open SSE streams)
+// 2. httpServer.Shutdown(ctx) (stops accepting new connections, drains in-flight HTTP requests)
+// 3. spool.Flush(ctx) (forces shipment and drain of ALL in-flight logs to the Sink)
+// 4. spool.Close() (closes storage engine and stops background dispatcher)
+func GracefulShutdown(ctx context.Context, httpServer HTTPServer, hub walspool.LogHub, spool walspool.Spooler, signalers ...ShutdownSignaler) error {
+	for _, s := range signalers {
+		if s != nil {
+			s.MarkShuttingDown()
+		}
+	}
+	if sig, ok := httpServer.(ShutdownSignaler); ok && sig != nil {
+		sig.MarkShuttingDown()
+	}
+
+	var errs []error
+
+	// 1. Close hub first to unblock open SSE streaming handlers immediately
+	if hub != nil {
+		if err := hub.Close(); err != nil {
+			errs = append(errs, fmt.Errorf("hub close: %w", err))
+		}
+	}
+
+	// 2. Shutdown HTTP server (will not hang on SSE streams since hub is closed)
+	if httpServer != nil {
+		if err := httpServer.Shutdown(ctx); err != nil {
+			errs = append(errs, fmt.Errorf("http server shutdown: %w", err))
+		}
+	}
+
+	// 3. Flush spooler to deliver all pending in-flight records to the sink
+	if spool != nil {
+		if err := spool.Flush(ctx); err != nil {
+			errs = append(errs, fmt.Errorf("spooler flush: %w", err))
+		}
+
+		// 4. Close spooler storage and dispatcher
+		if err := spool.Close(); err != nil {
+			errs = append(errs, fmt.Errorf("spooler close: %w", err))
+		}
+	}
+
+	return errors.Join(errs...)
 }
 
 func main() {
-	var (
-		addr          = flag.String("addr", getEnv("WALSPOOL_ADDR", ":9099"), "HTTP bind address")
-		dataDir       = flag.String("data-dir", getEnv("WALSPOOL_DATA_DIR", "./data/spool"), "Spool directory for WAL files")
-		targetSinkURL = flag.String("sink-url", getEnv("WALSPOOL_SINK_URL", ""), "Target HTTP URL to deliver batches to")
-		batchSize     = flag.Int("batch-size", 50, "Batch size for background drain")
-		flushMs       = flag.Int("flush-ms", 50, "Flush interval in milliseconds")
-		maxRecords    = flag.Int("max-records", 50000, "Maximum records quota before backpressure reject")
+	cfg, err := ParseConfig(os.Args[1:], os.LookupEnv)
+	if err != nil {
+		if errors.Is(err, flag.ErrHelp) {
+			os.Exit(0)
+		}
+		fmt.Fprintf(os.Stderr, "Fatal: invalid configuration: %v\n", err)
+		os.Exit(1)
+	}
+
+	SetupLogger(cfg.LogFormat, cfg.LogLevel)
+
+	slog.Info("Starting walspool sidecar daemon",
+		"addr", cfg.Addr,
+		"data_dir", cfg.DataDir,
+		"target_sink", cfg.TargetSinkURL,
+		"batch_size", cfg.BatchSize,
+		"flush_ms", cfg.FlushMs,
+		"max_records", cfg.MaxRecords,
+		"hub_capacity", cfg.HubCapacity,
+		"log_format", cfg.LogFormat,
+		"log_level", cfg.LogLevel,
 	)
-	flag.Parse()
-
-	if envBatch := os.Getenv("WALSPOOL_BATCH_SIZE"); envBatch != "" {
-		if v, err := strconv.Atoi(envBatch); err == nil {
-			*batchSize = v
-		}
-	}
-	if envFlush := os.Getenv("WALSPOOL_FLUSH_MS"); envFlush != "" {
-		if v, err := strconv.Atoi(envFlush); err == nil {
-			*flushMs = v
-		}
-	}
-
-	log.Printf("Starting walspool sidecar daemon on %s (data-dir: %s, target-sink: %s)", *addr, *dataDir, *targetSinkURL)
 
 	// Initialize disk storage
-	storage, err := walspool.NewFileStorageEngine(*dataDir, *maxRecords)
+	storage, err := walspool.NewFileStorageEngine(cfg.DataDir, cfg.MaxRecords)
 	if err != nil {
-		log.Fatalf("Fatal: failed to initialize FileStorageEngine: %v", err)
+		slog.Error("Fatal: failed to initialize FileStorageEngine", "error", err)
+		os.Exit(1)
 	}
+
+	metrics := NewSidecarMetrics()
 
 	sink := &HTTPSink{
-		TargetURL:  *targetSinkURL,
+		TargetURL:  cfg.TargetSinkURL,
 		HTTPClient: &http.Client{Timeout: 10 * time.Second},
+		Metrics:    metrics,
 	}
 
-	cfg := walspool.DefaultConfig()
-	cfg.BatchSize = *batchSize
-	cfg.FlushInterval = time.Duration(*flushMs) * time.Millisecond
+	hub := walspool.NewMemoryLogHub(cfg.HubCapacity)
 
-	spool, err := walspool.New(cfg, storage, sink, nil)
+	spoolCfg := walspool.DefaultConfig()
+	spoolCfg.BatchSize = cfg.BatchSize
+	spoolCfg.FlushInterval = time.Duration(cfg.FlushMs) * time.Millisecond
+
+	spool, err := walspool.New(spoolCfg, storage, sink, nil, walspool.WithObserver(hub))
 	if err != nil {
-		log.Fatalf("Fatal: failed to initialize walspool engine: %v", err)
+		slog.Error("Fatal: failed to initialize walspool engine", "error", err)
+		os.Exit(1)
 	}
 
-	server := NewSidecarServer(spool)
+	server := NewSidecarServer(spool, hub).
+		WithStorage(storage).
+		WithMetrics(metrics)
+
 	httpServer := &http.Server{
-		Addr:         *addr,
-		Handler:      server.Routes(),
-		ReadTimeout:  5 * time.Second,
-		WriteTimeout: 10 * time.Second,
+		Addr:              cfg.Addr,
+		Handler:           server.Routes(),
+		ReadHeaderTimeout: 5 * time.Second,
+		IdleTimeout:       120 * time.Second,
+		// WriteTimeout is intentionally 0 (disabled) to support long-lived Server-Sent Events (SSE)
 	}
 
 	// Handle graceful shutdown on SIGTERM / SIGINT
@@ -278,18 +883,24 @@ func main() {
 
 	go func() {
 		<-sigChan
-		log.Println("Shutting down walspool sidecar (flushing in-flight batches)...")
-		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		slog.Info("Shutting down walspool sidecar (flushing in-flight batches)...")
+		server.MarkShuttingDown()
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
 
-		_ = httpServer.Shutdown(ctx)
-		_ = spool.Close()
-		log.Println("Sidecar stopped safely.")
+		if err := GracefulShutdown(shutdownCtx, httpServer, hub, spool, server); err != nil {
+			slog.Error("Error during graceful shutdown", "error", err)
+		}
+		slog.Info("Sidecar stopped safely.")
 		os.Exit(0)
 	}()
 
-	log.Printf("walspool sidecar listening at http://localhost%s (endpoints: POST /enqueue, GET /healthz, POST /flush)", *addr)
+	slog.Info("walspool sidecar listening",
+		"url", fmt.Sprintf("http://localhost%s", cfg.Addr),
+		"endpoints", "POST /enqueue, GET /healthz, GET /readyz, GET /metrics, POST /flush, GET /v1/logs, GET /v1/logs/stream",
+	)
 	if err := httpServer.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
-		log.Fatalf("Server error: %v", err)
+		slog.Error("Server error", "error", err)
+		os.Exit(1)
 	}
 }

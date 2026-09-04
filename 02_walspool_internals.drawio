@@ -1,0 +1,488 @@
+<mxfile host="app.diagrams.net" modified="2026-09-04T09:00:00.000Z" agent="Mozilla/5.0" version="21.0.0" type="device">
+  <diagram id="page_1_master" name="1. Architecture &amp; Fonctionnement Interne">
+    <mxGraphModel dx="1200" dy="800" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1640" pageHeight="1060" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="p1_banner" value="&lt;b&gt;&lt;font style='font-size: 20px; color: #FFFFFF;'&gt;WAL-SPOOL : Le Fonctionnement Interne du Spooler Résilient&lt;/font&gt;&lt;/b&gt;&lt;br&gt;&lt;font style='font-size: 13px; color: #94A3B8;'&gt;Schéma Pédagogique d'Architecture — Ingestion Express (&amp;lt; 50µs), Zéro Perte sur Crash (WAL + CRC32), Ring Buffer O(1) &amp;amp; Diffusion SSE Temps Réel&lt;/font&gt;" style="rounded=1;arcSize=6;fillColor=#0F172A;strokeColor=#1E293B;html=1;align=left;spacingLeft=25;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="30" y="15" width="1580" height="65" as="geometry" />
+        </mxCell>
+        <mxCell id="p1_badge_1" value="⚡ Ingestion &amp;lt; 50 µs" style="rounded=1;arcSize=50;fillColor=#DCFCE7;strokeColor=#16A34A;fontColor=#15803D;fontStyle=1;fontSize=11;html=1;align=center;" vertex="1" parent="1">
+          <mxGeometry x="1030" y="28" width="140" height="38" as="geometry" />
+        </mxCell>
+        <mxCell id="p1_badge_2" value="🛡️ Crash Durability 100%" style="rounded=1;arcSize=50;fillColor=#FEF3C7;strokeColor=#D97706;fontColor=#B45309;fontStyle=1;fontSize=11;html=1;align=center;" vertex="1" parent="1">
+          <mxGeometry x="1180" y="28" width="155" height="38" as="geometry" />
+        </mxCell>
+        <mxCell id="p1_badge_3" value="🔄 Ring Buffer O(1)" style="rounded=1;arcSize=50;fillColor=#DBEAFE;strokeColor=#2563EB;fontColor=#1D4ED8;fontStyle=1;fontSize=11;html=1;align=center;" vertex="1" parent="1">
+          <mxGeometry x="1345" y="28" width="135" height="38" as="geometry" />
+        </mxCell>
+        <mxCell id="p1_badge_4" value="🔍 Index &amp;lt; 1 ms" style="rounded=1;arcSize=50;fillColor=#F3E8FF;strokeColor=#9333EA;fontColor=#6B21A8;fontStyle=1;fontSize=11;html=1;align=center;" vertex="1" parent="1">
+          <mxGeometry x="1490" y="28" width="110" height="38" as="geometry" />
+        </mxCell>
+        <mxCell id="p1_box_senders" value="&lt;b&gt;&lt;font style='font-size: 14px; color: #1E293B;'&gt;1. Applications Émettrices (Producteurs)&lt;/font&gt;&lt;/b&gt;" style="swimlane;startSize=28;rounded=1;arcSize=8;fillColor=#F8FAFC;strokeColor=#CBD5E1;fontStyle=1;html=1;align=left;spacingLeft=10;" vertex="1" parent="1">
+          <mxGeometry x="30" y="95" width="310" height="340" as="geometry" />
+        </mxCell>
+        <mxCell id="p1_apps_desc" value="&lt;b&gt;Services Métier &amp;amp; Micro-services :&lt;/b&gt;&lt;br&gt;• Services Backend (Go, Python, PHP, Node.js)&lt;br&gt;• Passerelles API &amp;amp; Travailleurs asynchrones&lt;br&gt;• Forte charge : des milliers de requêtes/s&lt;br&gt;&lt;br&gt;&lt;i&gt;« L'application doit émettre ses logs d'audit et traces sans JAMAIS attendre ni ralentir l'utilisateur final. »&lt;/i&gt;" style="rounded=1;arcSize=6;fillColor=#FFFFFF;strokeColor=#E2E8F0;fontSize=12;html=1;align=left;spacing=10;" vertex="1" parent="1">
+          <mxGeometry x="45" y="135" width="280" height="105" as="geometry" />
+        </mxCell>
+        <mxCell id="p1_apps_payload" value="&lt;b&gt;Appel HTTP sortant :&lt;/b&gt;&lt;br&gt;&lt;code&gt;&lt;b&gt;POST&lt;/b&gt; /v1/enqueue&lt;/code&gt;&lt;br&gt;&lt;font color='#047857' style='font-size: 11px;'&gt;&lt;b&gt;{&lt;/b&gt;&lt;br&gt;&amp;nbsp;&amp;nbsp;&quot;topic&quot;: &quot;billing.invoice&quot;,&lt;br&gt;&amp;nbsp;&amp;nbsp;&quot;service&quot;: &quot;billing&quot;,&lt;br&gt;&amp;nbsp;&amp;nbsp;&quot;trace_id&quot;: &quot;tr-9842&quot;,&lt;br&gt;&amp;nbsp;&amp;nbsp;&quot;level&quot;: &quot;INFO&quot;,&lt;br&gt;&amp;nbsp;&amp;nbsp;&quot;payload&quot;: { &quot;amount&quot;: 99.50 }&lt;br&gt;&lt;b&gt;}&lt;/b&gt;&lt;/font&gt;" style="rounded=1;arcSize=6;fillColor=#F1F5F9;strokeColor=#94A3B8;fontFamily=Courier New;fontSize=11;html=1;align=left;spacing=8;" vertex="1" parent="1">
+          <mxGeometry x="45" y="250" width="280" height="165" as="geometry" />
+        </mxCell>
+        <mxCell id="p1_box_comp1" value="&lt;b&gt;&lt;font style='font-size: 14px; color: #1E40AF;'&gt;COMPOSANT 1 : Endpoint d'Ingestion&lt;/font&gt;&lt;/b&gt;&lt;br&gt;&lt;b&gt;&lt;font style='font-size: 12px; color: #3B82F6;'&gt;🏎️ Métaphore : Le Dépose-Minute Express&lt;/font&gt;&lt;/b&gt;" style="swimlane;startSize=40;rounded=1;arcSize=8;fillColor=#EFF6FF;strokeColor=#3B82F6;strokeWidth=2;fontStyle=1;html=1;align=left;spacingLeft=10;" vertex="1" parent="1">
+          <mxGeometry x="30" y="455" width="310" height="395" as="geometry" />
+        </mxCell>
+        <mxCell id="p1_comp1_details" value="&lt;b&gt;Rôle :&lt;/b&gt; La porte d'entrée éclair de Walspool.&lt;br&gt;&lt;br&gt;&lt;b&gt;1. Validation immédiate :&lt;/b&gt;&lt;br&gt;Vérifie la syntaxe JSON (&amp;lt; 2 Mo) et extrait &lt;i&gt;topic&lt;/i&gt;, &lt;i&gt;service&lt;/i&gt;, &lt;i&gt;trace_id&lt;/i&gt;.&lt;br&gt;&lt;br&gt;&lt;b&gt;2. Double injection sans blocage :&lt;/b&gt;&lt;br&gt;• Grave le log dans le &lt;b&gt;Moteur WAL Disque&lt;/b&gt;&lt;br&gt;• Indexe le log dans le &lt;b&gt;Ring Buffer Mémoire&lt;/b&gt;&lt;br&gt;&lt;br&gt;&lt;b&gt;3. Réponse instantanée au client :&lt;/b&gt;&lt;br&gt;Renvoie le statut HTTP &lt;b&gt;202 Accepted&lt;/b&gt; en &lt;b&gt;&amp;lt; 50 microsecondes&lt;/b&gt;.&lt;br&gt;&lt;br&gt;&lt;div style='background-color:#FEF3C7; padding:6px; border-left:3px solid #D97706; border-radius:4px;'&gt;&lt;b&gt;Garantie Absolue :&lt;/b&gt; L'application cliente reprend ses calculs sur-le-champ. Elle ne subira &lt;b&gt;JAMAIS&lt;/b&gt; la lenteur des bases de données ou du réseau externe !&lt;/div&gt;" style="rounded=1;arcSize=6;fillColor=#FFFFFF;strokeColor=#BFDBFE;fontSize=11;html=1;align=left;spacing=10;" vertex="1" parent="1">
+          <mxGeometry x="45" y="505" width="280" height="255" as="geometry" />
+        </mxCell>
+        <mxCell id="p1_comp1_status" value="&lt;b&gt;Statuts HTTP retournés :&lt;/b&gt;&lt;br&gt;• &lt;b&gt;202 Accepted&lt;/b&gt; : Pris en charge en &amp;lt; 50 µs&lt;br&gt;• &lt;b&gt;503 Spool Full&lt;/b&gt; : Quota atteint (Backpressure)&lt;br&gt;• &lt;b&gt;400 Bad Request&lt;/b&gt; : Payload ou Topic vide" style="rounded=1;arcSize=6;fillColor=#DBEAFE;strokeColor=#60A5FA;fontSize=11;html=1;align=left;spacing=8;" vertex="1" parent="1">
+          <mxGeometry x="45" y="770" width="280" height="65" as="geometry" />
+        </mxCell>
+        <mxCell id="p1_box_engine" value="&lt;b&gt;&lt;font style='font-size: 16px; color: #0F172A;'&gt;CŒUR DE WALSPOOL (Processus Embarqué Autonome — Architecture Boîte Noire)&lt;/font&gt;&lt;/b&gt;" style="swimlane;startSize=34;rounded=1;arcSize=8;fillColor=#F8FAFC;strokeColor=#2563EB;strokeWidth=2;html=1;align=left;spacingLeft=15;" vertex="1" parent="1">
+          <mxGeometry x="370" y="95" width="810" height="755" as="geometry" />
+        </mxCell>
+        <mxCell id="p1_box_hub" value="&lt;b&gt;&lt;font style='font-size: 13px; color: #92400E;'&gt;MOTEUR MÉMOIRE VIVE (MemoryLogHub) — Observabilité &amp;amp; Temps Réel&lt;/font&gt;&lt;/b&gt;" style="swimlane;startSize=26;rounded=1;arcSize=8;fillColor=#FFFBEB;strokeColor=#F59E0B;strokeWidth=1.5;html=1;align=left;spacingLeft=10;" vertex="1" parent="1">
+          <mxGeometry x="385" y="135" width="780" height="345" as="geometry" />
+        </mxCell>
+        <mxCell id="p1_box_comp3" value="&lt;b&gt;&lt;font style='font-size: 13px; color: #B45309;'&gt;COMPOSANT 3 : Ring Buffer Circulaire&lt;/font&gt;&lt;/b&gt;&lt;br&gt;&lt;b&gt;&lt;font style='font-size: 11px; color: #D97706;'&gt;🎡 Métaphore : Le Carrousel à 50 000 Places&lt;/font&gt;&lt;/b&gt;" style="rounded=1;arcSize=8;fillColor=#FFFFFF;strokeColor=#F59E0B;html=1;align=left;spacing=10;verticalAlign=top;" vertex="1" parent="1">
+          <mxGeometry x="400" y="170" width="360" height="295" as="geometry" />
+        </mxCell>
+        <mxCell id="p1_comp3_content" value="&lt;b&gt;Principe du Ring Buffer (Anneau Fixe) :&lt;/b&gt;&lt;br&gt;• &lt;b&gt;Capacité stricte :&lt;/b&gt; 50 000 logs alloués une seule fois au démarrage.&lt;br&gt;• &lt;b&gt;Pointeur circulaire (Head) :&lt;/b&gt; Les nouveaux logs avancent case par case : &lt;code&gt;0 → 1 → ... → 49999&lt;/code&gt;.&lt;br&gt;• &lt;b&gt;Écrasement O(1) :&lt;/b&gt; Quand le 50 001ème log arrive, il écrase instantanément le plus vieux sans déplacer les autres.&lt;br&gt;&lt;br&gt;&lt;div style='background-color:#FEF3C7; padding:6px; border-radius:4px; font-size:11px;'&gt;&lt;b&gt;🛡️ ZÉRO FUITE MÉMOIRE :&lt;/b&gt;&lt;br&gt;La mémoire vive allouée ne grossit &lt;b&gt;JAMAIS&lt;/b&gt;. Aucune allocation folle, aucun risque de crash OOM (Out Of Memory) pour votre serveur !&lt;/div&gt;&lt;br&gt;&lt;b&gt;Schéma du carrousel circulaire en RAM :&lt;/b&gt;&lt;br&gt;&lt;center&gt;&lt;code&gt;[0] [1] [2] ... [Head ➜ Log 50 001] ... [49 999]&lt;/code&gt;&lt;/center&gt;" style="text;html=1;fontSize=11;align=left;spacing=5;" vertex="1" parent="1">
+          <mxGeometry x="410" y="220" width="340" height="235" as="geometry" />
+        </mxCell>
+        <mxCell id="p1_box_comp4" value="&lt;b&gt;&lt;font style='font-size: 13px; color: #6B21A8;'&gt;COMPOSANT 4 : Index Inversés en Mémoire&lt;/font&gt;&lt;/b&gt;&lt;br&gt;&lt;b&gt;&lt;font style='font-size: 11px; color: #9333EA;'&gt;🗄️ Métaphore : Les Tiroirs de Tri Postal&lt;/font&gt;&lt;/b&gt;" style="rounded=1;arcSize=8;fillColor=#FAF5FF;strokeColor=#9333EA;html=1;align=left;spacing=8;verticalAlign=top;" vertex="1" parent="1">
+          <mxGeometry x="780" y="170" width="370" height="140" as="geometry" />
+        </mxCell>
+        <mxCell id="p1_comp4_content" value="• &lt;b&gt;Index Trace ID :&lt;/b&gt; Associe directement &lt;code&gt;tr-9842&lt;/code&gt; aux logs de la transaction.&lt;br&gt;• &lt;b&gt;Index Service :&lt;/b&gt; Regroupe les logs du service &lt;code&gt;billing&lt;/code&gt;.&lt;br&gt;• &lt;b&gt;Pointeurs instantanés :&lt;/b&gt; Requête exécutée en &lt;b&gt;&amp;lt; 1 milliseconde (&amp;lt; 1 ms)&lt;/b&gt; sans scanner les 50 000 lignes du carrousel !&lt;br&gt;• &lt;b&gt;Nettoyage synchrone :&lt;/b&gt; Dès qu'un log est écrasé, ses pointeurs dans les tiroirs sont purgés en O(1)." style="text;html=1;fontSize=11;align=left;spacing=4;" vertex="1" parent="1">
+          <mxGeometry x="790" y="215" width="350" height="85" as="geometry" />
+        </mxCell>
+        <mxCell id="p1_box_comp5" value="&lt;b&gt;&lt;font style='font-size: 13px; color: #0E7490;'&gt;COMPOSANT 5 : Broadcaster SSE (Pub/Sub)&lt;/font&gt;&lt;/b&gt;&lt;br&gt;&lt;b&gt;&lt;font style='font-size: 11px; color: #0891B2;'&gt;📻 Métaphore : L'Antenne Radio en Direct&lt;/font&gt;&lt;/b&gt;" style="rounded=1;arcSize=8;fillColor=#ECFEFF;strokeColor=#0891B2;html=1;align=left;spacing=8;verticalAlign=top;" vertex="1" parent="1">
+          <mxGeometry x="780" y="320" width="370" height="145" as="geometry" />
+        </mxCell>
+        <mxCell id="p1_comp5_content" value="• &lt;b&gt;Push Temps Réel :&lt;/b&gt; Dès qu'un log entre dans le Hub, il est immédiatement poussé aux abonnés HTTP.&lt;br&gt;• &lt;b&gt;Endpoint :&lt;/b&gt; &lt;code&gt;GET /v1/logs/stream?service=billing&lt;/code&gt;&lt;br&gt;• &lt;b&gt;Keepalive 10 secondes :&lt;/b&gt; Envoie un battement de cœur régulier (&lt;code&gt;: keepalive\n\n&lt;/code&gt;) pour empêcher les proxies de clore la connexion.&lt;br&gt;• &lt;b&gt;Filtre dynamique :&lt;/b&gt; Chaque client ne reçoit que les logs qui l'intéressent." style="text;html=1;fontSize=11;align=left;spacing=4;" vertex="1" parent="1">
+          <mxGeometry x="790" y="365" width="350" height="90" as="geometry" />
+        </mxCell>
+        <mxCell id="p1_box_wal" value="&lt;b&gt;&lt;font style='font-size: 13px; color: #065F46;'&gt;MOTEUR DISQUE WAL (FileStorageEngine) — Durabilité Absolue &amp;amp; Zéro Perte&lt;/font&gt;&lt;/b&gt;" style="swimlane;startSize=26;rounded=1;arcSize=8;fillColor=#F0FDF4;strokeColor=#10B981;strokeWidth=1.5;html=1;align=left;spacingLeft=10;" vertex="1" parent="1">
+          <mxGeometry x="385" y="495" width="780" height="340" as="geometry" />
+        </mxCell>
+        <mxCell id="p1_box_comp2" value="&lt;b&gt;&lt;font style='font-size: 13px; color: #065F46;'&gt;COMPOSANT 2 : Moteur WAL Disque&lt;/font&gt;&lt;/b&gt;&lt;br&gt;&lt;b&gt;&lt;font style='font-size: 11px; color: #10B981;'&gt;💾 Métaphore : Le Coffre-Fort à Écriture Séquentielle&lt;/font&gt;&lt;/b&gt;" style="rounded=1;arcSize=8;fillColor=#FFFFFF;strokeColor=#10B981;html=1;align=left;spacing=10;verticalAlign=top;" vertex="1" parent="1">
+          <mxGeometry x="400" y="530" width="360" height="290" as="geometry" />
+        </mxCell>
+        <mxCell id="p1_comp2_content" value="&lt;b&gt;Fichier actif : &lt;code&gt;active.wal&lt;/code&gt; sur SSD local&lt;/b&gt;&lt;br&gt;&lt;br&gt;• &lt;b&gt;Écriture Append-Only Séquentielle :&lt;/b&gt; Chaque log est gravé à la suite sans déplacement mécanique. Débit maximal du disque (&amp;lt; 2 µs).&lt;br&gt;&lt;br&gt;• &lt;b&gt;Sceau d'intégrité CRC32 IEEE :&lt;/b&gt;&lt;br&gt;Chaque log est protégé par une empreinte mathématique de 4 octets. Si une panne altère un seul bit sur le disque, l'erreur est détectée immédiatement.&lt;br&gt;&lt;br&gt;&lt;div style='background-color:#DCFCE7; padding:6px; border-radius:4px; font-size:11px;'&gt;&lt;b&gt;🛡️ TOLÉRANCE AUX PANNES :&lt;/b&gt;&lt;br&gt;Si le serveur subit une coupure d'électricité (kill -9), &lt;b&gt;AUCUN&lt;/b&gt; log acquitté n'est perdu. Au redémarrage, Walspool rejoue le WAL et reprend sans perte !&lt;/div&gt;" style="text;html=1;fontSize=11;align=left;spacing=5;" vertex="1" parent="1">
+          <mxGeometry x="410" y="580" width="340" height="230" as="geometry" />
+        </mxCell>
+        <mxCell id="p1_box_comp6" value="&lt;b&gt;&lt;font style='font-size: 13px; color: #991B1B;'&gt;COMPOSANT 6 : Flusher / Drain Asynchrone&lt;/font&gt;&lt;/b&gt;&lt;br&gt;&lt;b&gt;&lt;font style='font-size: 11px; color: #DC2626;'&gt;🚚 Métaphore : Le Camion de Livraison en Tâche de Fond&lt;/font&gt;&lt;/b&gt;" style="rounded=1;arcSize=8;fillColor=#FEF2F2;strokeColor=#EF4444;html=1;align=left;spacing=8;verticalAlign=top;" vertex="1" parent="1">
+          <mxGeometry x="780" y="530" width="370" height="140" as="geometry" />
+        </mxCell>
+        <mxCell id="p1_comp6_content" value="• &lt;b&gt;Travailleur d'arrière-plan autonome :&lt;/b&gt; Prélève des lots de 50 à 100 logs sur le disque sans ralentir les entrées.&lt;br&gt;• &lt;b&gt;Double déclencheur :&lt;/b&gt; Lot plein (&lt;code&gt;BatchSize=50&lt;/code&gt;) OU temporisateur écoulé (&lt;code&gt;FlushInterval=50ms&lt;/code&gt;).&lt;br&gt;• &lt;b&gt;Expédition sécurisée :&lt;/b&gt; Envoie vers le stockage externe distant.&lt;br&gt;• &lt;b&gt;Backoff exponentiel :&lt;/b&gt; En cas d'erreur 5xx du récepteur distant, ralentit et retente avec temporisation progressive." style="text;html=1;fontSize=11;align=left;spacing=4;" vertex="1" parent="1">
+          <mxGeometry x="790" y="575" width="350" height="90" as="geometry" />
+        </mxCell>
+        <mxCell id="p1_box_checkpoint" value="&lt;b&gt;&lt;font style='font-size: 13px; color: #1E293B;'&gt;Point de Contrôle Atomique (checkpoint.meta)&lt;/font&gt;&lt;/b&gt;&lt;br&gt;&lt;b&gt;&lt;font style='font-size: 11px; color: #475569;'&gt;🔖 Métaphore : Le Marque-Page Inviolable&lt;/font&gt;&lt;/b&gt;" style="rounded=1;arcSize=8;fillColor=#F1F5F9;strokeColor=#64748B;html=1;align=left;spacing=8;verticalAlign=top;" vertex="1" parent="1">
+          <mxGeometry x="780" y="680" width="370" height="140" as="geometry" />
+        </mxCell>
+        <mxCell id="p1_checkpoint_content" value="• &lt;b&gt;Mémorisation de l'avancement :&lt;/b&gt; Stocke l'offset du dernier log expédié avec succès.&lt;br&gt;• &lt;b&gt;Remplacement atomique (Atomic Swap) :&lt;/b&gt;&lt;br&gt;Écrit dans &lt;code&gt;checkpoint.meta.tmp&lt;/code&gt; puis renomme via &lt;code&gt;os.Rename()&lt;/code&gt;.&lt;br&gt;• &lt;b&gt;Inviolabilité :&lt;/b&gt; Jamais d'état corrompu ou à moitié écrit, même en coupure de courant brutale." style="text;html=1;fontSize=11;align=left;spacing=4;" vertex="1" parent="1">
+          <mxGeometry x="790" y="725" width="350" height="90" as="geometry" />
+        </mxCell>
+        <mxCell id="p1_box_outputs" value="&lt;b&gt;&lt;font style='font-size: 14px; color: #1E293B;'&gt;Consommateurs &amp;amp; Sorties&lt;/font&gt;&lt;/b&gt;" style="swimlane;startSize=28;rounded=1;arcSize=8;fillColor=#F8FAFC;strokeColor=#CBD5E1;fontStyle=1;html=1;align=left;spacingLeft=10;" vertex="1" parent="1">
+          <mxGeometry x="1210" y="95" width="400" height="755" as="geometry" />
+        </mxCell>
+        <mxCell id="p1_out_sse" value="&lt;b&gt;&lt;font style='font-size: 13px; color: #0E7490;'&gt;1. Navigateurs &amp;amp; Dashboards en Direct&lt;/font&gt;&lt;/b&gt;&lt;br&gt;&lt;b&gt;Connexion HTTP :&lt;/b&gt; &lt;code&gt;GET /v1/logs/stream&lt;/code&gt;&lt;br&gt;• Réception en temps réel événement par événement (SSE).&lt;br&gt;• Filtres instantanés par &lt;i&gt;service&lt;/i&gt; ou &lt;i&gt;niveau&lt;/i&gt;.&lt;br&gt;• Pas besoin de rafraîchir la page (F5) : le flux défile en direct.&lt;br&gt;• &lt;b&gt;Keepalive toutes les 10s :&lt;/b&gt; La connexion reste vivante sans déconnexion intempestive." style="rounded=1;arcSize=8;fillColor=#ECFEFF;strokeColor=#0891B2;fontSize=11;html=1;align=left;spacing=10;" vertex="1" parent="1">
+          <mxGeometry x="1225" y="140" width="370" height="140" as="geometry" />
+        </mxCell>
+        <mxCell id="p1_out_query" value="&lt;b&gt;&lt;font style='font-size: 13px; color: #6B21A8;'&gt;2. Dev-Cockpit &amp;amp; Diagnostic d'Incident&lt;/font&gt;&lt;/b&gt;&lt;br&gt;&lt;b&gt;Requête HTTP :&lt;/b&gt; &lt;code&gt;GET /v1/logs?trace_id=tr-9842&lt;/code&gt;&lt;br&gt;• &lt;b&gt;Réponse en &amp;lt; 1 milliseconde :&lt;/b&gt; Recherche chirurgicale immédiate grâce aux Index Inversés.&lt;br&gt;• Reconstitue la chronologie exacte d'un bug ou d'une commande client en production.&lt;br&gt;• Idéal pour les ingénieurs support et DevOps." style="rounded=1;arcSize=8;fillColor=#FAF5FF;strokeColor=#9333EA;fontSize=11;html=1;align=left;spacing=10;" vertex="1" parent="1">
+          <mxGeometry x="1225" y="300" width="370" height="145" as="geometry" />
+        </mxCell>
+        <mxCell id="p1_out_drain" value="&lt;b&gt;&lt;font style='font-size: 13px; color: #991B1B;'&gt;3. Stockage Externe Long Terme (Drain)&lt;/font&gt;&lt;/b&gt;&lt;br&gt;&lt;b&gt;Destinations prises en charge :&lt;/b&gt;&lt;br&gt;• Elasticsearch / Grafana Loki / OpenSearch&lt;br&gt;• AWS S3 / Datadog / Webhooks HTTPS / Kafka&lt;br&gt;• &lt;b&gt;Absorption des pics :&lt;/b&gt; Le serveur externe reçoit des lots stables et réguliers, parfaitement protégés contre les congestions." style="rounded=1;arcSize=8;fillColor=#FEF2F2;strokeColor=#EF4444;fontSize=11;html=1;align=left;spacing=10;" vertex="1" parent="1">
+          <mxGeometry x="1225" y="520" width="370" height="150" as="geometry" />
+        </mxCell>
+        <mxCell id="p1_out_flush" value="&lt;b&gt;&lt;font style='font-size: 13px; color: #1E293B;'&gt;4. Commande de Vidage Forcé (Flush)&lt;/font&gt;&lt;/b&gt;&lt;br&gt;&lt;b&gt;Commande :&lt;/b&gt; &lt;code&gt;POST /flush&lt;/code&gt;&lt;br&gt;• Déclenche la livraison immédiate de tous les logs restants.&lt;br&gt;• Essentiel lors de l'extinction propre (Graceful Shutdown) d'un conteneur Docker / Pod Kubernetes." style="rounded=1;arcSize=8;fillColor=#FFFFFF;strokeColor=#64748B;fontSize=11;html=1;align=left;spacing=8;" vertex="1" parent="1">
+          <mxGeometry x="1225" y="690" width="370" height="130" as="geometry" />
+        </mxCell>
+        <mxCell id="edge_app_to_comp1" value="&lt;b&gt;1. POST /v1/enqueue&lt;/b&gt;&lt;br&gt;&lt;font color='#16A34A'&gt;&lt;b&gt;&amp;lt; 50 µs (202 Accepted)&lt;/b&gt;&lt;/font&gt;" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#2563EB;strokeWidth=3;fontColor=#1E293B;fontSize=11;" edge="1" parent="1" source="p1_apps_payload" target="p1_box_comp1">
+          <mxGeometry relative="1" as="geometry">
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge_comp1_to_hub" value="&lt;b&gt;2a. Ingestion RAM&lt;/b&gt;&lt;br&gt;Ring Buffer 50k O(1)" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#D97706;strokeWidth=2.5;fontColor=#B45309;fontSize=10;" edge="1" parent="1" source="p1_box_comp1" target="p1_box_comp3">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="350" y="520" />
+              <mxPoint x="350" y="300" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge_comp1_to_wal" value="&lt;b&gt;2b. Écriture Disque&lt;/b&gt;&lt;br&gt;Append WAL + CRC32" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#059669;strokeWidth=2.5;fontColor=#065F46;fontSize=10;" edge="1" parent="1" source="p1_box_comp1" target="p1_box_comp2">
+          <mxGeometry relative="1" as="geometry">
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge_hub_to_index" value="Indexation Trace &amp;amp; Service" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#9333EA;strokeWidth=2;fontColor=#6B21A8;fontSize=10;" edge="1" parent="1" source="p1_box_comp3" target="p1_box_comp4">
+          <mxGeometry relative="1" as="geometry">
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge_hub_to_sse" value="Événement temps réel" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#0891B2;strokeWidth=2;fontColor=#0E7490;fontSize=10;" edge="1" parent="1" source="p1_box_comp3" target="p1_box_comp5">
+          <mxGeometry relative="1" as="geometry">
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge_sse_to_browser" value="&lt;b&gt;Flux SSE direct&lt;/b&gt;&lt;br&gt;Keepalive 10s" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#0891B2;strokeWidth=2.5;fontColor=#0E7490;fontSize=10;" edge="1" parent="1" source="p1_box_comp5" target="p1_out_sse">
+          <mxGeometry relative="1" as="geometry">
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge_index_to_query" value="&lt;b&gt;Résultat &amp;lt; 1 ms&lt;/b&gt;" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#9333EA;strokeWidth=2.5;fontColor=#6B21A8;fontSize=10;" edge="1" parent="1" source="p1_box_comp4" target="p1_out_query">
+          <mxGeometry relative="1" as="geometry">
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge_wal_to_flusher" value="Lecture par lots (50 logs)" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#DC2626;strokeWidth=2;fontColor=#991B1B;fontSize=10;" edge="1" parent="1" source="p1_box_comp2" target="p1_box_comp6">
+          <mxGeometry relative="1" as="geometry">
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge_flusher_to_checkpoint" value="Validation Offset" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#64748B;strokeWidth=2;dashed=1;fontColor=#475569;fontSize=10;" edge="1" parent="1" source="p1_box_comp6" target="p1_box_checkpoint">
+          <mxGeometry relative="1" as="geometry">
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge_flusher_to_drain" value="&lt;b&gt;Expédition par lots&lt;/b&gt;&lt;br&gt;HTTPS / S3 / Kafka" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#DC2626;strokeWidth=2.5;fontColor=#991B1B;fontSize=10;" edge="1" parent="1" source="p1_box_comp6" target="p1_out_drain">
+          <mxGeometry relative="1" as="geometry">
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge_flush_to_worker" value="Ordre de vidage immédiat" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#475569;strokeWidth=1.5;dashed=1;fontColor=#475569;fontSize=10;" edge="1" parent="1" source="p1_out_flush" target="p1_box_comp6">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1210" y="755" />
+              <mxPoint x="1160" y="755" />
+              <mxPoint x="1160" y="600" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="p1_box_footer" value="&lt;b&gt;&lt;font style='font-size: 13px; color: #0F172A;'&gt;LES 4 RÈGLES D'OR DU DESIGN BLACK-BOX DE WALSPOOL&lt;/font&gt;&lt;/b&gt;" style="swimlane;startSize=26;rounded=1;arcSize=8;fillColor=#F8FAFC;strokeColor=#94A3B8;fontStyle=1;html=1;align=left;spacingLeft=15;" vertex="1" parent="1">
+          <mxGeometry x="30" y="870" width="1580" height="160" as="geometry" />
+        </mxCell>
+        <mxCell id="p1_card_rule1" value="&lt;b&gt;1. DÉCOUPLAGE TOTAL (SPOOL)&lt;/b&gt;&lt;br&gt;L'application cliente ne dépend jamais de la disponibilité du stockage externe. L'ingestion en &amp;lt; 50 µs libère instantanément les workers applicatifs." style="rounded=1;arcSize=8;fillColor=#EFF6FF;strokeColor=#3B82F6;fontSize=11;html=1;align=left;spacing=8;" vertex="1" parent="1">
+          <mxGeometry x="45" y="905" width="365" height="110" as="geometry" />
+        </mxCell>
+        <mxCell id="p1_card_rule2" value="&lt;b&gt;2. ZÉRO PERTE (WAL + CRC32)&lt;/b&gt;&lt;br&gt;Chaque log accepté est immédiatement gravé sur disque SSD avec sa somme de contrôle IEEE CRC32. Tolérance totale aux pannes électriques (crash-proof)." style="rounded=1;arcSize=8;fillColor=#F0FDF4;strokeColor=#10B981;fontSize=11;html=1;align=left;spacing=8;" vertex="1" parent="1">
+          <mxGeometry x="435" y="905" width="365" height="110" as="geometry" />
+        </mxCell>
+        <mxCell id="p1_card_rule3" value="&lt;b&gt;3. MÉMOIRE MAÎTRISÉE (RING BUFFER)&lt;/b&gt;&lt;br&gt;Capacité fixe de 50 000 logs allouée au démarrage. Remplacement instantané en O(1). Zéro fuite mémoire, zéro pic de Garbage Collector." style="rounded=1;arcSize=8;fillColor=#FFFBEB;strokeColor=#F59E0B;fontSize=11;html=1;align=left;spacing=8;" vertex="1" parent="1">
+          <mxGeometry x="825" y="905" width="365" height="110" as="geometry" />
+        </mxCell>
+        <mxCell id="p1_card_rule4" value="&lt;b&gt;4. OBSERVABILITÉ VIVANTE (SSE &amp;amp; INDEX)&lt;/b&gt;&lt;br&gt;Diffusion temps réel sans rafraîchissement avec signal keepalive 10s, et recherche chirurgicale par trace distribuée en &amp;lt; 1 milliseconde." style="rounded=1;arcSize=8;fillColor=#FAF5FF;strokeColor=#9333EA;fontSize=11;html=1;align=left;spacing=8;" vertex="1" parent="1">
+          <mxGeometry x="1215" y="905" width="380" height="110" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+  <diagram id="page_2_essence" name="2. Pourquoi WAL-SPOOL ? (Métaphores &amp; Essence)">
+    <mxGraphModel dx="1200" dy="800" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1500" pageHeight="980" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="p2_banner" value="&lt;b&gt;&lt;font style='font-size: 20px; color: #FFFFFF;'&gt;Pourquoi « WAL-SPOOL » ? Démystification &amp;amp; Métaphores Visuelles&lt;/font&gt;&lt;/b&gt;&lt;br&gt;&lt;font style='font-size: 13px; color: #94A3B8;'&gt;Deux piliers de l'ingénierie logicielle réunis pour résoudre définitivement le dilemme des logs et événements d'audit&lt;/font&gt;" style="rounded=1;arcSize=6;fillColor=#0F172A;strokeColor=#1E293B;html=1;align=left;spacingLeft=25;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="30" y="20" width="1440" height="65" as="geometry" />
+        </mxCell>
+        <mxCell id="p2_box_wal" value="&lt;b&gt;&lt;font style='font-size: 16px; color: #065F46;'&gt;1. « WAL » = Write-Ahead Log (Le Journal Écrit Avant Tout)&lt;/font&gt;&lt;/b&gt;" style="swimlane;startSize=32;rounded=1;arcSize=8;fillColor=#F0FDF4;strokeColor=#10B981;strokeWidth=2;html=1;align=left;spacingLeft=15;" vertex="1" parent="1">
+          <mxGeometry x="30" y="105" width="695" height="430" as="geometry" />
+        </mxCell>
+        <mxCell id="p2_wal_metaphor" value="&lt;b&gt;📜 La Métaphore du Notaire &amp;amp; du Grand Livre Inaltérable :&lt;/b&gt;&lt;br&gt;&lt;br&gt;Avant de réaliser une transaction ou de modifier l'état du monde, le notaire inscrit d'abord la décision dans un grand registre relié à l'encre indélébile.&lt;br&gt;&lt;br&gt;&lt;b&gt;Pourquoi « Write-Ahead » (Écrit Avant) ?&lt;/b&gt;&lt;br&gt;• Walspool ne prend AUCUN risque : avant d'indexer en mémoire, avant d'appeler le réseau, le log est d'abord gravé physiquement sur le disque local.&lt;br&gt;• Dès que l'écriture disque est effectuée, Walspool répond &lt;code&gt;202 Accepted&lt;/code&gt;. Le contrat est scellé.&lt;br&gt;&lt;br&gt;&lt;b&gt;Pourquoi l'écriture séquentielle sur SSD est magique ?&lt;/b&gt;&lt;br&gt;• Dans une base classique, chercher où ranger une donnée demande des calculs et des mouvements de tête de lecture (aléatoire).&lt;br&gt;• Dans un WAL, on écrit toujours &lt;b&gt;à la suite du fichier (Append-Only)&lt;/b&gt;. Sur un SSD NVMe moderne, cela ne prend que &lt;b&gt;1.5 microseconde&lt;/b&gt; !&lt;br&gt;&lt;br&gt;&lt;b&gt;Le Sceau de Cire CRC32 :&lt;/b&gt;&lt;br&gt;Chaque log est scellé avec un calcul mathématique IEEE CRC32. Si le courant est coupé pendant l'écriture d'un octet, le log est immédiatement identifié comme incomplet et rejeté proprement au redémarrage." style="rounded=1;arcSize=6;fillColor=#FFFFFF;strokeColor=#A7F3D0;fontSize=12;html=1;align=left;spacing=12;" vertex="1" parent="1">
+          <mxGeometry x="45" y="150" width="665" height="370" as="geometry" />
+        </mxCell>
+        <mxCell id="p2_box_spool" value="&lt;b&gt;&lt;font style='font-size: 16px; color: #1E40AF;'&gt;2. « SPOOL » = Réservoir Tampon / Amortisseur de Choc&lt;/font&gt;&lt;/b&gt;" style="swimlane;startSize=32;rounded=1;arcSize=8;fillColor=#EFF6FF;strokeColor=#3B82F6;strokeWidth=2;html=1;align=left;spacingLeft=15;" vertex="1" parent="1">
+          <mxGeometry x="775" y="105" width="695" height="430" as="geometry" />
+        </mxCell>
+        <mxCell id="p2_spool_metaphor" value="&lt;b&gt;🏰 La Métaphore du Château d'Eau &amp;amp; des Orages Soudains :&lt;/b&gt;&lt;br&gt;&lt;br&gt;&lt;b&gt;L'Histoire du mot SPOOL :&lt;/b&gt;&lt;br&gt;Inventé aux débuts de l'informatique (&lt;i&gt;Simultaneous Peripheral Operations On-Line&lt;/i&gt;) pour empêcher les ordinateurs ultra-rapides de s'arrêter en attendant les imprimantes mécaniques lentes.&lt;br&gt;&lt;br&gt;&lt;b&gt;Le Problème sans Spool :&lt;/b&gt;&lt;br&gt;Lors d'un pic de ventes (ex: Black Friday), votre site reçoit 50 000 requêtes/seconde. Si chaque requête tente d'appeler directement Elasticsearch ou un webhook externe, le réseau externe sature, les connexions bloquent, et tout votre site web s'effondre en cascade avec des erreurs 504 Gateway Timeout !&lt;br&gt;&lt;br&gt;&lt;b&gt;La Réponse du Spool :&lt;/b&gt;&lt;br&gt;Le Spool agit comme un &lt;b&gt;château d'eau géant&lt;/b&gt; :&lt;br&gt;• Il absorbe instantanément l'orage diluvien (les pics de logs) en &amp;lt; 50 µs sans jamais ralentir la pluie (l'API cliente).&lt;br&gt;• Puis, au calme en arrière-plan, il distribue l'eau avec un débit parfaitement régulier et maîtrisé (des lots de 50 logs toutes les 50ms) vers les systèmes externes." style="rounded=1;arcSize=6;fillColor=#FFFFFF;strokeColor=#BFDBFE;fontSize=12;html=1;align=left;spacing=12;" vertex="1" parent="1">
+          <mxGeometry x="790" y="150" width="665" height="370" as="geometry" />
+        </mxCell>
+        <mxCell id="p2_box_compare" value="&lt;b&gt;&lt;font style='font-size: 14px; color: #0F172A;'&gt;TABLEAU COMPARATIF : POURQUOI LES ANCIENNES APPROCHES ÉCHOUENT FACE À WALSPOOL&lt;/font&gt;&lt;/b&gt;" style="swimlane;startSize=30;rounded=1;arcSize=8;fillColor=#F8FAFC;strokeColor=#94A3B8;html=1;align=left;spacingLeft=15;" vertex="1" parent="1">
+          <mxGeometry x="30" y="560" width="1440" height="390" as="geometry" />
+        </mxCell>
+        <mxCell id="p2_th_crit" value="&lt;b&gt;Critères d'Évaluation&lt;/b&gt;" style="rounded=0;fillColor=#0F172A;fontColor=#FFFFFF;fontSize=12;fontStyle=1;html=1;align=center;" vertex="1" parent="1">
+          <mxGeometry x="45" y="600" width="240" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="p2_th_http" value="&lt;b&gt;1. Appel HTTP Direct Synchrone&lt;/b&gt;" style="rounded=0;fillColor=#FEE2E2;fontColor=#991B1B;fontSize=12;fontStyle=1;html=1;align=center;" vertex="1" parent="1">
+          <mxGeometry x="285" y="600" width="280" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="p2_th_ram" value="&lt;b&gt;2. Queue RAM Basique (Channels Go)&lt;/b&gt;" style="rounded=0;fillColor=#FEF3C7;fontColor=#92400E;fontSize=12;fontStyle=1;html=1;align=center;" vertex="1" parent="1">
+          <mxGeometry x="565" y="600" width="280" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="p2_th_kafka" value="&lt;b&gt;3. Broker Distribué (Kafka / SQS)&lt;/b&gt;" style="rounded=0;fillColor=#E0E7FF;fontColor=#3730A3;fontSize=12;fontStyle=1;html=1;align=center;" vertex="1" parent="1">
+          <mxGeometry x="845" y="600" width="280" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="p2_th_wal" value="&lt;b&gt;4. Walspool (In-Process WAL+Spool)&lt;/b&gt;" style="rounded=0;fillColor=#DCFCE7;fontColor=#065F46;fontSize=12;fontStyle=1;html=1;align=center;" vertex="1" parent="1">
+          <mxGeometry x="1125" y="600" width="330" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="p2_r1_c0" value="&lt;b&gt;Latence pour l'API émettrice&lt;/b&gt;" style="rounded=0;fillColor=#FFFFFF;strokeColor=#E2E8F0;fontSize=11;html=1;align=left;spacingLeft=8;" vertex="1" parent="1">
+          <mxGeometry x="45" y="640" width="240" height="65" as="geometry" />
+        </mxCell>
+        <mxCell id="p2_r1_c1" value="&lt;b&gt;50 à 800 ms&lt;/b&gt;&lt;br&gt;&lt;font color='#DC2626'&gt;Bloque les requêtes des utilisateurs&lt;/font&gt;" style="rounded=0;fillColor=#FFFFFF;strokeColor=#E2E8F0;fontSize=11;html=1;align=center;" vertex="1" parent="1">
+          <mxGeometry x="285" y="640" width="280" height="65" as="geometry" />
+        </mxCell>
+        <mxCell id="p2_r1_c2" value="&lt;b&gt;&amp;lt; 1 µs&lt;/b&gt;&lt;br&gt;&lt;font color='#16A34A'&gt;Très rapide en mémoire&lt;/font&gt;" style="rounded=0;fillColor=#FFFFFF;strokeColor=#E2E8F0;fontSize=11;html=1;align=center;" vertex="1" parent="1">
+          <mxGeometry x="565" y="640" width="280" height="65" as="geometry" />
+        </mxCell>
+        <mxCell id="p2_r1_c3" value="&lt;b&gt;5 à 15 ms&lt;/b&gt;&lt;br&gt;&lt;font color='#D97706'&gt;Latence réseau TCP vers le cluster&lt;/font&gt;" style="rounded=0;fillColor=#FFFFFF;strokeColor=#E2E8F0;fontSize=11;html=1;align=center;" vertex="1" parent="1">
+          <mxGeometry x="845" y="640" width="280" height="65" as="geometry" />
+        </mxCell>
+        <mxCell id="p2_r1_c4" value="&lt;b&gt;&amp;lt; 50 µs HTTP (&amp;lt; 2 µs natif)&lt;/b&gt;&lt;br&gt;&lt;font color='#15803D'&gt;&lt;b&gt;Ultra-rapide &amp;amp; non-bloquant&lt;/b&gt;&lt;/font&gt;" style="rounded=0;fillColor=#F0FDF4;strokeColor=#86EFAC;fontSize=11;html=1;align=center;" vertex="1" parent="1">
+          <mxGeometry x="1125" y="640" width="330" height="65" as="geometry" />
+        </mxCell>
+        <mxCell id="p2_r2_c0" value="&lt;b&gt;Résilience après crash (Kill -9)&lt;/b&gt;" style="rounded=0;fillColor=#FFFFFF;strokeColor=#E2E8F0;fontSize=11;html=1;align=left;spacingLeft=8;" vertex="1" parent="1">
+          <mxGeometry x="45" y="705" width="65" height="65" as="geometry" />
+        </mxCell>
+        <mxCell id="p2_r2_c1" value="❌ &lt;b&gt;Perte totale&lt;/b&gt; en cas de timeout" style="rounded=0;fillColor=#FFFFFF;strokeColor=#E2E8F0;fontSize=11;html=1;align=center;" vertex="1" parent="1">
+          <mxGeometry x="285" y="705" width="280" height="65" as="geometry" />
+        </mxCell>
+        <mxCell id="p2_r2_c2" value="❌ &lt;b&gt;Perte totale des données en RAM&lt;/b&gt;&lt;br&gt;&lt;font color='#DC2626'&gt;Violation de conformité audit/SOC2&lt;/font&gt;" style="rounded=0;fillColor=#FFFFFF;strokeColor=#E2E8F0;fontSize=11;html=1;align=center;" vertex="1" parent="1">
+          <mxGeometry x="565" y="705" width="280" height="65" as="geometry" />
+        </mxCell>
+        <mxCell id="p2_r2_c3" value="✅ &lt;b&gt;Élevée&lt;/b&gt; (Réplication inter-nœuds)" style="rounded=0;fillColor=#FFFFFF;strokeColor=#E2E8F0;fontSize=11;html=1;align=center;" vertex="1" parent="1">
+          <mxGeometry x="845" y="705" width="280" height="65" as="geometry" />
+        </mxCell>
+        <mxCell id="p2_r2_c4" value="✅ &lt;b&gt;100% Indestructible (WAL+CRC32)&lt;/b&gt;&lt;br&gt;&lt;font color='#15803D'&gt;Reprise automatique sans aucune perte&lt;/font&gt;" style="rounded=0;fillColor=#F0FDF4;strokeColor=#86EFAC;fontSize=11;html=1;align=center;" vertex="1" parent="1">
+          <mxGeometry x="1125" y="705" width="330" height="65" as="geometry" />
+        </mxCell>
+        <mxCell id="p2_r3_c0" value="&lt;b&gt;Coût d'infrastructure cloud&lt;/b&gt;" style="rounded=0;fillColor=#FFFFFF;strokeColor=#E2E8F0;fontSize=11;html=1;align=left;spacingLeft=8;" vertex="1" parent="1">
+          <mxGeometry x="45" y="770" width="240" height="65" as="geometry" />
+        </mxCell>
+        <mxCell id="p2_r3_c1" value="&lt;b&gt;0 $&lt;/b&gt;" style="rounded=0;fillColor=#FFFFFF;strokeColor=#E2E8F0;fontSize=11;html=1;align=center;" vertex="1" parent="1">
+          <mxGeometry x="285" y="770" width="280" height="65" as="geometry" />
+        </mxCell>
+        <mxCell id="p2_r3_c2" value="&lt;b&gt;0 $&lt;/b&gt;" style="rounded=0;fillColor=#FFFFFF;strokeColor=#E2E8F0;fontSize=11;html=1;align=center;" vertex="1" parent="1">
+          <mxGeometry x="565" y="770" width="280" height="65" as="geometry" />
+        </mxCell>
+        <mxCell id="p2_r3_c3" value="&lt;b&gt;500 $ à 3 500 $/mois&lt;/b&gt;&lt;br&gt;&lt;font color='#DC2626'&gt;Factures clusters, disques EBS, ingress&lt;/font&gt;" style="rounded=0;fillColor=#FFFFFF;strokeColor=#E2E8F0;fontSize=11;html=1;align=center;" vertex="1" parent="1">
+          <mxGeometry x="845" y="770" width="280" height="65" as="geometry" />
+        </mxCell>
+        <mxCell id="p2_r3_c4" value="&lt;b&gt;0 $ (Intégré localement)&lt;/b&gt;&lt;br&gt;&lt;font color='#15803D'&gt;Aucun composant cloud requis&lt;/font&gt;" style="rounded=0;fillColor=#F0FDF4;strokeColor=#86EFAC;fontSize=11;html=1;align=center;" vertex="1" parent="1">
+          <mxGeometry x="1125" y="770" width="330" height="65" as="geometry" />
+        </mxCell>
+        <mxCell id="p2_r4_c0" value="&lt;b&gt;Complexité opérationnelle&lt;/b&gt;" style="rounded=0;fillColor=#FFFFFF;strokeColor=#E2E8F0;fontSize=11;html=1;align=left;spacingLeft=8;" vertex="1" parent="1">
+          <mxGeometry x="45" y="835" width="240" height="95" as="geometry" />
+        </mxCell>
+        <mxCell id="p2_r4_c1" value="Faible mais provoque des pannes en cascade sur les serveurs applicatifs" style="rounded=0;fillColor=#FFFFFF;strokeColor=#E2E8F0;fontSize=11;html=1;align=center;" vertex="1" parent="1">
+          <mxGeometry x="285" y="835" width="280" height="95" as="geometry" />
+        </mxCell>
+        <mxCell id="p2_r4_c2" value="Moyenne (fuites mémoire fréquentes lors des blocages de goroutines)" style="rounded=0;fillColor=#FFFFFF;strokeColor=#E2E8F0;fontSize=11;html=1;align=center;" vertex="1" parent="1">
+          <mxGeometry x="565" y="835" width="280" height="95" as="geometry" />
+        </mxCell>
+        <mxCell id="p2_r4_c3" value="Très élevée (gestion des partitions, rééquilibrages de consommateurs, zookeeper)" style="rounded=0;fillColor=#FFFFFF;strokeColor=#E2E8F0;fontSize=11;html=1;align=center;" vertex="1" parent="1">
+          <mxGeometry x="845" y="835" width="280" height="95" as="geometry" />
+        </mxCell>
+        <mxCell id="p2_r4_c4" value="&lt;b&gt;ZÉRO maintenance&lt;/b&gt;&lt;br&gt;&lt;font color='#15803D'&gt;Un seul binaire léger en Go, auto-réparateur, sans aucune dépendance externe&lt;/font&gt;" style="rounded=0;fillColor=#F0FDF4;strokeColor=#86EFAC;fontSize=11;html=1;align=center;" vertex="1" parent="1">
+          <mxGeometry x="1125" y="835" width="330" height="95" as="geometry" />
+        </mxCell>
+        <mxCell id="p2_edge_wal_to_spool" value="&lt;b&gt;Enregistrement préalable (WAL)&lt;/b&gt;&lt;br&gt;Sécurisation sur disque" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#10B981;strokeWidth=2.5;fontColor=#065F46;fontSize=11;" edge="1" parent="1" source="p2_box_wal" target="p2_box_spool">
+          <mxGeometry relative="1" as="geometry">
+          </mxGeometry>
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+  <diagram id="page_3_memory" name="3. Zoom Mémoire (Ring Buffer &amp; Index)">
+    <mxGraphModel dx="1200" dy="800" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1500" pageHeight="980" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="p3_banner" value="&lt;b&gt;&lt;font style='font-size: 20px; color: #FFFFFF;'&gt;Zoom Mémoire : Le Ring Buffer Circulaire &amp;amp; Les Index Inversés&lt;/font&gt;&lt;/b&gt;&lt;br&gt;&lt;font style='font-size: 13px; color: #94A3B8;'&gt;Comment stocker 50 000 logs en RAM sans fuite mémoire et filtrer en &amp;lt; 1 milliseconde sans scanner toute la liste&lt;/font&gt;" style="rounded=1;arcSize=6;fillColor=#0F172A;strokeColor=#1E293B;html=1;align=left;spacingLeft=25;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="30" y="20" width="1440" height="65" as="geometry" />
+        </mxCell>
+        <mxCell id="p3_box_ring" value="&lt;b&gt;&lt;font style='font-size: 15px; color: #92400E;'&gt;A. Le Ring Buffer Circulaire à Capacité Fixe (50 000 logs)&lt;/font&gt;&lt;/b&gt;" style="swimlane;startSize=30;rounded=1;arcSize=8;fillColor=#FFFBEB;strokeColor=#F59E0B;strokeWidth=2;html=1;align=left;spacingLeft=15;" vertex="1" parent="1">
+          <mxGeometry x="30" y="105" width="695" height="845" as="geometry" />
+        </mxCell>
+        <mxCell id="p3_ring_concept" value="&lt;b&gt;Pourquoi un Anneau Circulaire et non une simple liste ?&lt;/b&gt;&lt;br&gt;&lt;br&gt;Dans la plupart des programmes, quand on ajoute des logs dans une liste standard :&lt;br&gt;1. La liste grossit indéfiniment en mémoire RAM.&lt;br&gt;2. Si le serveur tourne longtemps, la RAM se remplit et le serveur plante (&lt;b&gt;Crash OOM&lt;/b&gt;).&lt;br&gt;3. Supprimer le premier élément d'une liste classique oblige l'ordinateur à décaler tous les éléments suivants en mémoire (extrêmement lent : complexité O(N)).&lt;br&gt;&lt;br&gt;&lt;b&gt;La Solution Walspool : L'Anneau à 50 000 Places Fixes&lt;/b&gt;&lt;br&gt;• Un tableau pré-alloué de 50 000 cases numérotées de &lt;code&gt;0&lt;/code&gt; à &lt;code&gt;49999&lt;/code&gt;.&lt;br&gt;• Un pointeur &lt;b&gt;Head&lt;/b&gt; mémorise l'emplacement du prochain log à écrire.&lt;br&gt;• L'empreinte mémoire reste &lt;b&gt;parfaitement constante&lt;/b&gt; (environ 25 Mo)." style="rounded=1;arcSize=6;fillColor=#FFFFFF;strokeColor=#FDE68A;fontSize=12;html=1;align=left;spacing=10;" vertex="1" parent="1">
+          <mxGeometry x="45" y="150" width="665" height="175" as="geometry" />
+        </mxCell>
+        <mxCell id="p3_ring_visual_box" value="&lt;b&gt;Visualisation de la rotation dans l'anneau :&lt;/b&gt;" style="text;html=1;fontSize=13;fontStyle=1;align=left;" vertex="1" parent="1">
+          <mxGeometry x="45" y="340" width="400" height="25" as="geometry" />
+        </mxCell>
+        <mxCell id="p3_slot_Slot_0" value="&lt;b&gt;Slot [0]&lt;/b&gt;" style="rounded=1;arcSize=6;fillColor=#DBEAFE;strokeColor=#94A3B8;fontSize=11;html=1;align=center;" vertex="1" parent="1">
+          <mxGeometry x="45" y="375" width="110" height="35" as="geometry" />
+        </mxCell>
+        <mxCell id="p3_desc_Slot_0" value="Log #1 (Plus ancien) ➜ Écrasé par Log #50001 !" style="rounded=1;arcSize=6;fillColor=#FFFFFF;strokeColor=#E2E8F0;fontSize=11;html=1;align=left;spacingLeft=10;" vertex="1" parent="1">
+          <mxGeometry x="165" y="375" width="545" height="35" as="geometry" />
+        </mxCell>
+        <mxCell id="p3_slot_Slot_1" value="&lt;b&gt;Slot [1]&lt;/b&gt;" style="rounded=1;arcSize=6;fillColor=#F1F5F9;strokeColor=#94A3B8;fontSize=11;html=1;align=center;" vertex="1" parent="1">
+          <mxGeometry x="45" y="420" width="110" height="35" as="geometry" />
+        </mxCell>
+        <mxCell id="p3_desc_Slot_1" value="Log #2" style="rounded=1;arcSize=6;fillColor=#FFFFFF;strokeColor=#E2E8F0;fontSize=11;html=1;align=left;spacingLeft=10;" vertex="1" parent="1">
+          <mxGeometry x="165" y="420" width="545" height="35" as="geometry" />
+        </mxCell>
+        <mxCell id="p3_slot_Slot_2" value="&lt;b&gt;Slot [2]&lt;/b&gt;" style="rounded=1;arcSize=6;fillColor=#F1F5F9;strokeColor=#94A3B8;fontSize=11;html=1;align=center;" vertex="1" parent="1">
+          <mxGeometry x="45" y="465" width="110" height="35" as="geometry" />
+        </mxCell>
+        <mxCell id="p3_desc_Slot_2" value="Log #3" style="rounded=1;arcSize=6;fillColor=#FFFFFF;strokeColor=#E2E8F0;fontSize=11;html=1;align=left;spacingLeft=10;" vertex="1" parent="1">
+          <mxGeometry x="165" y="465" width="545" height="35" as="geometry" />
+        </mxCell>
+        <mxCell id="p3_slot_Slot_3" value="&lt;b&gt;Slot [3]&lt;/b&gt;" style="rounded=1;arcSize=6;fillColor=#F1F5F9;strokeColor=#94A3B8;fontSize=11;html=1;align=center;" vertex="1" parent="1">
+          <mxGeometry x="45" y="510" width="110" height="35" as="geometry" />
+        </mxCell>
+        <mxCell id="p3_desc_Slot_3" value="Log #4" style="rounded=1;arcSize=6;fillColor=#FFFFFF;strokeColor=#E2E8F0;fontSize=11;html=1;align=left;spacingLeft=10;" vertex="1" parent="1">
+          <mxGeometry x="165" y="510" width="545" height="35" as="geometry" />
+        </mxCell>
+        <mxCell id="p3_slot_Slot_dots" value="&lt;b&gt;Slot [...]&lt;/b&gt;" style="rounded=1;arcSize=6;fillColor=#FFFFFF;strokeColor=#94A3B8;fontSize=11;html=1;align=center;" vertex="1" parent="1">
+          <mxGeometry x="45" y="555" width="110" height="35" as="geometry" />
+        </mxCell>
+        <mxCell id="p3_desc_Slot_dots" value="... 49 990 logs intermédiaires ..." style="rounded=1;arcSize=6;fillColor=#FFFFFF;strokeColor=#E2E8F0;fontSize=11;html=1;align=left;spacingLeft=10;" vertex="1" parent="1">
+          <mxGeometry x="165" y="555" width="545" height="35" as="geometry" />
+        </mxCell>
+        <mxCell id="p3_slot_Slot_49998" value="&lt;b&gt;Slot [49998]&lt;/b&gt;" style="rounded=1;arcSize=6;fillColor=#F1F5F9;strokeColor=#94A3B8;fontSize=11;html=1;align=center;" vertex="1" parent="1">
+          <mxGeometry x="45" y="600" width="110" height="35" as="geometry" />
+        </mxCell>
+        <mxCell id="p3_desc_Slot_49998" value="Log #49999" style="rounded=1;arcSize=6;fillColor=#FFFFFF;strokeColor=#E2E8F0;fontSize=11;html=1;align=left;spacingLeft=10;" vertex="1" parent="1">
+          <mxGeometry x="165" y="600" width="545" height="35" as="geometry" />
+        </mxCell>
+        <mxCell id="p3_slot_Slot_49999" value="&lt;b&gt;Slot [49999]&lt;/b&gt;" style="rounded=1;arcSize=6;fillColor=#DCFCE7;strokeColor=#94A3B8;fontSize=11;html=1;align=center;" vertex="1" parent="1">
+          <mxGeometry x="45" y="645" width="110" height="35" as="geometry" />
+        </mxCell>
+        <mxCell id="p3_desc_Slot_49999" value="Log #50000 (Dernier inséré avant rebouclage)" style="rounded=1;arcSize=6;fillColor=#FFFFFF;strokeColor=#E2E8F0;fontSize=11;html=1;align=left;spacingLeft=10;" vertex="1" parent="1">
+          <mxGeometry x="165" y="645" width="545" height="35" as="geometry" />
+        </mxCell>
+        <mxCell id="p3_o1_box" value="&lt;b&gt;⚡ Le Mécanisme d'Écrasement Instantané O(1) :&lt;/b&gt;&lt;br&gt;&lt;br&gt;Lorsque le &lt;b&gt;50 001ème log&lt;/b&gt; arrive :&lt;br&gt;1. La formule mathématique calcule la case : &lt;code&gt;head = (head + 1) % 50000&lt;/code&gt;.&lt;br&gt;2. Le log n°1 qui était dans la case &lt;code&gt;[0]&lt;/code&gt; est remplacé &lt;b&gt;directement en mémoire&lt;/b&gt; par le log n°50 001.&lt;br&gt;3. &lt;b&gt;Aucun déplacement d'éléments :&lt;/b&gt; L'opération prend 1 seule instruction processeur (&lt;b&gt;temps constant O(1)&lt;/b&gt;).&lt;br&gt;4. &lt;b&gt;Zéro Garbage Collection :&lt;/b&gt; Comme la case existait déjà, le moteur de mémoire n'a rien à recycler. Fluidité absolue !" style="rounded=1;arcSize=6;fillColor=#FEF3C7;strokeColor=#D97706;fontSize=11;html=1;align=left;spacing=10;" vertex="1" parent="1">
+          <mxGeometry x="45" y="705" width="665" height="140" as="geometry" />
+        </mxCell>
+        <mxCell id="p3_box_index" value="&lt;b&gt;&lt;font style='font-size: 15px; color: #6B21A8;'&gt;B. Les Index Inversés (Trace ID &amp;amp; Service) &amp;lt; 1 ms&lt;/font&gt;&lt;/b&gt;" style="swimlane;startSize=30;rounded=1;arcSize=8;fillColor=#FAF5FF;strokeColor=#9333EA;strokeWidth=2;html=1;align=left;spacingLeft=15;" vertex="1" parent="1">
+          <mxGeometry x="775" y="105" width="695" height="845" as="geometry" />
+        </mxCell>
+        <mxCell id="p3_index_concept" value="&lt;b&gt;Le Problème sans Index Inversé (Le Scan Séquentiel) :&lt;/b&gt;&lt;br&gt;&lt;br&gt;Pour trouver les logs de la commande &lt;code&gt;tr-9842&lt;/code&gt; parmi 50 000 logs :&lt;br&gt;• Sans index, l'ordinateur doit lire chaque log du 1er au 50 000ème et vérifier si la trace correspond.&lt;br&gt;• Ce parcours prend &lt;b&gt;50 à 200 millisecondes&lt;/b&gt; et fait chauffer le processeur.&lt;br&gt;&lt;br&gt;&lt;b&gt;La Solution Walspool : Le Meuble de Tri Postal à Tiroirs Directs&lt;/b&gt;&lt;br&gt;• Au moment même où un log entre dans Walspool, son adresse mémoire est glissée dans le bon casier.&lt;br&gt;• Lorsqu'une requête arrive, on tire directement le casier : réponse en &lt;b&gt;&amp;lt; 1 milliseconde&lt;/b&gt; !" style="rounded=1;arcSize=6;fillColor=#FFFFFF;strokeColor=#E9D5FF;fontSize=12;html=1;align=left;spacing=10;" vertex="1" parent="1">
+          <mxGeometry x="790" y="150" width="665" height="175" as="geometry" />
+        </mxCell>
+        <mxCell id="p3_drawers_visual_title" value="&lt;b&gt;Architecture interne des deux tables d'index inversés :&lt;/b&gt;" style="text;html=1;fontSize=13;fontStyle=1;align=left;" vertex="1" parent="1">
+          <mxGeometry x="790" y="340" width="450" height="25" as="geometry" />
+        </mxCell>
+        <mxCell id="p3_drawer_trace" value="&lt;b&gt;🗄️ Tiroir 1 : Table d'Index par Trace ID (&lt;code&gt;byTraceID&lt;/code&gt;)&lt;/b&gt;&lt;br&gt;&lt;font style='font-size: 11px;'&gt;• Clé &lt;code&gt;&quot;tr-9842&quot;&lt;/code&gt; ➜ [ Adresse Pointeur Log #42, Adresse Pointeur Log #88 ]&lt;br&gt;• Clé &lt;code&gt;&quot;tr-5510&quot;&lt;/code&gt; ➜ [ Adresse Pointeur Log #105, Log #108, Log #112 ]&lt;br&gt;• Clé &lt;code&gt;&quot;tr-7701&quot;&lt;/code&gt; ➜ [ Adresse Pointeur Log #301 ]&lt;/font&gt;" style="rounded=1;arcSize=6;fillColor=#FFFFFF;strokeColor=#A855F7;fontSize=12;html=1;align=left;spacing=10;" vertex="1" parent="1">
+          <mxGeometry x="790" y="375" width="665" height="105" as="geometry" />
+        </mxCell>
+        <mxCell id="p3_drawer_service" value="&lt;b&gt;🗄️ Tiroir 2 : Table d'Index par Nom de Service (&lt;code&gt;byService&lt;/code&gt;)&lt;/b&gt;&lt;br&gt;&lt;font style='font-size: 11px;'&gt;• Clé &lt;code&gt;&quot;billing&quot;&lt;/code&gt; ➜ [ Pointeurs vers 1 250 logs du service facturation ]&lt;br&gt;• Clé &lt;code&gt;&quot;auth&quot;&lt;/code&gt; &amp;nbsp;&amp;nbsp;&amp;nbsp;&amp;nbsp;➜ [ Pointeurs vers 3 400 logs d'authentification ]&lt;br&gt;• Clé &lt;code&gt;&quot;catalog&quot;&lt;/code&gt; ➜ [ Pointeurs vers 820 logs du catalogue ]&lt;/font&gt;" style="rounded=1;arcSize=6;fillColor=#FFFFFF;strokeColor=#A855F7;fontSize=12;html=1;align=left;spacing=10;" vertex="1" parent="1">
+          <mxGeometry x="790" y="495" width="665" height="105" as="geometry" />
+        </mxCell>
+        <mxCell id="p3_drawer_sync" value="&lt;b&gt;🔄 Synchronisation &amp;amp; Purge Zéro-Fuite :&lt;/b&gt;&lt;br&gt;&lt;br&gt;Que se passe-t-il lorsque le log n°1 est écrasé dans le Ring Buffer par le log n°50 001 ?&lt;br&gt;&lt;br&gt;1. Walspool lit les métadonnées du vieux log n°1 (ex: Service &lt;code&gt;billing&lt;/code&gt;, Trace &lt;code&gt;tr-0001&lt;/code&gt;).&lt;br&gt;2. Il ouvre le tiroir &lt;code&gt;billing&lt;/code&gt; et le tiroir &lt;code&gt;tr-0001&lt;/code&gt; pour &lt;b&gt;retirer le pointeur du log n°1&lt;/b&gt;.&lt;br&gt;3. Il insère ensuite les pointeurs du nouveau log n°50 001 dans leurs tiroirs respectifs.&lt;br&gt;&lt;br&gt;&lt;b&gt;Résultat mathématique :&lt;/b&gt;&lt;br&gt;Les tiroirs ne contiennent &lt;b&gt;JAMAIS&lt;/b&gt; de pointeurs fantômes vers des logs disparus. La mémoire reste claire et les requêtes renvoient toujours la vérité exacte en &lt;b&gt;&amp;lt; 1 ms&lt;/b&gt;." style="rounded=1;arcSize=6;fillColor=#FAF5FF;strokeColor=#9333EA;fontSize=11;html=1;align=left;spacing=10;" vertex="1" parent="1">
+          <mxGeometry x="790" y="615" width="665" height="160" as="geometry" />
+        </mxCell>
+        <mxCell id="p3_query_example" value="&lt;b&gt;Exemple concret de requête utilisateur :&lt;/b&gt;&lt;br&gt;&lt;code&gt;GET /v1/logs?trace_id=tr-9842&amp;amp;limit=50&lt;/code&gt;&lt;br&gt;➜ Saut direct dans le tiroir &lt;code&gt;tr-9842&lt;/code&gt; ➜ Récupère les 2 logs en &lt;b&gt;0.3 ms&lt;/b&gt; ➜ Renvoyé au Dev-Cockpit." style="rounded=1;arcSize=6;fillColor=#F3E8FF;strokeColor=#C084FC;fontSize=11;html=1;align=left;spacing=8;" vertex="1" parent="1">
+          <mxGeometry x="790" y="790" width="665" height="55" as="geometry" />
+        </mxCell>
+        <mxCell id="p3_edge_evict_sync" value="&lt;b&gt;Purge synchrone&lt;/b&gt;&lt;br&gt;Supprime les pointeurs obsolètes" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#9333EA;strokeWidth=2;fontColor=#6B21A8;fontSize=10;" edge="1" parent="1" source="p3_slot_Slot_0" target="p3_drawer_sync">
+          <mxGeometry relative="1" as="geometry">
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="p3_edge_query_drawer" value="&lt;b&gt;Accès direct &amp;lt; 1 ms&lt;/b&gt;" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#7C3AED;strokeWidth=2.5;fontColor=#6D28D9;fontSize=10;" edge="1" parent="1" source="p3_query_example" target="p3_drawer_trace">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1465" y="815" />
+              <mxPoint x="1475" y="425" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+  <diagram id="page_4_disk" name="4. Zoom Disque (Moteur WAL &amp; Crash)">
+    <mxGraphModel dx="1200" dy="800" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1500" pageHeight="980" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="p4_banner" value="&lt;b&gt;&lt;font style='font-size: 20px; color: #FFFFFF;'&gt;Zoom Disque : Moteur WAL, Trame Binaire CRC32 &amp;amp; Reprise après Crash&lt;/font&gt;&lt;/b&gt;&lt;br&gt;&lt;font style='font-size: 13px; color: #94A3B8;'&gt;Comment garantir une intégrité mathématique absolue et zéro perte de données même si le serveur perd son alimentation électrique&lt;/font&gt;" style="rounded=1;arcSize=6;fillColor=#0F172A;strokeColor=#1E293B;html=1;align=left;spacingLeft=25;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="30" y="20" width="1440" height="65" as="geometry" />
+        </mxCell>
+        <mxCell id="p4_box_binary" value="&lt;b&gt;&lt;font style='font-size: 14px; color: #065F46;'&gt;A. Anatomie de la Trame Binaire Disque (En-tête de 29 octets + Données)&lt;/font&gt;&lt;/b&gt;" style="swimlane;startSize=28;rounded=1;arcSize=8;fillColor=#F0FDF4;strokeColor=#10B981;strokeWidth=2;html=1;align=left;spacingLeft=15;" vertex="1" parent="1">
+          <mxGeometry x="30" y="105" width="1440" height="245" as="geometry" />
+        </mxCell>
+        <mxCell id="p4_binary_intro" value="Chaque log enregistré dans le fichier &lt;code&gt;active.wal&lt;/code&gt; commence par un en-tête ultra-compact de &lt;b&gt;29 octets&lt;/b&gt; auto-délimité :" style="text;html=1;fontSize=12;align=left;" vertex="1" parent="1">
+          <mxGeometry x="45" y="140" width="1000" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="p4_hdr_0" value="&lt;b&gt;Magic (2B)&lt;/b&gt;&lt;br&gt;&lt;font size='1'&gt;0x57 0x4C ('WL')&lt;/font&gt;" style="rounded=1;arcSize=6;fillColor=#DBEAFE;strokeColor=#94A3B8;fontSize=11;html=1;align=center;" vertex="1" parent="1">
+          <mxGeometry x="45" y="170" width="120" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="p4_hdr_desc_0" value="&lt;font size='1'&gt;Identifiant unique Walspool&lt;/font&gt;" style="text;html=1;fontSize=10;align=center;fontColor=#475569;" vertex="1" parent="1">
+          <mxGeometry x="45" y="225" width="120" height="35" as="geometry" />
+        </mxCell>
+        <mxCell id="p4_hdr_1" value="&lt;b&gt;Ver (1B)&lt;/b&gt;&lt;br&gt;&lt;font size='1'&gt;0x01&lt;/font&gt;" style="rounded=1;arcSize=6;fillColor=#E0E7FF;strokeColor=#94A3B8;fontSize=11;html=1;align=center;" vertex="1" parent="1">
+          <mxGeometry x="170" y="170" width="90" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="p4_hdr_desc_1" value="&lt;font size='1'&gt;Version du protocole&lt;/font&gt;" style="text;html=1;fontSize=10;align=center;fontColor=#475569;" vertex="1" parent="1">
+          <mxGeometry x="170" y="225" width="90" height="35" as="geometry" />
+        </mxCell>
+        <mxCell id="p4_hdr_2" value="&lt;b&gt;CRC32 (4B)&lt;/b&gt;&lt;br&gt;&lt;font size='1'&gt;0x8F 0x2A ...&lt;/font&gt;" style="rounded=1;arcSize=6;fillColor=#DCFCE7;strokeColor=#94A3B8;fontSize=11;html=1;align=center;" vertex="1" parent="1">
+          <mxGeometry x="265" y="170" width="150" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="p4_hdr_desc_2" value="&lt;font size='1'&gt;Somme de contrôle IEEE 802.3&lt;/font&gt;" style="text;html=1;fontSize=10;align=center;fontColor=#475569;" vertex="1" parent="1">
+          <mxGeometry x="265" y="225" width="150" height="35" as="geometry" />
+        </mxCell>
+        <mxCell id="p4_hdr_3" value="&lt;b&gt;ID (8B)&lt;/b&gt;&lt;br&gt;&lt;font size='1'&gt;Uint64 (Atomic)&lt;/font&gt;" style="rounded=1;arcSize=6;fillColor=#FEF3C7;strokeColor=#94A3B8;fontSize=11;html=1;align=center;" vertex="1" parent="1">
+          <mxGeometry x="420" y="170" width="140" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="p4_hdr_desc_3" value="&lt;font size='1'&gt;Numéro d'ordre unique&lt;/font&gt;" style="text;html=1;fontSize=10;align=center;fontColor=#475569;" vertex="1" parent="1">
+          <mxGeometry x="420" y="225" width="140" height="35" as="geometry" />
+        </mxCell>
+        <mxCell id="p4_hdr_4" value="&lt;b&gt;Time (8B)&lt;/b&gt;&lt;br&gt;&lt;font size='1'&gt;Unix Nano&lt;/font&gt;" style="rounded=1;arcSize=6;fillColor=#FFEDD5;strokeColor=#94A3B8;fontSize=11;html=1;align=center;" vertex="1" parent="1">
+          <mxGeometry x="565" y="170" width="140" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="p4_hdr_desc_4" value="&lt;font size='1'&gt;Horodatage nanoseconde&lt;/font&gt;" style="text;html=1;fontSize=10;align=center;fontColor=#475569;" vertex="1" parent="1">
+          <mxGeometry x="565" y="225" width="140" height="35" as="geometry" />
+        </mxCell>
+        <mxCell id="p4_hdr_5" value="&lt;b&gt;TopicLen (2B)&lt;/b&gt;&lt;br&gt;&lt;font size='1'&gt;Uint16&lt;/font&gt;" style="rounded=1;arcSize=6;fillColor=#F3E8FF;strokeColor=#94A3B8;fontSize=11;html=1;align=center;" vertex="1" parent="1">
+          <mxGeometry x="710" y="170" width="130" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="p4_hdr_desc_5" value="&lt;font size='1'&gt;Taille nom du topic&lt;/font&gt;" style="text;html=1;fontSize=10;align=center;fontColor=#475569;" vertex="1" parent="1">
+          <mxGeometry x="710" y="225" width="130" height="35" as="geometry" />
+        </mxCell>
+        <mxCell id="p4_hdr_6" value="&lt;b&gt;PayloadLen (4B)&lt;/b&gt;&lt;br&gt;&lt;font size='1'&gt;Uint32&lt;/font&gt;" style="rounded=1;arcSize=6;fillColor=#FCE7F3;strokeColor=#94A3B8;fontSize=11;html=1;align=center;" vertex="1" parent="1">
+          <mxGeometry x="845" y="170" width="140" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="p4_hdr_desc_6" value="&lt;font size='1'&gt;Taille du JSON utile&lt;/font&gt;" style="text;html=1;fontSize=10;align=center;fontColor=#475569;" vertex="1" parent="1">
+          <mxGeometry x="845" y="225" width="140" height="35" as="geometry" />
+        </mxCell>
+        <mxCell id="p4_hdr_7" value="&lt;b&gt;Topic Bytes&lt;/b&gt;&lt;br&gt;&lt;font size='1'&gt;Variable&lt;/font&gt;" style="rounded=1;arcSize=6;fillColor=#F1F5F9;strokeColor=#94A3B8;fontSize=11;html=1;align=center;" vertex="1" parent="1">
+          <mxGeometry x="990" y="170" width="170" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="p4_hdr_desc_7" value="&lt;font size='1'&gt;Nom du sujet (ex: 'billing')&lt;/font&gt;" style="text;html=1;fontSize=10;align=center;fontColor=#475569;" vertex="1" parent="1">
+          <mxGeometry x="990" y="225" width="170" height="35" as="geometry" />
+        </mxCell>
+        <mxCell id="p4_hdr_8" value="&lt;b&gt;Payload Bytes&lt;/b&gt;&lt;br&gt;&lt;font size='1'&gt;Variable&lt;/font&gt;" style="rounded=1;arcSize=6;fillColor=#F8FAFC;strokeColor=#94A3B8;fontSize=11;html=1;align=center;" vertex="1" parent="1">
+          <mxGeometry x="1165" y="170" width="315" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="p4_hdr_desc_8" value="&lt;font size='1'&gt;Charge JSON brute&lt;/font&gt;" style="text;html=1;fontSize=10;align=center;fontColor=#475569;" vertex="1" parent="1">
+          <mxGeometry x="1165" y="225" width="315" height="35" as="geometry" />
+        </mxCell>
+        <mxCell id="p4_binary_why" value="&lt;b&gt;Pourquoi ce format est-il surpuissant ?&lt;/b&gt;&lt;br&gt;• &lt;b&gt;Zéro désérialisation lourde :&lt;/b&gt; Le moteur lit les 29 premiers octets en 1 seul appel I/O. Il connaît immédiatement la taille exacte du message et son CRC32 sans analyser le texte.&lt;br&gt;• &lt;b&gt;Saut rapide :&lt;/b&gt; En cas de reprise après panne, le moteur saute de record en record sans lire le contenu du JSON, ce qui permet de vérifier 100 000 logs en quelques millisecondes !" style="rounded=1;arcSize=6;fillColor=#FFFFFF;strokeColor=#A7F3D0;fontSize=11;html=1;align=left;spacing=8;" vertex="1" parent="1">
+          <mxGeometry x="45" y="275" width="1410" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="p4_box_atomic_chk" value="&lt;b&gt;&lt;font style='font-size: 14px; color: #1E40AF;'&gt;B. Le Checkpoint Atomique (checkpoint.meta)&lt;/font&gt;&lt;/b&gt;" style="swimlane;startSize=30;rounded=1;arcSize=8;fillColor=#EFF6FF;strokeColor=#3B82F6;strokeWidth=2;html=1;align=left;spacingLeft=15;" vertex="1" parent="1">
+          <mxGeometry x="30" y="370" width="695" height="580" as="geometry" />
+        </mxCell>
+        <mxCell id="p4_chk_expl" value="&lt;b&gt;Le Problème du fichier d'état dans les systèmes fragiles :&lt;/b&gt;&lt;br&gt;&lt;br&gt;Si un programme écrit directement dans &lt;code&gt;checkpoint.meta&lt;/code&gt; et que le courant coupe au milieu de l'opération :&lt;br&gt;• Le fichier se retrouve tronqué à 0 octet ou rempli de caractères corrompus.&lt;br&gt;• Au redémarrage, le système ne sait plus où il en était et perd des données.&lt;br&gt;&lt;br&gt;&lt;b&gt;L'Algorithme Atomique de Walspool (Double-Verrou) :&lt;/b&gt;&lt;br&gt;&lt;br&gt;&lt;b&gt;Étape 1 : Écriture temporaire&lt;/b&gt;&lt;br&gt;Le Flusher vient de livrer avec succès le log #4500 au stockage externe. Il écrit l'offset &lt;code&gt;4500&lt;/code&gt; dans un fichier temporaire : &lt;code&gt;checkpoint.meta.tmp&lt;/code&gt;.&lt;br&gt;&lt;br&gt;&lt;b&gt;Étape 2 : Forçage physique (Fsync)&lt;/b&gt;&lt;br&gt;Walspool force l'écriture des données physiques sur la puce mémoire du SSD.&lt;br&gt;&lt;br&gt;&lt;b&gt;Étape 3 : Remplacement Atomique (Atomic Rename)&lt;/b&gt;&lt;br&gt;Walspool invoque la commande système &lt;code&gt;os.Rename('checkpoint.meta.tmp', 'checkpoint.meta')&lt;/code&gt;.&lt;br&gt;&lt;br&gt;&lt;div style='background-color:#DBEAFE; padding:8px; border-radius:4px; font-size:11px;'&gt;&lt;b&gt;🛡️ GARANTIE DU SYSTÈME D'EXPLOITATION LINUX / UNIX :&lt;/b&gt;&lt;br&gt;L'opération de renommage est &lt;b&gt;atomique&lt;/b&gt; au niveau des descripteurs de fichiers (inodes). Il est &lt;b&gt;physiquement impossible&lt;/b&gt; que le fichier soit à moitié écrit. Soit l'ancienne version existe, soit la nouvelle est active !&lt;/div&gt;" style="rounded=1;arcSize=6;fillColor=#FFFFFF;strokeColor=#BFDBFE;fontSize=12;html=1;align=left;spacing=10;" vertex="1" parent="1">
+          <mxGeometry x="45" y="415" width="665" height="520" as="geometry" />
+        </mxCell>
+        <mxCell id="p4_box_crash_scenario" value="&lt;b&gt;&lt;font style='font-size: 14px; color: #991B1B;'&gt;C. Chronologie Réelle : Panne Électrique &amp;amp; Zéro Perte&lt;/font&gt;&lt;/b&gt;" style="swimlane;startSize=30;rounded=1;arcSize=8;fillColor=#FEF2F2;strokeColor=#EF4444;strokeWidth=2;html=1;align=left;spacingLeft=15;" vertex="1" parent="1">
+          <mxGeometry x="775" y="370" width="695" height="580" as="geometry" />
+        </mxCell>
+        <mxCell id="p4_step_step1" value="&lt;b&gt;&lt;font color='#16A34A'&gt;14:02:00.100 — Fonctionnement Normal&lt;/font&gt;&lt;/b&gt;&lt;br&gt;&lt;font style='font-size: 11px; color: #1E293B;'&gt;• 5 000 logs reçus et gravés dans &lt;code&gt;active.wal&lt;/code&gt;.&lt;br&gt;• Le Flusher a déjà expédié les logs 1 à 4 800 vers Elasticsearch.&lt;br&gt;• Fichier &lt;code&gt;checkpoint.meta&lt;/code&gt; validé à l'offset &lt;b&gt;4800&lt;/b&gt;.&lt;br&gt;• Les logs 4801 à 5000 attendent le prochain drain de 50 ms.&lt;/font&gt;" style="rounded=1;arcSize=6;fillColor=#F0FDF4;strokeColor=#16A34A;fontSize=11;html=1;align=left;spacing=8;" vertex="1" parent="1">
+          <mxGeometry x="790" y="415" width="665" height="95" as="geometry" />
+        </mxCell>
+        <mxCell id="p4_step_step2" value="&lt;b&gt;&lt;font color='#DC2626'&gt;14:02:00.105 — ⚡ COUPURE DE COURANT BRUTALE !&lt;/font&gt;&lt;/b&gt;&lt;br&gt;&lt;font style='font-size: 11px; color: #1E293B;'&gt;• Le câble d'alimentation du serveur est arraché (ou &lt;code&gt;kill -9&lt;/code&gt;).&lt;br&gt;• La mémoire vive RAM s'éteint instantanément : tout son contenu s'évapore.&lt;br&gt;• &lt;b&gt;Mais sur le SSD :&lt;/b&gt; les logs 4801 à 5000 étaient déjà gravés avec leur CRC32 !&lt;/font&gt;" style="rounded=1;arcSize=6;fillColor=#FEE2E2;strokeColor=#DC2626;fontSize=11;html=1;align=left;spacing=8;" vertex="1" parent="1">
+          <mxGeometry x="790" y="520" width="665" height="95" as="geometry" />
+        </mxCell>
+        <mxCell id="p4_edge_p4_step_step1_step2" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#94A3B8;strokeWidth=1.5;endArrow=classic;" edge="1" parent="1" source="p4_step_step1" target="p4_step_step2">
+          <mxGeometry relative="1" as="geometry">
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="p4_step_step3" value="&lt;b&gt;&lt;font color='#2563EB'&gt;14:02:45.000 — Redémarrage du Serveur&lt;/font&gt;&lt;/b&gt;&lt;br&gt;&lt;font style='font-size: 11px; color: #1E293B;'&gt;• L'électricité revient, le conteneur Walspool redémarre automatiquement.&lt;br&gt;• Le moteur lance sa routine de récupération : &lt;code&gt;FileStorageEngine.recover()&lt;/code&gt;.&lt;/font&gt;" style="rounded=1;arcSize=6;fillColor=#EFF6FF;strokeColor=#2563EB;fontSize=11;html=1;align=left;spacing=8;" vertex="1" parent="1">
+          <mxGeometry x="790" y="625" width="665" height="95" as="geometry" />
+        </mxCell>
+        <mxCell id="p4_edge_p4_step_step2_step3" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#94A3B8;strokeWidth=1.5;endArrow=classic;" edge="1" parent="1" source="p4_step_step2" target="p4_step_step3">
+          <mxGeometry relative="1" as="geometry">
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="p4_step_step4" value="&lt;b&gt;&lt;font color='#D97706'&gt;14:02:45.015 — Phase de Diagnostic &amp;amp; Reprise&lt;/font&gt;&lt;/b&gt;&lt;br&gt;&lt;font style='font-size: 11px; color: #1E293B;'&gt;1. Walspool lit &lt;code&gt;checkpoint.meta&lt;/code&gt; ➔ Offset confirmé = &lt;b&gt;4800&lt;/b&gt;.&lt;br&gt;2. Il se positionne directement dans &lt;code&gt;active.wal&lt;/code&gt; à partir du log &lt;b&gt;4801&lt;/b&gt;.&lt;br&gt;3. Il vérifie les sommes CRC32 des logs 4801 à 5000 : &lt;b&gt;Toutes valides !&lt;/b&gt;&lt;/font&gt;" style="rounded=1;arcSize=6;fillColor=#FEF3C7;strokeColor=#D97706;fontSize=11;html=1;align=left;spacing=8;" vertex="1" parent="1">
+          <mxGeometry x="790" y="730" width="665" height="95" as="geometry" />
+        </mxCell>
+        <mxCell id="p4_edge_p4_step_step3_step4" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#94A3B8;strokeWidth=1.5;endArrow=classic;" edge="1" parent="1" source="p4_step_step3" target="p4_step_step4">
+          <mxGeometry relative="1" as="geometry">
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="p4_step_step5" value="&lt;b&gt;&lt;font color='#15803D'&gt;14:02:45.030 — Résultat : ZÉRO PERTE !&lt;/font&gt;&lt;/b&gt;&lt;br&gt;&lt;font style='font-size: 11px; color: #1E293B;'&gt;• Le Flusher d'arrière-plan expédie immédiatement les logs 4801 à 5000 vers Elasticsearch.&lt;br&gt;• L'API d'ingestion rouvre ses portes en &amp;lt; 50 µs.&lt;br&gt;• &lt;b&gt;Bilan : 0 log perdu, 0 doublon, 0 intervention humaine requise.&lt;/b&gt;&lt;/font&gt;" style="rounded=1;arcSize=6;fillColor=#DCFCE7;strokeColor=#15803D;fontSize=11;html=1;align=left;spacing=8;" vertex="1" parent="1">
+          <mxGeometry x="790" y="835" width="665" height="95" as="geometry" />
+        </mxCell>
+        <mxCell id="p4_edge_p4_step_step4_step5" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=1;strokeColor=#94A3B8;strokeWidth=1.5;endArrow=classic;" edge="1" parent="1" source="p4_step_step4" target="p4_step_step5">
+          <mxGeometry relative="1" as="geometry">
+          </mxGeometry>
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

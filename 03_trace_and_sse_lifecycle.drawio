@@ -1,0 +1,341 @@
+<mxfile host="app.diagrams.net" modified="2026-09-04T11:00:00.000Z" agent="Mozilla/5.0" version="21.6.5" type="device">
+  <diagram id="trace_and_sse_lifecycle" name="Flux de Données &amp; Cycle de Vie d'une Requête">
+    <mxGraphModel dx="1720" dy="2650" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1720" pageHeight="2650" math="0" shadow="0">
+      <root>
+<mxCell id="0" />
+<mxCell id="1" parent="0" />
+<mxCell id="banner" value="&lt;b style=&quot;font-size:18px;&quot;&gt;FLUX DE DONNÉES &amp;amp; CYCLE DE VIE D&#39;UNE REQUÊTE : TRAÇABILITÉ DISTRIBUÉE &amp;amp; STREAMING SSE&lt;/b&gt;&lt;br&gt;&lt;span style=&quot;font-size:13px; color:#546e7a;&quot;&gt;Corrélation de bout en bout via &lt;b style=&quot;color:#1e88e5;&quot;&gt;x-request-id&lt;/b&gt; • Propagation asynchrone (AsyncLocalStorage / contextvars) • Télémétrie non-bloquante Walspool &amp;amp; Cascade Waterfall Gantt&lt;/span&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8f9fa;strokeColor=#b0bec5;shadow=1;strokeWidth=2;align=center;verticalAlign=middle;" vertex="1" parent="1">
+      <mxGeometry x="40" y="15" width="1640" height="65" as="geometry" />
+    </mxCell>
+<mxCell id="p1_head" value="&lt;b style=&quot;font-size:13px;&quot;&gt;Client Métier&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#455a64&quot;&gt;Navigateur / Frontend Utilisateur&lt;br&gt;&lt;i&gt;Appel API &amp;amp; Consommation IA&lt;/i&gt;&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;strokeWidth=2;shadow=1;align=center;verticalAlign=middle;" vertex="1" parent="1">
+      <mxGeometry x="70" y="95" width="220" height="70" as="geometry" />
+    </mxCell>
+<mxCell id="p1_line" style="endArrow=none;dashed=1;html=1;strokeColor=#6c8ebf;strokeWidth=2;" edge="1" parent="1" source="p1_head">
+      <mxGeometry relative="1" as="geometry">
+        <mxPoint x="180" y="2350" as="targetPoint" />
+      </mxGeometry>
+    </mxCell>
+<mxCell id="p2_head" value="&lt;b style=&quot;font-size:13px;&quot;&gt;API Gateway&lt;/b&gt; (Port 3000)&lt;br&gt;&lt;font color=&quot;#455a64&quot;&gt;LoopBack 4 (TypeScript / Node.js)&lt;br&gt;&lt;i&gt;TraceMiddleware • AsyncLocalStorage&lt;/i&gt;&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;strokeWidth=2;shadow=1;align=center;verticalAlign=middle;" vertex="1" parent="1">
+      <mxGeometry x="390" y="95" width="240" height="70" as="geometry" />
+    </mxCell>
+<mxCell id="p2_line" style="endArrow=none;dashed=1;html=1;strokeColor=#9673a6;strokeWidth=2;" edge="1" parent="1" source="p2_head">
+      <mxGeometry relative="1" as="geometry">
+        <mxPoint x="510" y="2350" as="targetPoint" />
+      </mxGeometry>
+    </mxCell>
+<mxCell id="p3_head" value="&lt;b style=&quot;font-size:13px;&quot;&gt;Microservice AIPI&lt;/b&gt; (Port 8000)&lt;br&gt;&lt;font color=&quot;#455a64&quot;&gt;Django 4.2 (Python 3.10)&lt;br&gt;&lt;i&gt;TraceMiddleware • contextvars • WalspoolHandler&lt;/i&gt;&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;strokeWidth=2;shadow=1;align=center;verticalAlign=middle;" vertex="1" parent="1">
+      <mxGeometry x="730" y="95" width="260" height="70" as="geometry" />
+    </mxCell>
+<mxCell id="p3_line" style="endArrow=none;dashed=1;html=1;strokeColor=#82b366;strokeWidth=2;" edge="1" parent="1" source="p3_head">
+      <mxGeometry relative="1" as="geometry">
+        <mxPoint x="860" y="2350" as="targetPoint" />
+      </mxGeometry>
+    </mxCell>
+<mxCell id="p4_head" value="&lt;b style=&quot;font-size:13px;&quot;&gt;Walspool Sidecar&lt;/b&gt; (Port 9099)&lt;br&gt;&lt;font color=&quot;#455a64&quot;&gt;Moteur Spooler &amp;amp; Ingestion (Go 1.21)&lt;br&gt;&lt;i&gt;Disk WAL • MemoryLogHub • SSE Hub&lt;/i&gt;&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;strokeWidth=2;shadow=1;align=center;verticalAlign=middle;" vertex="1" parent="1">
+      <mxGeometry x="1080" y="95" width="260" height="70" as="geometry" />
+    </mxCell>
+<mxCell id="p4_line" style="endArrow=none;dashed=1;html=1;strokeColor=#d79b00;strokeWidth=2;" edge="1" parent="1" source="p4_head">
+      <mxGeometry relative="1" as="geometry">
+        <mxPoint x="1210" y="2350" as="targetPoint" />
+      </mxGeometry>
+    </mxCell>
+<mxCell id="p5_head" value="&lt;b style=&quot;font-size:13px;&quot;&gt;Console Platform&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#455a64&quot;&gt;Vue 3 • Pinia (/platform/observability)&lt;br&gt;&lt;i&gt;useObservabilityStore • EventSource&lt;/i&gt;&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#b1ddf0;strokeColor=#10739e;strokeWidth=2;shadow=1;align=center;verticalAlign=middle;" vertex="1" parent="1">
+      <mxGeometry x="1430" y="95" width="240" height="70" as="geometry" />
+    </mxCell>
+<mxCell id="p5_line" style="endArrow=none;dashed=1;html=1;strokeColor=#10739e;strokeWidth=2;" edge="1" parent="1" source="p5_head">
+      <mxGeometry relative="1" as="geometry">
+        <mxPoint x="1550" y="2350" as="targetPoint" />
+      </mxGeometry>
+    </mxCell>
+<mxCell id="gw_active" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;strokeWidth=1;" vertex="1" parent="1">
+      <mxGeometry x="505" y="510" width="10" height="1160" as="geometry" />
+    </mxCell>
+<mxCell id="aipi_active" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;strokeWidth=1;" vertex="1" parent="1">
+      <mxGeometry x="855" y="670" width="10" height="880" as="geometry" />
+    </mxCell>
+<mxCell id="p1_bg" value="&lt;b style=&quot;font-size:13px; color:#37474f;&quot;&gt;PHASE 1 : ÉTABLISSEMENT DU CANAL SSE PERSISTANT &amp;amp; MÉCANISME DE KEEPALIVE (Console Platform ↔ Walspool)&lt;/b&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fafafa;strokeColor=#90a4ae;strokeWidth=2;dashed=1;align=left;verticalAlign=top;spacingLeft=15;spacingTop=10;" vertex="1" parent="1">
+      <mxGeometry x="40" y="180" width="1640" height="270" as="geometry" />
+    </mxCell>
+<mxCell id="e1_1" value="&lt;b&gt;1.1. Inscription au flux de logs en direct : GET /api/v1/observability/logs/stream&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#555555&quot;&gt;Headers: Accept: text/event-stream | Cache-Control: no-cache | (EventSource factory)&lt;/font&gt;" style="endArrow=block;html=1;strokeColor=#10739e;strokeWidth=2;fontSize=11;labelBackgroundColor=#ffffff;" edge="1" parent="1">
+      <mxGeometry relative="1" as="geometry">
+        <mxPoint x="1550" y="225" as="sourcePoint" />
+        <mxPoint x="510" y="225" as="targetPoint" />
+      </mxGeometry>
+    </mxCell>
+<mxCell id="e1_2" value="&lt;b&gt;1.2. Relais proxy SSE : GET /v1/logs/stream&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#555555&quot;&gt;Proxy Node.js non-bufferisé (ObservabilityController.getLogsStream)&lt;/font&gt;" style="endArrow=block;html=1;strokeColor=#9673a6;strokeWidth=2;fontSize=11;labelBackgroundColor=#ffffff;" edge="1" parent="1">
+      <mxGeometry relative="1" as="geometry">
+        <mxPoint x="510" y="265" as="sourcePoint" />
+        <mxPoint x="1210" y="265" as="targetPoint" />
+      </mxGeometry>
+    </mxCell>
+<mxCell id="e1_3a" value="&lt;b&gt;1.3. Headers HTTP 200 + Flush immédiat + Événement initial : &lt;font color=&quot;#2e7d32&quot;&gt;&quot;: connected\n\n&quot;&lt;/font&gt;&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#555555&quot;&gt;Headers: Content-Type: text/event-stream | X-Accel-Buffering: no | Connection: keep-alive&lt;/font&gt;" style="endArrow=block;dashed=1;html=1;strokeColor=#d79b00;strokeWidth=2;fontSize=11;labelBackgroundColor=#ffffff;" edge="1" parent="1">
+      <mxGeometry relative="1" as="geometry">
+        <mxPoint x="1210" y="310" as="sourcePoint" />
+        <mxPoint x="510" y="310" as="targetPoint" />
+      </mxGeometry>
+    </mxCell>
+<mxCell id="e1_3b" value="&lt;b&gt;1.3 (suite). Relais direct (upstreamRes.pipe(res)) ➔ Console connectée&lt;/b&gt;" style="endArrow=block;dashed=1;html=1;strokeColor=#10739e;strokeWidth=2;fontSize=11;labelBackgroundColor=#ffffff;" edge="1" parent="1">
+      <mxGeometry relative="1" as="geometry">
+        <mxPoint x="510" y="310" as="sourcePoint" />
+        <mxPoint x="1550" y="310" as="targetPoint" />
+      </mxGeometry>
+    </mxCell>
+<mxCell id="e1_4a" value="&lt;b&gt;1.4. Heartbeat périodique (ticker Go 10s) : &lt;font color=&quot;#d79b00&quot;&gt;&quot;: keepalive\n\n&quot;&lt;/font&gt;&lt;/b&gt;" style="endArrow=block;dashed=1;html=1;strokeColor=#d79b00;strokeWidth=1.5;fontSize=11;labelBackgroundColor=#ffffff;" edge="1" parent="1">
+      <mxGeometry relative="1" as="geometry">
+        <mxPoint x="1210" y="355" as="sourcePoint" />
+        <mxPoint x="510" y="355" as="targetPoint" />
+      </mxGeometry>
+    </mxCell>
+<mxCell id="e1_4b" value="&lt;b&gt;Keepalive relayé vers Console (maintien connexion TCP active)&lt;/b&gt;" style="endArrow=block;dashed=1;html=1;strokeColor=#10739e;strokeWidth=1.5;fontSize=11;labelBackgroundColor=#ffffff;" edge="1" parent="1">
+      <mxGeometry relative="1" as="geometry">
+        <mxPoint x="510" y="355" as="sourcePoint" />
+        <mxPoint x="1550" y="355" as="targetPoint" />
+      </mxGeometry>
+    </mxCell>
+<mxCell id="n1" value="&lt;b style=&quot;color:#bf360c;&quot;&gt;Contrat de Résilience SSE &amp;amp; Anti-Buffering :&lt;/b&gt;&lt;br&gt;• &lt;b&gt;X-Accel-Buffering: no&lt;/b&gt; interdit aux proxies intermédiaires (NGINX, Envoy, Traefik) d&#39;accumuler les buffers de streaming.&lt;br&gt;• Le ticker interne Walspool émet un commentaire SSE &lt;i&gt;(&quot;: keepalive\n\n&quot;)&lt;/i&gt; toutes les 10s, empêchant les timeouts de passerelle.&lt;br&gt;• En cas de coupure réseau, le store Vue 3 reconnecte automatiquement le flux avec backoff exponentiel &amp;amp; background sync." style="shape=note;whiteSpace=wrap;html=1;size=14;verticalAlign=middle;align=left;fillColor=#fff8e1;strokeColor=#ffe082;strokeWidth=1.5;fontSize=11;shadow=1;" vertex="1" parent="1">
+      <mxGeometry x="630" y="380" width="790" height="60" as="geometry" />
+    </mxCell>
+<mxCell id="p2_bg" value="&lt;b style=&quot;font-size:13px; color:#4a148c;&quot;&gt;PHASE 2 : INGESTION MÉTIER &amp;amp; PROPAGATION UNIFIÉE DU CONTEXTE (AsyncLocalStorage ↔ contextvars)&lt;/b&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fdf7ff;strokeColor=#ba68c8;strokeWidth=2;dashed=1;align=left;verticalAlign=top;spacingLeft=15;spacingTop=10;" vertex="1" parent="1">
+      <mxGeometry x="40" y="470" width="1640" height="440" as="geometry" />
+    </mxCell>
+<mxCell id="e2" value="&lt;b style=&quot;font-size:12px;&quot;&gt;2. Requête Métier : POST /api/v1/ai/generate&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#555555&quot;&gt;Payload: {&quot;prompt&quot;: &quot;Analyser les données de télémétrie du cluster...&quot;} (aucun x-request-id présent)&lt;/font&gt;" style="endArrow=block;html=1;strokeColor=#1e88e5;strokeWidth=2.5;fontSize=11;labelBackgroundColor=#ffffff;" edge="1" parent="1">
+      <mxGeometry relative="1" as="geometry">
+        <mxPoint x="180" y="515" as="sourcePoint" />
+        <mxPoint x="505" y="515" as="targetPoint" />
+      </mxGeometry>
+    </mxCell>
+<mxCell id="e3_loop" value="&lt;b&gt;3. TraceMiddleware (LoopBack 4)&lt;/b&gt;&lt;br&gt;Vérifie / génère UUID v4&lt;br&gt;Initialise AsyncLocalStorage" style="edgeStyle=orthogonalEdgeStyle;curved=1;endArrow=block;html=1;strokeColor=#9673a6;strokeWidth=2;fontSize=11;labelBackgroundColor=#ffffff;" edge="1" parent="1">
+      <mxGeometry relative="1" as="geometry">
+        <mxPoint x="515" y="535" as="sourcePoint" />
+        <mxPoint x="515" y="605" as="targetPoint" />
+        <Array as="points">
+          <mxPoint x="590" y="535" />
+          <mxPoint x="590" y="605" />
+        </Array>
+      </mxGeometry>
+    </mxCell>
+<mxCell id="n3" value="&lt;b style=&quot;color:#4a148c;&quot;&gt;Détails Interception TraceMiddleware (Node.js) :&lt;/b&gt;&lt;br&gt;1. Recherche en-têtes : &lt;i&gt;x-request-id&lt;/i&gt;, &lt;i&gt;x-correlation-id&lt;/i&gt;, &lt;i&gt;x-trace-id&lt;/i&gt;.&lt;br&gt;2. Génère un UUID v4 unique : &lt;b style=&quot;color:#1e88e5;&quot;&gt;trace_id = &quot;c4a2e881-3b71-48f9-902e-1d5e3170a821&quot;&lt;/b&gt;.&lt;br&gt;3. Injection précoce dans la réponse : &lt;i&gt;res.setHeader(&#39;x-request-id&#39;, traceId)&lt;/i&gt;.&lt;br&gt;4. Exécute la chaîne d&#39;intercepteurs dans &lt;b&gt;traceStorage.run({ traceId, startTime: Date.now(), ... })&lt;/b&gt; via &lt;b&gt;AsyncLocalStorage&lt;/b&gt; (isolation totale sans variables globales).&lt;br&gt;5. Mémorise &lt;i&gt;startTime&lt;/i&gt; pour le calcul de durée aval." style="shape=note;whiteSpace=wrap;html=1;size=14;verticalAlign=middle;align=left;fillColor=#f3e5f5;strokeColor=#ce93d8;strokeWidth=1.5;fontSize=11;shadow=1;" vertex="1" parent="1">
+      <mxGeometry x="230" y="540" width="265" height="150" as="geometry" />
+    </mxCell>
+<mxCell id="e4" value="&lt;b style=&quot;font-size:12px;&quot;&gt;4. Propagation HTTP vers service aval : POST http://aipi:8000/api/v1/inference&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#1e88e5&quot;&gt;&lt;b&gt;Headers injectés: [x-request-id: c4a2e881-3b71-48f9-902e-1d5e3170a821]&lt;/b&gt;&lt;/font&gt; | Content-Type: application/json" style="endArrow=block;html=1;strokeColor=#6a1b9a;strokeWidth=2.5;fontSize=11;labelBackgroundColor=#ffffff;" edge="1" parent="1">
+      <mxGeometry relative="1" as="geometry">
+        <mxPoint x="515" y="685" as="sourcePoint" />
+        <mxPoint x="855" y="685" as="targetPoint" />
+      </mxGeometry>
+    </mxCell>
+<mxCell id="e5_loop" value="&lt;b&gt;5. TraceMiddleware Django&lt;/b&gt;&lt;br&gt;Extrait header x-request-id&lt;br&gt;Stocke dans contextvars" style="edgeStyle=orthogonalEdgeStyle;curved=1;endArrow=block;html=1;strokeColor=#82b366;strokeWidth=2;fontSize=11;labelBackgroundColor=#ffffff;" edge="1" parent="1">
+      <mxGeometry relative="1" as="geometry">
+        <mxPoint x="865" y="705" as="sourcePoint" />
+        <mxPoint x="865" y="775" as="targetPoint" />
+        <Array as="points">
+          <mxPoint x="945" y="705" />
+          <mxPoint x="945" y="775" />
+        </Array>
+      </mxGeometry>
+    </mxCell>
+<mxCell id="n5" value="&lt;b style=&quot;color:#2e7d32;&quot;&gt;Détails Middleware AIPI (Python / Django) :&lt;/b&gt;&lt;br&gt;1. Récupère l&#39;en-tête &lt;i&gt;request.headers.get(&#39;x-request-id&#39;)&lt;/i&gt;.&lt;br&gt;2. Initialise la variable de contexte thread-safe / async-safe :&lt;br&gt;   &lt;b&gt;token = request_trace_id.set(trace_id)&lt;/b&gt; (&lt;i&gt;ContextVar[Optional[str]]&lt;/i&gt;).&lt;br&gt;3. Associe &lt;i&gt;request.trace_id = trace_id&lt;/i&gt; pour l&#39;accès direct dans les vues.&lt;br&gt;4. Bloc strict &lt;b&gt;finally: reset_current_trace_id(token)&lt;/b&gt; garantissant l&#39;absence totale de fuite de contexte entre requêtes réutilisant le même thread WSGI/ASGI." style="shape=note;whiteSpace=wrap;html=1;size=14;verticalAlign=middle;align=left;fillColor=#e8f5e9;strokeColor=#a5d6a7;strokeWidth=1.5;fontSize=11;shadow=1;" vertex="1" parent="1">
+      <mxGeometry x="960" y="710" width="370" height="135" as="geometry" />
+    </mxCell>
+<mxCell id="b2" value="&lt;b&gt;✔ Garantie Corrélation Distribuée :&lt;/b&gt; Le Trace ID &lt;b style=&quot;color:#1e88e5;&quot;&gt;c4a2e881-3b71-48f9-902e-1d5e3170a821&lt;/b&gt; est désormais lié de manière transparente et asynchrone aux contextes d&#39;exécution Node.js (V8) et Python (CPython), prêt pour toute journalisation sans passage explicite de paramètres." style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#4a148c;strokeWidth=1.5;fontSize=11;align=center;verticalAlign=middle;shadow=1;" vertex="1" parent="1">
+      <mxGeometry x="250" y="855" width="1280" height="40" as="geometry" />
+    </mxCell>
+<mxCell id="p3_bg" value="&lt;b style=&quot;font-size:13px; color:#1b5e20;&quot;&gt;PHASE 3 : TÉLÉMÉTRIE ASYNCHRONE NON-BLOQUANTE &amp;amp; DIFFUSION TEMPS RÉEL (AIPI ➔ Walspool ➔ Vue 3)&lt;/b&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f1f8e9;strokeColor=#81c784;strokeWidth=2;dashed=1;align=left;verticalAlign=top;spacingLeft=15;spacingTop=10;" vertex="1" parent="1">
+      <mxGeometry x="40" y="930" width="1640" height="520" as="geometry" />
+    </mxCell>
+<mxCell id="e6_1" value="&lt;b&gt;6.1. Exécution Inférence : logger.info(&quot;Démarrage inférence IA&quot;, extra={&quot;model&quot;: &quot;llama-3-8b&quot;, &quot;tokens&quot;: 512})&lt;/b&gt;" style="edgeStyle=orthogonalEdgeStyle;curved=1;endArrow=block;html=1;strokeColor=#2e7d32;strokeWidth=2;fontSize=11;labelBackgroundColor=#ffffff;" edge="1" parent="1">
+      <mxGeometry relative="1" as="geometry">
+        <mxPoint x="865" y="965" as="sourcePoint" />
+        <mxPoint x="865" y="1015" as="targetPoint" />
+        <Array as="points">
+          <mxPoint x="930" y="965" />
+          <mxPoint x="930" y="1015" />
+        </Array>
+      </mxGeometry>
+    </mxCell>
+<mxCell id="n6" value="&lt;b style=&quot;color:#e65100;&quot;&gt;6.2. WalspoolHandler.emit() (Arrière-plan Non-Bloquant) :&lt;/b&gt;&lt;br&gt;• Récupère automatiquement le &lt;b&gt;trace_id&lt;/b&gt; actif via &lt;i&gt;get_current_trace_id()&lt;/i&gt; depuis &lt;i&gt;contextvars&lt;/i&gt;.&lt;br&gt;• Formate le payload selon le schéma &lt;b&gt;StandardLogEvent&lt;/b&gt; (timestamp ISO UTC, service: &quot;aipi&quot;, context, extra).&lt;br&gt;• Enfile l&#39;événement sans attendre : &lt;b&gt;_queue.put_nowait(event)&lt;/b&gt; (file bornée max 5000 items).&lt;br&gt;• &lt;b&gt;Isolation Black-Box :&lt;/b&gt; Le thread de calcul IA n&#39;attend JAMAIS le réseau. Si Walspool est éteint ou saturé, le log est droppé sans lever d&#39;exception métier." style="shape=note;whiteSpace=wrap;html=1;size=14;verticalAlign=middle;align=left;fillColor=#fff3e0;strokeColor=#ffb74d;strokeWidth=1.5;fontSize=11;shadow=1;" vertex="1" parent="1">
+      <mxGeometry x="450" y="990" width="395" height="120" as="geometry" />
+    </mxCell>
+<mxCell id="e6_3" value="&lt;b style=&quot;font-size:12px;&quot;&gt;6.3. Thread Daemon (WalspoolLogWorker) : POST http://localhost:9099/v1/enqueue&lt;/b&gt;&lt;br&gt;Payload: {&quot;topic&quot;: &quot;pilot4it.aipi.logs&quot;, &quot;payload&quot;: { &quot;service&quot;: &quot;aipi&quot;, &quot;trace_id&quot;: &quot;c4a2e881...&quot;, &quot;level&quot;: &quot;INFO&quot;, &quot;message&quot;: &quot;Démarrage inférence IA&quot; }}" style="endArrow=block;html=1;strokeColor=#e65100;strokeWidth=2.5;fontSize=11;labelBackgroundColor=#ffffff;" edge="1" parent="1">
+      <mxGeometry relative="1" as="geometry">
+        <mxPoint x="865" y="1080" as="sourcePoint" />
+        <mxPoint x="1210" y="1080" as="targetPoint" />
+      </mxGeometry>
+    </mxCell>
+<mxCell id="e6_4" value="&lt;b&gt;6.4. HTTP 202 Accepted {&quot;status&quot;: &quot;accepted&quot;, &quot;topic&quot;: &quot;pilot4it.aipi.logs&quot;, &quot;size_bytes&quot;: 312}&lt;/b&gt;" style="endArrow=block;dashed=1;html=1;strokeColor=#e65100;strokeWidth=1.5;fontSize=11;labelBackgroundColor=#ffffff;" edge="1" parent="1">
+      <mxGeometry relative="1" as="geometry">
+        <mxPoint x="1210" y="1115" as="sourcePoint" />
+        <mxPoint x="865" y="1115" as="targetPoint" />
+      </mxGeometry>
+    </mxCell>
+<mxCell id="e7_loop" value="&lt;b&gt;7.1. Moteur Walspool (Go)&lt;/b&gt;&lt;br&gt;• Append WAL disque (fsync &amp;amp; CRC32)&lt;br&gt;• Index circulaire MemoryLogHub&lt;br&gt;• Broadcast immédiat canal logCh" style="edgeStyle=orthogonalEdgeStyle;curved=1;endArrow=block;html=1;strokeColor=#d79b00;strokeWidth=2;fontSize=11;labelBackgroundColor=#ffffff;" edge="1" parent="1">
+      <mxGeometry relative="1" as="geometry">
+        <mxPoint x="1215" y="1135" as="sourcePoint" />
+        <mxPoint x="1215" y="1205" as="targetPoint" />
+        <Array as="points">
+          <mxPoint x="1300" y="1135" />
+          <mxPoint x="1300" y="1205" />
+        </Array>
+      </mxGeometry>
+    </mxCell>
+<mxCell id="e7_push_gw" value="&lt;b style=&quot;font-size:12px;&quot;&gt;7.2. Push SSE temps réel (Flux actif) : data: {&quot;timestamp&quot;:&quot;...&quot;,&quot;service&quot;:&quot;aipi&quot;,&quot;trace_id&quot;:&quot;c4a2e881...&quot;,&quot;level&quot;:&quot;INFO&quot;,&quot;message&quot;:&quot;Démarrage inférence IA&quot;}\n\n&lt;/b&gt;" style="endArrow=block;dashed=1;html=1;strokeColor=#0288d1;strokeWidth=2.5;fontSize=11;labelBackgroundColor=#ffffff;" edge="1" parent="1">
+      <mxGeometry relative="1" as="geometry">
+        <mxPoint x="1210" y="1225" as="sourcePoint" />
+        <mxPoint x="510" y="1225" as="targetPoint" />
+      </mxGeometry>
+    </mxCell>
+<mxCell id="e7_push_ui" value="&lt;b&gt;Relais SSE immédiat vers Console Platform&lt;/b&gt;" style="endArrow=block;dashed=1;html=1;strokeColor=#0288d1;strokeWidth=2.5;fontSize=11;labelBackgroundColor=#ffffff;" edge="1" parent="1">
+      <mxGeometry relative="1" as="geometry">
+        <mxPoint x="510" y="1225" as="sourcePoint" />
+        <mxPoint x="1550" y="1225" as="targetPoint" />
+      </mxGeometry>
+    </mxCell>
+<mxCell id="e8_loop" value="&lt;b&gt;8. Réception Vue 3 &amp;amp; Pinia Store&lt;/b&gt;&lt;br&gt;onmessage ➔ normalizeLogEvent()&lt;br&gt;addLog() ➔ logs.value réactif" style="edgeStyle=orthogonalEdgeStyle;curved=1;endArrow=block;html=1;strokeColor=#10739e;strokeWidth=2;fontSize=11;labelBackgroundColor=#ffffff;" edge="1" parent="1">
+      <mxGeometry relative="1" as="geometry">
+        <mxPoint x="1555" y="1245" as="sourcePoint" />
+        <mxPoint x="1555" y="1315" as="targetPoint" />
+        <Array as="points">
+          <mxPoint x="1625" y="1245" />
+          <mxPoint x="1625" y="1315" />
+        </Array>
+      </mxGeometry>
+    </mxCell>
+<mxCell id="n8" value="&lt;b style=&quot;color:#0277bd;&quot;&gt;Détails Normalisation &amp;amp; Réactivité Vue 3 (useObservabilityStore) :&lt;/b&gt;&lt;br&gt;• &lt;b&gt;normalizeLogEvent(raw) :&lt;/b&gt; Uniformise les champs hétérogènes (timestamp UTC, level normalisé en minuscule, ID unique déterministe ou aléatoire, extraction payload/extra).&lt;br&gt;• &lt;b&gt;addLog(log) :&lt;/b&gt; Dédoublonne par &lt;i&gt;log.id&lt;/i&gt;, respecte le buffer tournant &lt;i&gt;maxBufferSize&lt;/i&gt; (500 logs) et déclenche la réactivité Pinia / Vue 3.&lt;br&gt;• &lt;b&gt;Affichage direct :&lt;/b&gt; L&#39;événement AIPI apparaît en temps réel dans le tableau sans rafraîchissement ni polling !" style="shape=note;whiteSpace=wrap;html=1;size=14;verticalAlign=middle;align=left;fillColor=#e1f5fe;strokeColor=#81d4fa;strokeWidth=1.5;fontSize=11;shadow=1;" vertex="1" parent="1">
+      <mxGeometry x="1170" y="1325" width="480" height="110" as="geometry" />
+    </mxCell>
+<mxCell id="p4_bg" value="&lt;b style=&quot;font-size:13px; color:#006064;&quot;&gt;PHASE 4 : COMPLÉTION DE L&#39;INFÉRENCE, CALCUL DE LATENCE &amp;amp; CORRÉLATION WATERFALL GANTT&lt;/b&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e0f7fa;strokeColor=#4dd0e1;strokeWidth=2;dashed=1;align=left;verticalAlign=top;spacingLeft=15;spacingTop=10;" vertex="1" parent="1">
+      <mxGeometry x="40" y="1470" width="1640" height="780" as="geometry" />
+    </mxCell>
+<mxCell id="e9_1" value="&lt;b&gt;9.1. Inférence IA terminée (185ms)&lt;/b&gt;&lt;br&gt;finally: reset_current_trace_id(token)&lt;br&gt;Injection header réponse: x-request-id" style="edgeStyle=orthogonalEdgeStyle;curved=1;endArrow=block;html=1;strokeColor=#2e7d32;strokeWidth=2;fontSize=11;labelBackgroundColor=#ffffff;" edge="1" parent="1">
+      <mxGeometry relative="1" as="geometry">
+        <mxPoint x="865" y="1490" as="sourcePoint" />
+        <mxPoint x="865" y="1540" as="targetPoint" />
+        <Array as="points">
+          <mxPoint x="930" y="1490" />
+          <mxPoint x="930" y="1540" />
+        </Array>
+      </mxGeometry>
+    </mxCell>
+<mxCell id="e9_2" value="&lt;b style=&quot;font-size:12px;&quot;&gt;9.2. Réponse microservice aval : HTTP/1.1 200 OK&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#1e88e5&quot;&gt;&lt;b&gt;Headers: [x-request-id: c4a2e881-3b71-48f9-902e-1d5e3170a821]&lt;/b&gt;&lt;/font&gt; | Body: {&quot;status&quot;: &quot;success&quot;, &quot;tokens_generated&quot;: 142, &quot;inference_ms&quot;: 185}" style="endArrow=block;dashed=1;html=1;strokeColor=#2e7d32;strokeWidth=2;fontSize=11;labelBackgroundColor=#ffffff;" edge="1" parent="1">
+      <mxGeometry relative="1" as="geometry">
+        <mxPoint x="855" y="1550" as="sourcePoint" />
+        <mxPoint x="515" y="1550" as="targetPoint" />
+      </mxGeometry>
+    </mxCell>
+<mxCell id="e9_3" value="&lt;b style=&quot;font-size:12px;&quot;&gt;9.3. Réponse finale au client : HTTP/1.1 200 OK&lt;/b&gt;&lt;br&gt;Headers: [x-request-id: c4a2e881-3b71-48f9-902e-1d5e3170a821] | Body: {&quot;result&quot;: &quot;Analyse complétée avec succès...&quot;}" style="endArrow=block;dashed=1;html=1;strokeColor=#1e88e5;strokeWidth=2.5;fontSize=11;labelBackgroundColor=#ffffff;" edge="1" parent="1">
+      <mxGeometry relative="1" as="geometry">
+        <mxPoint x="505" y="1585" as="sourcePoint" />
+        <mxPoint x="180" y="1585" as="targetPoint" />
+      </mxGeometry>
+    </mxCell>
+<mxCell id="e10_calc" value="&lt;b&gt;10.1. TraceMiddleware fin de cycle&lt;/b&gt;&lt;br&gt;durationMs = Date.now() - startTime = &lt;b style=&quot;color:#d81b60;&quot;&gt;210ms&lt;/b&gt;&lt;br&gt;GatewayLogger.logRequest() (non-blocking)" style="edgeStyle=orthogonalEdgeStyle;curved=1;endArrow=block;html=1;strokeColor=#9673a6;strokeWidth=2;fontSize=11;labelBackgroundColor=#ffffff;" edge="1" parent="1">
+      <mxGeometry relative="1" as="geometry">
+        <mxPoint x="515" y="1605" as="sourcePoint" />
+        <mxPoint x="515" y="1660" as="targetPoint" />
+        <Array as="points">
+          <mxPoint x="590" y="1605" />
+          <mxPoint x="590" y="1660" />
+        </Array>
+      </mxGeometry>
+    </mxCell>
+<mxCell id="e10_enqueue" value="&lt;b style=&quot;font-size:12px;&quot;&gt;10.2. Émission log Gateway : POST http://localhost:9099/v1/enqueue&lt;/b&gt;&lt;br&gt;Payload: {&quot;topic&quot;: &quot;pilot4it.gateway.logs&quot;, &quot;payload&quot;: { &quot;service&quot;: &quot;api-gateway&quot;, &quot;trace_id&quot;: &quot;c4a2e881...&quot;, &quot;duration_ms&quot;: 210, &quot;status_code&quot;: 200, &quot;method&quot;: &quot;POST&quot;, &quot;path&quot;: &quot;/api/v1/ai/generate&quot; }}" style="endArrow=block;html=1;strokeColor=#6a1b9a;strokeWidth=2.5;fontSize=11;labelBackgroundColor=#ffffff;" edge="1" parent="1">
+      <mxGeometry relative="1" as="geometry">
+        <mxPoint x="515" y="1670" as="sourcePoint" />
+        <mxPoint x="1210" y="1670" as="targetPoint" />
+      </mxGeometry>
+    </mxCell>
+<mxCell id="e10_ack" value="&lt;b&gt;10.3. HTTP 202 Accepted&lt;/b&gt;" style="endArrow=block;dashed=1;html=1;strokeColor=#6a1b9a;strokeWidth=1.5;fontSize=11;labelBackgroundColor=#ffffff;" edge="1" parent="1">
+      <mxGeometry relative="1" as="geometry">
+        <mxPoint x="1210" y="1705" as="sourcePoint" />
+        <mxPoint x="515" y="1705" as="targetPoint" />
+      </mxGeometry>
+    </mxCell>
+<mxCell id="e11_push_gw" value="&lt;b style=&quot;font-size:12px;&quot;&gt;11. Push SSE log Gateway : data: {&quot;timestamp&quot;:&quot;...&quot;,&quot;service&quot;:&quot;api-gateway&quot;,&quot;trace_id&quot;:&quot;c4a2e881...&quot;,&quot;duration_ms&quot;:210,&quot;status_code&quot;:200,&quot;message&quot;:&quot;POST /api/v1/ai/generate 200 (210ms)&quot;}\n\n&lt;/b&gt;" style="endArrow=block;dashed=1;html=1;strokeColor=#0288d1;strokeWidth=2.5;fontSize=11;labelBackgroundColor=#ffffff;" edge="1" parent="1">
+      <mxGeometry relative="1" as="geometry">
+        <mxPoint x="1210" y="1745" as="sourcePoint" />
+        <mxPoint x="510" y="1745" as="targetPoint" />
+      </mxGeometry>
+    </mxCell>
+<mxCell id="e11_push_ui" value="&lt;b&gt;Relais SSE immédiat vers Console Platform&lt;/b&gt;" style="endArrow=block;dashed=1;html=1;strokeColor=#0288d1;strokeWidth=2.5;fontSize=11;labelBackgroundColor=#ffffff;" edge="1" parent="1">
+      <mxGeometry relative="1" as="geometry">
+        <mxPoint x="510" y="1745" as="sourcePoint" />
+        <mxPoint x="1550" y="1745" as="targetPoint" />
+      </mxGeometry>
+    </mxCell>
+<mxCell id="e12_loop" value="&lt;b&gt;12.1. Agrégation &amp;amp; Synthèse Trace&lt;/b&gt;&lt;br&gt;activeTraceSummary déclenche&lt;br&gt;&lt;b&gt;computeTraceSummary(traceLogs)&lt;/b&gt;" style="edgeStyle=orthogonalEdgeStyle;curved=1;endArrow=block;html=1;strokeColor=#10739e;strokeWidth=2;fontSize=11;labelBackgroundColor=#ffffff;" edge="1" parent="1">
+      <mxGeometry relative="1" as="geometry">
+        <mxPoint x="1555" y="1765" as="sourcePoint" />
+        <mxPoint x="1555" y="1835" as="targetPoint" />
+        <Array as="points">
+          <mxPoint x="1635" y="1765" />
+          <mxPoint x="1635" y="1835" />
+        </Array>
+      </mxGeometry>
+    </mxCell>
+<mxCell id="wf_card" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#00838f;strokeWidth=2.5;shadow=1;" vertex="1" parent="1">
+      <mxGeometry x="220" y="1860" width="1440" height="360" as="geometry" />
+    </mxCell>
+<mxCell id="wf_title" value="&lt;b style=&quot;font-size:14px; color:#006064;&quot;&gt;ÉTAPE 12.2 : VUE CASCADE DE TRACE (GANTT WATERFALL) RECONSTITUÉE DANS LA CONSOLE PLATFORM&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#37474f&quot;&gt;Trace ID : &lt;b style=&quot;color:#1e88e5;&quot;&gt;c4a2e881-3b71-48f9-902e-1d5e3170a821&lt;/b&gt; | Durée totale : &lt;b style=&quot;color:#d81b60;&quot;&gt;210 ms&lt;/b&gt; | Nombre de Spans : &lt;b&gt;2&lt;/b&gt; | Statut global : &lt;b style=&quot;color:#2e7d32;&quot;&gt;200 OK (Succès)&lt;/b&gt; | Calcul : &lt;i&gt;computeTraceSummary()&lt;/i&gt;&lt;/font&gt;" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#e0f7fa;strokeColor=none;align=left;verticalAlign=middle;spacingLeft=15;" vertex="1" parent="1">
+      <mxGeometry x="225" y="1865" width="1430" height="45" as="geometry" />
+    </mxCell>
+<mxCell id="wf_axis" value="&lt;font color=&quot;#546e7a&quot;&gt;&lt;b&gt;T0 (0ms)&lt;/b&gt; ────────────────── &lt;b&gt;T+50ms&lt;/b&gt; ────────────────── &lt;b&gt;T+100ms&lt;/b&gt; ────────────────── &lt;b&gt;T+150ms&lt;/b&gt; ────────────────── &lt;b&gt;T+200ms&lt;/b&gt; ─── &lt;b&gt;T+210ms&lt;/b&gt;&lt;/font&gt;" style="text;html=1;align=center;verticalAlign=middle;fontSize=11;fontStyle=0;" vertex="1" parent="1">
+      <mxGeometry x="500" y="1915" width="1120" height="25" as="geometry" />
+    </mxCell>
+<mxCell id="s1_lbl" value="&lt;b style=&quot;color:#4a148c;&quot;&gt;Span 1 (Parent Root)&lt;/b&gt;&lt;br&gt;&lt;b&gt;api-gateway&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#666666&quot;&gt;POST /api/v1/ai/generate&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f3e5f5;strokeColor=#ab47bc;align=left;verticalAlign=middle;spacingLeft=10;fontSize=11;" vertex="1" parent="1">
+      <mxGeometry x="240" y="1945" width="240" height="45" as="geometry" />
+    </mxCell>
+<mxCell id="s1_bar" value="&lt;b style=&quot;color:#ffffff;&quot;&gt;api-gateway : POST /api/v1/ai/generate — 200 OK — Durée: 210 ms (100% de la trace)&lt;/b&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#8e24aa;strokeColor=#4a148c;align=center;verticalAlign=middle;fontSize=11;shadow=1;" vertex="1" parent="1">
+      <mxGeometry x="500" y="1945" width="1120" height="45" as="geometry" />
+    </mxCell>
+<mxCell id="s2_lbl" value="&lt;b style=&quot;color:#1b5e20;&quot;&gt;Span 2 (Child Span)&lt;/b&gt;&lt;br&gt;&lt;b&gt;aipi&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#666666&quot;&gt;POST /api/v1/inference&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e8f5e9;strokeColor=#66bb6a;align=left;verticalAlign=middle;spacingLeft=10;fontSize=11;" vertex="1" parent="1">
+      <mxGeometry x="240" y="2005" width="240" height="45" as="geometry" />
+    </mxCell>
+<mxCell id="s2_bar" value="&lt;b style=&quot;color:#ffffff;&quot;&gt;aipi : Inférence IA (Llama-3-8b, 142 tokens) — Durée: 185 ms (88.1% de la trace)&lt;/b&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#2e7d32;strokeColor=#1b5e20;align=center;verticalAlign=middle;fontSize=11;shadow=1;" vertex="1" parent="1">
+      <mxGeometry x="580" y="2005" width="986" height="45" as="geometry" />
+    </mxCell>
+<mxCell id="wf_table" value="&lt;table style=&quot;width:100%; border-collapse:collapse; font-size:11px;&quot;&gt;
+      &lt;tr style=&quot;background-color:#eceff1;&quot;&gt;
+        &lt;th style=&quot;padding:5px; border:1px solid #cfd8dc; text-align:left;&quot;&gt;Service&lt;/th&gt;
+        &lt;th style=&quot;padding:5px; border:1px solid #cfd8dc; text-align:left;&quot;&gt;Méthode / Endpoint&lt;/th&gt;
+        &lt;th style=&quot;padding:5px; border:1px solid #cfd8dc; text-align:center;&quot;&gt;Statut&lt;/th&gt;
+        &lt;th style=&quot;padding:5px; border:1px solid #cfd8dc; text-align:right;&quot;&gt;Début Relatif&lt;/th&gt;
+        &lt;th style=&quot;padding:5px; border:1px solid #cfd8dc; text-align:right;&quot;&gt;Durée (ms)&lt;/th&gt;
+        &lt;th style=&quot;padding:5px; border:1px solid #cfd8dc; text-align:left;&quot;&gt;Contexte Métier &amp;amp; Corrélation&lt;/th&gt;
+      &lt;/tr&gt;
+      &lt;tr style=&quot;background-color:#ffffff;&quot;&gt;
+        &lt;td style=&quot;padding:5px; border:1px solid #cfd8dc;&quot;&gt;&lt;b style=&quot;color:#8e24aa;&quot;&gt;api-gateway&lt;/b&gt;&lt;/td&gt;
+        &lt;td style=&quot;padding:5px; border:1px solid #cfd8dc;&quot;&gt;POST /api/v1/ai/generate&lt;/td&gt;
+        &lt;td style=&quot;padding:5px; border:1px solid #cfd8dc; text-align:center;&quot;&gt;&lt;span style=&quot;background-color:#e8f5e9; color:#2e7d32; font-weight:bold; padding:2px 6px; border-radius:3px;&quot;&gt;200 OK&lt;/span&gt;&lt;/td&gt;
+        &lt;td style=&quot;padding:5px; border:1px solid #cfd8dc; text-align:right;&quot;&gt;+0.0 ms&lt;/td&gt;
+        &lt;td style=&quot;padding:5px; border:1px solid #cfd8dc; text-align:right;&quot;&gt;&lt;b&gt;210 ms&lt;/b&gt;&lt;/td&gt;
+        &lt;td style=&quot;padding:5px; border:1px solid #cfd8dc;&quot;&gt;Trace root • AsyncLocalStorage context • Latence overhead Gateway/Réseau: 25ms (11.9%)&lt;/td&gt;
+      &lt;/tr&gt;
+      &lt;tr style=&quot;background-color:#fafafa;&quot;&gt;
+        &lt;td style=&quot;padding:5px; border:1px solid #cfd8dc;&quot;&gt;&lt;b style=&quot;color:#2e7d32;&quot;&gt;aipi&lt;/b&gt;&lt;/td&gt;
+        &lt;td style=&quot;padding:5px; border:1px solid #cfd8dc;&quot;&gt;POST /api/v1/inference&lt;/td&gt;
+        &lt;td style=&quot;padding:5px; border:1px solid #cfd8dc; text-align:center;&quot;&gt;&lt;span style=&quot;background-color:#e8f5e9; color:#2e7d32; font-weight:bold; padding:2px 6px; border-radius:3px;&quot;&gt;200 OK&lt;/span&gt;&lt;/td&gt;
+        &lt;td style=&quot;padding:5px; border:1px solid #cfd8dc; text-align:right;&quot;&gt;+15.0 ms&lt;/td&gt;
+        &lt;td style=&quot;padding:5px; border:1px solid #cfd8dc; text-align:right;&quot;&gt;&lt;b&gt;185 ms&lt;/b&gt;&lt;/td&gt;
+        &lt;td style=&quot;padding:5px; border:1px solid #cfd8dc;&quot;&gt;Child span • contextvars propagation • Llama-3-8b (prompt: 512 tokens, gen: 142 tokens)&lt;/td&gt;
+      &lt;/tr&gt;
+    &lt;/table&gt;" style="text;html=1;align=left;verticalAlign=middle;fontSize=11;" vertex="1" parent="1">
+      <mxGeometry x="240" y="2060" width="1400" height="150" as="geometry" />
+    </mxCell>
+<mxCell id="sum_bg" value="&lt;b style=&quot;font-size:13px; color:#263238;&quot;&gt;SYNTHÈSE ARCHITECTURALE : PRINCIPES BLACK-BOX, PERFORMANCE &amp;amp; TRAÇABILITÉ DISTRIBUÉE&lt;/b&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#eceff1;strokeColor=#90a4ae;strokeWidth=2;align=left;verticalAlign=top;spacingLeft=15;spacingTop=10;" vertex="1" parent="1">
+      <mxGeometry x="40" y="2270" width="1640" height="240" as="geometry" />
+    </mxCell>
+<mxCell id="pil_1" value="&lt;b style=&quot;color:#1e88e5; font-size:12px;&quot;&gt;1. Corrélation de Bout en Bout&lt;/b&gt;&lt;br&gt;&lt;br&gt;• &lt;b&gt;x-request-id unique :&lt;/b&gt; Résolu à l&#39;entrée Gateway ou généré en UUID v4 immuable.&lt;br&gt;• &lt;b&gt;Propagation inter-services :&lt;/b&gt; Transmis via les headers HTTP standards vers tous les microservices avals.&lt;br&gt;• &lt;b&gt;Isolation contextuelle :&lt;/b&gt; &lt;i&gt;AsyncLocalStorage&lt;/i&gt; (Node.js) et &lt;i&gt;contextvars&lt;/i&gt; (Python) évitent tout passage manuel du trace_id dans le code métier." style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#b0bec5;strokeWidth=1.5;align=left;verticalAlign=top;spacing=10;fontSize=11;shadow=1;" vertex="1" parent="1">
+      <mxGeometry x="60" y="2310" width="380" height="185" as="geometry" />
+    </mxCell>
+<mxCell id="pil_2" value="&lt;b style=&quot;color:#2e7d32; font-size:12px;&quot;&gt;2. Isolation Black-Box &amp;amp; Résilience&lt;/b&gt;&lt;br&gt;&lt;br&gt;• &lt;b&gt;Zéro blocage métier :&lt;/b&gt; Les handlers de journalisation (&lt;i&gt;WalspoolHandler&lt;/i&gt;) délèguent à des files en mémoire bornées (5000 items) et des workers daemon.&lt;br&gt;• &lt;b&gt;Tolérance aux pannes :&lt;/b&gt; Si Walspool est éteint ou inaccessible, les logs sont ignorés silencieusement sans perturber le client final.&lt;br&gt;• &lt;b&gt;Nettoyage garanti :&lt;/b&gt; Blocs &lt;i&gt;finally&lt;/i&gt; systématiques pour réinitialiser les ContextVar." style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#b0bec5;strokeWidth=1.5;align=left;verticalAlign=top;spacing=10;fontSize=11;shadow=1;" vertex="1" parent="1">
+      <mxGeometry x="470" y="2310" width="380" height="185" as="geometry" />
+    </mxCell>
+<mxCell id="pil_3" value="&lt;b style=&quot;color:#e65100; font-size:12px;&quot;&gt;3. Streaming SSE &amp;amp; Anti-Buffering&lt;/b&gt;&lt;br&gt;&lt;br&gt;• &lt;b&gt;Diffusion sans latence :&lt;/b&gt; Walspool écrit sur disque WAL et notifie immédiatement ses abonnés SSE via channel Go.&lt;br&gt;• &lt;b&gt;Contournement des proxys :&lt;/b&gt; Header &lt;i&gt;X-Accel-Buffering: no&lt;/i&gt; et stream direct Node.js (&lt;i&gt;upstreamRes.pipe(res)&lt;/i&gt;).&lt;br&gt;• &lt;b&gt;Maintien TCP permanent :&lt;/b&gt; Ticker périodique de 10s émettant des commentaires &lt;i&gt;: keepalive\n\n&lt;/i&gt; anti-timeout." style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#b0bec5;strokeWidth=1.5;align=left;verticalAlign=top;spacing=10;fontSize=11;shadow=1;" vertex="1" parent="1">
+      <mxGeometry x="880" y="2310" width="380" height="185" as="geometry" />
+    </mxCell>
+<mxCell id="pil_4" value="&lt;b style=&quot;color:#00838f; font-size:12px;&quot;&gt;4. Console Réactive &amp;amp; Waterfall&lt;/b&gt;&lt;br&gt;&lt;br&gt;• &lt;b&gt;Normalisation unifiée :&lt;/b&gt; &lt;i&gt;normalizeLogEvent()&lt;/i&gt; réconcilie les formats polyglottes (LoopBack 4, Django, Go) en schéma &lt;i&gt;StandardLogEvent&lt;/i&gt;.&lt;br&gt;• &lt;b&gt;Réactivité Pinia / Vue 3 :&lt;/b&gt; Ingestion directe dans le buffer réactif &lt;i&gt;logs.value&lt;/i&gt; plafonné.&lt;br&gt;• &lt;b&gt;Reconstitution Gantt :&lt;/b&gt; &lt;i&gt;computeTraceSummary()&lt;/i&gt; calcule les offsets temporels et génère la cascade multi-spans." style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#b0bec5;strokeWidth=1.5;align=left;verticalAlign=top;spacing=10;fontSize=11;shadow=1;" vertex="1" parent="1">
+      <mxGeometry x="1290" y="2310" width="370" height="185" as="geometry" />
+    </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

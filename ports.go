@@ -21,6 +21,12 @@ type Spooler interface {
 	Close() error
 }
 
+// IngestionObserver is the Driving/Driven Notification Port.
+// Observers interested in newly committed records (such as in-memory log indexing hubs) implement this port.
+type IngestionObserver interface {
+	OnIngested(rec Record)
+}
+
 // Sink is the Driven (Outbound) Port for downstream external delivery.
 // Infrastructure adapters (HTTP webhooks, Kafka publishers, S3 uploaders) satisfy this.
 type Sink interface {
