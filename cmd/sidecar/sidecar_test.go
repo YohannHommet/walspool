@@ -1527,4 +1527,120 @@ func TestSidecar_StructuredLogging_Slog(t *testing.T) {
 	})
 }
 
+// Enriching a JSON payload with top-level metadata must not truncate 64-bit integers
+// (Snowflake-style IDs, nanosecond timestamps) to float64.
+func TestSidecar_Int64PrecisionPreserved(t *testing.T) {
+	storage := walspool.NewMemoryStorageEngine(100)
+	sink := &HTTPSink{}
+	hub := walspool.NewMemoryLogHub(100)
+	spool, err := walspool.New(walspool.DefaultConfig(), storage, sink, nil, walspool.WithObserver(hub))
+	if err != nil {
+		t.Fatalf("failed to init spooler: %v", err)
+	}
+	defer spool.Close()
 
+	sidecar := NewSidecarServer(spool, hub)
+	routes := sidecar.Routes()
+
+	// trace_id sits at the top level (not in payload), forcing the enrich + re-marshal path.
+	body := []byte(`{"topic":"orders","trace_id":"tr-big","payload":{"id":9223372036854775807,"timestamp":1725482400123456789}}`)
+	req := httptest.NewRequest(http.MethodPost, "/v1/enqueue", bytes.NewReader(body))
+	rec := httptest.NewRecorder()
+	routes.ServeHTTP(rec, req)
+	if rec.Code != http.StatusAccepted {
+		t.Fatalf("expected 202 Accepted, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	qreq := httptest.NewRequest(http.MethodGet, "/v1/logs?trace_id=tr-big", nil)
+	qrec := httptest.NewRecorder()
+	routes.ServeHTTP(qrec, qreq)
+	out := qrec.Body.String()
+	if !strings.Contains(out, "9223372036854775807") {
+		t.Fatalf("64-bit id lost precision, got: %s", out)
+	}
+	if !strings.Contains(out, "1725482400123456789") {
+		t.Fatalf("nanosecond timestamp lost precision, got: %s", out)
+	}
+}
+
+// Metadata may arrive via HTTP headers; non-JSON-object payloads must stay byte-identical
+// while headers still enrich JSON object payloads.
+func TestSidecar_MetadataHeaders(t *testing.T) {
+	storage := walspool.NewMemoryStorageEngine(100)
+	sink := &HTTPSink{}
+	hub := walspool.NewMemoryLogHub(100)
+	spool, err := walspool.New(walspool.DefaultConfig(), storage, sink, nil, walspool.WithObserver(hub))
+	if err != nil {
+		t.Fatalf("failed to init spooler: %v", err)
+	}
+	defer spool.Close()
+
+	sidecar := NewSidecarServer(spool, hub)
+	routes := sidecar.Routes()
+
+	t.Run("NonJSONPayloadUntouchedRoutedByHeader", func(t *testing.T) {
+		body := []byte(`{"payload":"plain-text-log-line"}`)
+		req := httptest.NewRequest(http.MethodPost, "/v1/enqueue", bytes.NewReader(body))
+		req.Header.Set("X-Service", "edge-collector")
+		rec := httptest.NewRecorder()
+		routes.ServeHTTP(rec, req)
+		if rec.Code != http.StatusAccepted {
+			t.Fatalf("expected 202 Accepted, got %d: %s", rec.Code, rec.Body.String())
+		}
+
+		qreq := httptest.NewRequest(http.MethodGet, "/v1/logs?service=edge-collector", nil)
+		qrec := httptest.NewRecorder()
+		routes.ServeHTTP(qrec, qreq)
+		var logs []walspool.LogEntry
+		if err := json.Unmarshal(qrec.Body.Bytes(), &logs); err != nil {
+			t.Fatalf("decode failed: %v", err)
+		}
+		if len(logs) != 1 {
+			t.Fatalf("expected 1 log routed by X-Service, got %d", len(logs))
+		}
+		if string(logs[0].Payload) != `"plain-text-log-line"` {
+			t.Fatalf("non-JSON payload was mutated: %s", string(logs[0].Payload))
+		}
+	})
+
+	t.Run("HeaderTraceIDEnrichesJSONObject", func(t *testing.T) {
+		body := []byte(`{"topic":"billing","payload":{"amount":10}}`)
+		req := httptest.NewRequest(http.MethodPost, "/v1/enqueue", bytes.NewReader(body))
+		req.Header.Set("X-Trace-ID", "tr-from-header")
+		rec := httptest.NewRecorder()
+		routes.ServeHTTP(rec, req)
+		if rec.Code != http.StatusAccepted {
+			t.Fatalf("expected 202 Accepted, got %d: %s", rec.Code, rec.Body.String())
+		}
+
+		qreq := httptest.NewRequest(http.MethodGet, "/v1/logs?trace_id=tr-from-header", nil)
+		qrec := httptest.NewRecorder()
+		routes.ServeHTTP(qrec, qreq)
+		var logs []walspool.LogEntry
+		if err := json.Unmarshal(qrec.Body.Bytes(), &logs); err != nil {
+			t.Fatalf("decode failed: %v", err)
+		}
+		if len(logs) != 1 || logs[0].TraceID != "tr-from-header" {
+			t.Fatalf("expected JSON payload enriched with header trace_id, got %+v", logs)
+		}
+	})
+}
+
+// A malformed numeric environment variable must fail configuration parsing, not silently
+// fall back to a default.
+func TestSidecar_ConfigRejectsMalformedEnvInt(t *testing.T) {
+	intVars := []string{"WALSPOOL_BATCH_SIZE", "WALSPOOL_FLUSH_MS", "WALSPOOL_MAX_RECORDS", "WALSPOOL_HUB_CAPACITY"}
+	for _, key := range intVars {
+		t.Run(key, func(t *testing.T) {
+			env := func(k string) (string, bool) {
+				if k == key {
+					return "not-a-number", true
+				}
+				return "", false
+			}
+			if _, err := ParseConfig([]string{}, env); !errors.Is(err, walspool.ErrPreconditionViolated) {
+				t.Fatalf("expected ErrPreconditionViolated for malformed %s, got %v", key, err)
+			}
+		})
+	}
+}

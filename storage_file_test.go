@@ -169,9 +169,9 @@ func TestFileStorage_TornBodyPOSIXCountermeasure(t *testing.T) {
 
 	// Synthesize a torn write: complete header with topicLen=10, payloadLen=500, but only 20 bytes body written
 	tornHeader := make([]byte, 29)
-	tornHeader[0] = 0x57 // 'W'
-	tornHeader[1] = 0x53 // 'S'
-	tornHeader[2] = 0x01 // wireVersion
+	tornHeader[0] = 0x57                               // 'W'
+	tornHeader[1] = 0x53                               // 'S'
+	tornHeader[2] = 0x01                               // wireVersion
 	binary.BigEndian.PutUint16(tornHeader[23:25], 10)  // topicLen = 10
 	binary.BigEndian.PutUint32(tornHeader[25:29], 500) // payloadLen = 500
 	tornBody := bytes.Repeat([]byte("A"), 20)          // only 20 bytes written instead of 510
@@ -657,5 +657,128 @@ func BenchmarkFileStorage_Append_SyncBatchCommit(b *testing.B) {
 		if i%100 == 0 {
 			_ = engine.Commit(offset)
 		}
+	}
+}
+
+// A corrupt header advertising an oversized payload must be rejected without allocating for it,
+// truncating the WAL back to the last valid record rather than materializing gigabytes.
+func TestFileStorage_RecoverOOMGuard(t *testing.T) {
+	tmpDir, err := os.MkdirTemp("", "walspool_oom_*")
+	if err != nil {
+		t.Fatalf("temp dir failed: %v", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	opts := walspool.FileStorageOptions{BufferSize: 4096, SyncPolicy: walspool.SyncEveryRecord}
+	engine, err := walspool.NewFileStorageEngineWithOptions(tmpDir, 100, opts)
+	if err != nil {
+		t.Fatalf("init failed: %v", err)
+	}
+	for i := 0; i < 2; i++ {
+		if _, err := engine.Append(walspool.Record{
+			ID:        uint64(i + 1),
+			Timestamp: time.Now(),
+			Topic:     "safe",
+			Payload:   []byte("clean-record"),
+		}); err != nil {
+			t.Fatalf("append %d failed: %v", i, err)
+		}
+	}
+	_ = engine.Close()
+
+	walPath := filepath.Join(tmpDir, "active.wal")
+	statBefore, _ := os.Stat(walPath)
+	validSize := statBefore.Size()
+
+	// Body is fully present on disk so only the OOM guard, not the "remaining bytes" check, rejects this record.
+	const oversize = 10 * 1024 * 1024
+	topicLen := 5
+	header := make([]byte, 29)
+	header[0] = 0x57 // 'W'
+	header[1] = 0x53 // 'S'
+	header[2] = 0x01 // wireVersion
+	binary.BigEndian.PutUint16(header[23:25], uint16(topicLen))
+	binary.BigEndian.PutUint32(header[25:29], uint32(oversize))
+
+	f, err := os.OpenFile(walPath, os.O_WRONLY|os.O_APPEND, 0644)
+	if err != nil {
+		t.Fatalf("open wal failed: %v", err)
+	}
+	if _, err := f.Write(header); err != nil {
+		t.Fatalf("write header failed: %v", err)
+	}
+	if _, err := f.Write(make([]byte, topicLen+oversize)); err != nil {
+		t.Fatalf("write oversized body failed: %v", err)
+	}
+	_ = f.Sync()
+	_ = f.Close()
+
+	reopened, err := walspool.NewFileStorageEngineWithOptions(tmpDir, 100, opts)
+	if err != nil {
+		t.Fatalf("reopen failed: %v", err)
+	}
+	defer reopened.Close()
+
+	statAfter, _ := os.Stat(walPath)
+	if statAfter.Size() != validSize {
+		t.Fatalf("expected WAL truncated to %d, got %d (oversized record not rejected)", validSize, statAfter.Size())
+	}
+
+	batch, err := reopened.ReadBatch(10)
+	if err != nil {
+		t.Fatalf("read batch failed: %v", err)
+	}
+	if len(batch) != 2 {
+		t.Fatalf("expected 2 valid records after OOM-guard recovery, got %d", len(batch))
+	}
+}
+
+// Close() must be idempotent and synchronizing under concurrent callers.
+func TestFileStorage_ConcurrentCloseIdempotent(t *testing.T) {
+	tmpDir, err := os.MkdirTemp("", "walspool_close_*")
+	if err != nil {
+		t.Fatalf("temp dir failed: %v", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	opts := walspool.FileStorageOptions{BufferSize: 64 * 1024, SyncPolicy: walspool.SyncInterval, SyncInterval: 5 * time.Millisecond}
+	engine, err := walspool.NewFileStorageEngineWithOptions(tmpDir, 100, opts)
+	if err != nil {
+		t.Fatalf("init failed: %v", err)
+	}
+	for i := 0; i < 10; i++ {
+		if _, err := engine.Append(walspool.Record{
+			ID:        uint64(i),
+			Timestamp: time.Now(),
+			Topic:     "close.test",
+			Payload:   []byte("payload"),
+		}); err != nil {
+			t.Fatalf("append %d failed: %v", i, err)
+		}
+	}
+
+	const n = 16
+	var wg sync.WaitGroup
+	errsCh := make(chan error, n)
+	for i := 0; i < n; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			errsCh <- engine.Close()
+		}()
+	}
+	wg.Wait()
+	close(errsCh)
+	for e := range errsCh {
+		if e != nil {
+			t.Fatalf("concurrent Close returned error: %v", e)
+		}
+	}
+
+	if _, err := engine.Append(walspool.Record{Topic: "x", Payload: []byte("y")}); !errors.Is(err, walspool.ErrStorageUnavailable) {
+		t.Fatalf("expected ErrStorageUnavailable after close, got %v", err)
+	}
+	if err := engine.Close(); err != nil {
+		t.Fatalf("idempotent Close returned error: %v", err)
 	}
 }

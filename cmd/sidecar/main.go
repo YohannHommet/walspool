@@ -407,6 +407,17 @@ func (s *SidecarServer) handleEnqueue(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Header trace_id/service/level are hub-indexed only for JSON-object payloads; non-JSON payloads stay byte-identical and unindexed.
+	if req.TraceID == "" {
+		req.TraceID = strings.TrimSpace(r.Header.Get("X-Trace-ID"))
+	}
+	if req.Service == "" {
+		req.Service = strings.TrimSpace(r.Header.Get("X-Service"))
+	}
+	if req.Level == "" {
+		req.Level = strings.TrimSpace(r.Header.Get("X-Log-Level"))
+	}
+
 	if req.Topic == "" && req.Service != "" {
 		req.Topic = req.Service
 	}
@@ -426,8 +437,11 @@ func (s *SidecarServer) handleEnqueue(w http.ResponseWriter, r *http.Request) {
 	if req.TraceID != "" || req.Service != "" || req.Level != "" {
 		trimmed := bytes.TrimSpace(payloadBytes)
 		if len(trimmed) > 0 && trimmed[0] == '{' {
+			// UseNumber avoids float64 rounding of 64-bit trace IDs / nanosecond timestamps on re-marshal.
+			decoder := json.NewDecoder(bytes.NewReader(trimmed))
+			decoder.UseNumber()
 			var obj map[string]any
-			if json.Unmarshal(trimmed, &obj) == nil && obj != nil {
+			if decoder.Decode(&obj) == nil && obj != nil {
 				modified := false
 				if req.TraceID != "" && obj["trace_id"] == nil && obj["traceId"] == nil {
 					obj["trace_id"] = req.TraceID
@@ -687,13 +701,33 @@ func ParseConfig(args []string, lookupEnv func(string) (string, bool)) (*Sidecar
 		return defaultVal
 	}
 
-	getEnvInt := func(key string, defaultVal int) int {
+	// Fail fast on a malformed numeric env var (operator typo) instead of silently falling back to a default.
+	getEnvInt := func(key string, defaultVal int) (int, error) {
 		if val, ok := lookupEnv(key); ok && val != "" {
-			if v, err := strconv.Atoi(val); err == nil {
-				return v
+			v, err := strconv.Atoi(val)
+			if err != nil {
+				return 0, fmt.Errorf("%w: env %s must be an integer (got %q)", walspool.ErrPreconditionViolated, key, val)
 			}
+			return v, nil
 		}
-		return defaultVal
+		return defaultVal, nil
+	}
+
+	batchSize, err := getEnvInt("WALSPOOL_BATCH_SIZE", 50)
+	if err != nil {
+		return nil, err
+	}
+	flushMs, err := getEnvInt("WALSPOOL_FLUSH_MS", 50)
+	if err != nil {
+		return nil, err
+	}
+	maxRecords, err := getEnvInt("WALSPOOL_MAX_RECORDS", 50000)
+	if err != nil {
+		return nil, err
+	}
+	hubCapacity, err := getEnvInt("WALSPOOL_HUB_CAPACITY", 50000)
+	if err != nil {
+		return nil, err
 	}
 
 	fs := flag.NewFlagSet("walspool-sidecar", flag.ContinueOnError)
@@ -702,10 +736,10 @@ func ParseConfig(args []string, lookupEnv func(string) (string, bool)) (*Sidecar
 	fs.StringVar(&cfg.Addr, "addr", getEnvStr("WALSPOOL_ADDR", ":9099"), "HTTP bind address")
 	fs.StringVar(&cfg.DataDir, "data-dir", getEnvStr("WALSPOOL_DATA_DIR", "./data/spool"), "Spool directory for WAL files")
 	fs.StringVar(&cfg.TargetSinkURL, "sink-url", getEnvStr("WALSPOOL_SINK_URL", ""), "Target HTTP URL to deliver batches to")
-	fs.IntVar(&cfg.BatchSize, "batch-size", getEnvInt("WALSPOOL_BATCH_SIZE", 50), "Batch size for background drain")
-	fs.IntVar(&cfg.FlushMs, "flush-ms", getEnvInt("WALSPOOL_FLUSH_MS", 50), "Flush interval in milliseconds")
-	fs.IntVar(&cfg.MaxRecords, "max-records", getEnvInt("WALSPOOL_MAX_RECORDS", 50000), "Maximum records quota before backpressure reject")
-	fs.IntVar(&cfg.HubCapacity, "hub-capacity", getEnvInt("WALSPOOL_HUB_CAPACITY", 50000), "In-memory ring buffer capacity for logs hub")
+	fs.IntVar(&cfg.BatchSize, "batch-size", batchSize, "Batch size for background drain")
+	fs.IntVar(&cfg.FlushMs, "flush-ms", flushMs, "Flush interval in milliseconds")
+	fs.IntVar(&cfg.MaxRecords, "max-records", maxRecords, "Maximum records quota before backpressure reject")
+	fs.IntVar(&cfg.HubCapacity, "hub-capacity", hubCapacity, "In-memory ring buffer capacity for logs hub")
 	fs.StringVar(&cfg.LogFormat, "log-format", getEnvStr("WALSPOOL_LOG_FORMAT", "text"), "Log output format (text|json)")
 	fs.StringVar(&cfg.LogLevel, "log-level", getEnvStr("WALSPOOL_LOG_LEVEL", "info"), "Log level (debug|info|warn|error)")
 
