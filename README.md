@@ -1,10 +1,28 @@
-# Walspool
+<p align="center">
+  <img src="assets/logo.png" alt="walspool logo" width="180" style="border-radius: 24px; box-shadow: 0 10px 30px rgba(16,185,129,0.3);"/>
+</p>
 
-[![Go Version](https://img.shields.io/badge/go-%3E%3D%201.22-blue?style=flat-square)](https://golang.org)
-[![Release](https://img.shields.io/badge/release-v1.0.0-emerald?style=flat-square)](https://github.com/YohannHommet/walspool/releases)
-[![License: MIT](https://img.shields.io/badge/license-MIT-blue?style=flat-square)](LICENSE)
-[![Tests](https://img.shields.io/badge/tests-passing-brightgreen?style=flat-square)](https://github.com/YohannHommet/walspool/actions)
-[![Go Report Card](https://img.shields.io/badge/go%20report-A%2B-emerald?style=flat-square)](https://goreportcard.com/report/github.com/YohannHommet/walspool)
+<h1 align="center">Walspool</h1>
+
+<p align="center">
+  <strong>The SQLite of Reliable Event Delivery & Real-Time Observability</strong><br>
+  Dual-Engine Write-Ahead Log (WAL) Spooler & Streaming Hub in Pure Go.
+</p>
+
+<p align="center">
+  <a href="https://golang.org"><img src="https://img.shields.io/badge/Go-%3E%3D%201.22-00ADD8?style=for-the-badge&logo=go&logoColor=white" alt="Go Version"/></a>
+  <a href="https://goreportcard.com/report/github.com/YohannHommet/walspool"><img src="https://img.shields.io/badge/Go_Report-A+-00C853?style=for-the-badge&logo=go&logoColor=white" alt="Go Report Card"/></a>
+  <a href="https://github.com/YohannHommet/walspool/releases/tag/v1.0.0"><img src="https://img.shields.io/badge/Release-v1.0.0-10B981?style=for-the-badge&logo=github&logoColor=white" alt="Release Version"/></a>
+  <a href="https://github.com/YohannHommet/walspool/actions"><img src="https://img.shields.io/badge/Tests-Passing-22C55E?style=for-the-badge&logo=githubactions&logoColor=white" alt="Tests Status"/></a>
+  <a href="https://github.com/YohannHommet/walspool/pkgs/container/walspool"><img src="https://img.shields.io/badge/Docker-Ready-2496ED?style=for-the-badge&logo=docker&logoColor=white" alt="Docker Ready"/></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-6366F1?style=for-the-badge" alt="License MIT"/></a>
+</p>
+
+<p align="center">
+  <a href="https://yohannhommet.github.io/walspool/">
+    <img src="assets/hero_screenshot.png" alt="Walspool Landing Page Hero" width="100%" style="border-radius: 12px; border: 1px solid #1C263B; box-shadow: 0 20px 40px -15px rgba(0,0,0,0.5);"/>
+  </a>
+</p>
 
 An embedded write-ahead log (WAL) spooler and real-time streaming hub written in pure Go with zero third-party dependencies.
 
