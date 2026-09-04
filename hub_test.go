@@ -703,4 +703,21 @@ func TestHub_OnIngested_ObserverContract(t *testing.T) {
 	}
 }
 
+// OnIngested metadata extraction on the hot path should stay allocation-light.
+func BenchmarkHub_OnIngested(b *testing.B) {
+	hub := walspool.NewMemoryLogHub(50000)
+	defer hub.Close()
 
+	rec := walspool.Record{
+		Timestamp: time.Now(),
+		Topic:     "benchmark",
+		Payload:   []byte(`{"trace_id":"tr-bench","service":"billing","level":"info","user_id":"u42","amount":9223372036854775807}`),
+	}
+
+	b.ResetTimer()
+	b.ReportAllocs()
+	for i := 0; i < b.N; i++ {
+		rec.ID = uint64(i + 1)
+		hub.OnIngested(rec)
+	}
+}

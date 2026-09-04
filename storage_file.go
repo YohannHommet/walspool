@@ -6,11 +6,16 @@ import (
 	"fmt"
 	"hash/crc32"
 	"io"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"sync"
 	"time"
 )
+
+// maxRecoverableRecordSize caps the byte length a single WAL record may claim during recovery.
+// A corrupt header advertising a huge payloadLen would otherwise drive make([]byte, n) to OOM.
+const maxRecoverableRecordSize = 10 * 1024 * 1024 // 10 MB
 
 // SyncPolicy defines the disk synchronization strategy for write durability.
 type SyncPolicy int
@@ -71,6 +76,9 @@ type FileStorageEngine struct {
 
 	flusherStop chan struct{}
 	flusherWg   sync.WaitGroup
+
+	closeOnce sync.Once
+	closeErr  error
 }
 
 // NewFileStorageEngine opens or initializes a WAL directory using default optimized options (SyncInterval, 128KB buffer).
@@ -140,7 +148,15 @@ func (f *FileStorageEngine) periodicFlusher(interval time.Duration) {
 		case <-f.flusherStop:
 			return
 		case <-ticker.C:
-			_ = f.Flush()
+			// Check f.closed directly rather than pattern-matching the error: a flush failing only because Close() already ran is benign shutdown noise, not a real failure to surface.
+			if err := f.Flush(); err != nil {
+				f.mu.RLock()
+				closed := f.closed
+				f.mu.RUnlock()
+				if !closed {
+					slog.Error("walspool: periodic WAL flush failed", "error", err)
+				}
+			}
 		}
 	}
 }
@@ -228,6 +244,14 @@ func (f *FileStorageEngine) recover() error {
 		payloadLen := int(binary.BigEndian.Uint32(header[25:29]))
 		totalRecordLen := headerSize + topicLen + payloadLen
 
+		// Reject before allocating for it — see maxRecoverableRecordSize.
+		if totalRecordLen > maxRecoverableRecordSize {
+			if err := f.walFile.Truncate(validFileEnd); err != nil {
+				return fmt.Errorf("%w: failed to truncate oversized corrupt record header", ErrStorageUnavailable)
+			}
+			break
+		}
+
 		// Validate bounds: check real remaining bytes on disk before advancing (POSIX lseek countermeasure)
 		if int64(totalRecordLen) > remaining {
 			// Torn write: body is truncated at EOF
@@ -277,6 +301,25 @@ func (f *FileStorageEngine) recover() error {
 	return nil
 }
 
+// rollbackTo undoes a failed append so the WAL never grows with zero padding: it truncates to
+// min(pos, real on-disk size) — Truncate cannot extend past what is physically flushed — and drops
+// trailing index entries and any earlier appends still unsynced under SyncInterval. Caller holds mu.
+func (f *FileStorageEngine) rollbackTo(pos int64) {
+	target := pos
+	if fi, err := f.walFile.Stat(); err == nil && fi.Size() < target {
+		target = fi.Size()
+	}
+	f.writer.Reset(f.walFile)
+	_ = f.walFile.Truncate(target)
+	_, _ = f.walFile.Seek(target, io.SeekStart)
+	f.writePos = target
+	keep := len(f.records)
+	for keep > 0 && f.records[keep-1].Pos+int64(f.records[keep-1].Length) > target {
+		keep--
+	}
+	f.records = f.records[:keep]
+}
+
 func (f *FileStorageEngine) Append(rec Record) (Offset, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
@@ -301,26 +344,17 @@ func (f *FileStorageEngine) Append(rec Record) (Offset, error) {
 	pos := f.writePos
 
 	if _, err := f.writer.Write(data); err != nil {
-		f.writer.Reset(f.walFile)
-		_ = f.walFile.Truncate(pos)
-		_, _ = f.walFile.Seek(pos, io.SeekStart)
-		f.writePos = pos
+		f.rollbackTo(pos)
 		return 0, fmt.Errorf("%w: write failed", ErrStorageUnavailable)
 	}
 
 	if f.opts.SyncPolicy == SyncEveryRecord {
 		if err := f.writer.Flush(); err != nil {
-			f.writer.Reset(f.walFile)
-			_ = f.walFile.Truncate(pos)
-			_, _ = f.walFile.Seek(pos, io.SeekStart)
-			f.writePos = pos
+			f.rollbackTo(pos)
 			return 0, fmt.Errorf("%w: flush failed", ErrStorageUnavailable)
 		}
 		if err := f.walFile.Sync(); err != nil {
-			f.writer.Reset(f.walFile)
-			_ = f.walFile.Truncate(pos)
-			_, _ = f.walFile.Seek(pos, io.SeekStart)
-			f.writePos = pos
+			f.rollbackTo(pos)
 			return 0, fmt.Errorf("%w: sync failed", ErrStorageUnavailable)
 		}
 	}
@@ -459,40 +493,39 @@ func (f *FileStorageEngine) UncommittedCount() (int, error) {
 	return count, nil
 }
 
+// Close flushes buffers, stops the background flusher, and closes the file descriptor.
+// sync.Once makes it idempotent AND synchronizing: a concurrent second Close blocks inside Do
+// until the first has fully drained flusherWg and closed the fd, then returns the same error.
 func (f *FileStorageEngine) Close() error {
-	f.mu.Lock()
-	if f.closed {
-		f.mu.Unlock()
-		return nil
-	}
-	f.closed = true
-
-	if f.flusherStop != nil {
-		close(f.flusherStop)
-		f.mu.Unlock()
-		f.flusherWg.Wait()
+	f.closeOnce.Do(func() {
 		f.mu.Lock()
-	}
+		f.closed = true
+		stop := f.flusherStop
+		f.mu.Unlock()
 
-	var flushErr error
-	if f.writer != nil {
-		flushErr = f.writer.Flush()
-	}
+		// Drain the flusher outside mu: periodicFlusher's Flush() needs the lock to finish.
+		if stop != nil {
+			close(stop)
+			f.flusherWg.Wait()
+		}
 
-	syncErr := f.walFile.Sync()
-	closeErr := f.walFile.Close()
+		f.mu.Lock()
+		var flushErr error
+		if f.writer != nil {
+			flushErr = f.writer.Flush()
+		}
+		syncErr := f.walFile.Sync()
+		closeErr := f.walFile.Close()
+		f.mu.Unlock()
 
-	f.mu.Unlock()
-
-	if flushErr != nil {
-		return fmt.Errorf("%w: buffer flush failed during close", ErrStorageUnavailable)
-	}
-	if syncErr != nil {
-		return fmt.Errorf("%w: wal sync failed during close", ErrStorageUnavailable)
-	}
-	if closeErr != nil {
-		return fmt.Errorf("%w: file close failed", ErrStorageUnavailable)
-	}
-
-	return nil
+		switch {
+		case flushErr != nil:
+			f.closeErr = fmt.Errorf("%w: buffer flush failed during close", ErrStorageUnavailable)
+		case syncErr != nil:
+			f.closeErr = fmt.Errorf("%w: wal sync failed during close", ErrStorageUnavailable)
+		case closeErr != nil:
+			f.closeErr = fmt.Errorf("%w: file close failed", ErrStorageUnavailable)
+		}
+	})
+	return f.closeErr
 }
