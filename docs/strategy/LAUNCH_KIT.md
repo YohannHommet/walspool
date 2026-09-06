@@ -11,13 +11,14 @@
 ## Sommaire
 
 1. [Stratégie & Calendrier de Diffusion](#1-stratégie--calendrier-de-diffusion)
-2. [Show HN (Hacker News)](#2-show-hn-hacker-news)
-3. [Article Technique Deep-Dive (Dev.to / Hashnode / Blog)](#3-article-technique-deep-dive)
-4. [Publications Communautaires Reddit](#4-publications-communautaires-reddit)
-   - [Post r/golang](#a-reddit-rgolang)
-   - [Post r/devops & r/microservices](#b-reddit-rdevops--rmicroservices)
-5. [Thread Twitter / X](#5-thread-twitter--x)
-6. [Post LinkedIn (Voix Fondateur & Architecte)](#6-post-linkedin)
+2. [Thèse de Positionnement : En quoi Walspool diffère de Kafka, RabbitMQ et Redis ?](#2-thèse-de-positionnement--en-quoi-walspool-diffère-de-kafka-rabbitmq-et-redis-)
+3. [Show HN (Hacker News) — Voix Ingénieur / Zéro Cliché](#3-show-hn-hacker-news--voix-ingénieur--zéro-cliché)
+4. [Article Technique Deep-Dive (Dev.to / Hashnode / Blog)](#4-article-technique-deep-dive)
+5. [Publications Communautaires Reddit](#5-publications-communautaires-reddit)
+   - [Post r/golang : Focus Bas Niveau & Go Pur](#a-reddit-rgolang--focus-bas-niveau--go-pur)
+   - [Post r/devops : Focus Fiabilité Pods & Kubernetes](#b-reddit-rdevops--focus-fiabilité-pods--kubernetes)
+6. [Thread Twitter / X (Authentique & Percutant)](#6-thread-twitter--x-authentique--percutant)
+7. [Post LinkedIn (Retour d'Expérience Architecte)](#7-post-linkedin-retour-dexpérience-architecte)
 
 ---
 
@@ -27,108 +28,154 @@ Pour maximiser l'effet de levier sans dispersion, la diffusion suit un séquenç
 
 | Moment | Canal | Cible & Angle | Objectif |
 | :--- | :--- | :--- | :--- |
-| **Jour J — 14h00 UTC** | **Hacker News (Show HN)** | Communauté hacker, ingénieurs systèmes | Étoiles GitHub, feedback architecture |
-| **Jour J — 14h30 UTC** | **Twitter / X** | Développeurs Go, Cloud Native, Edge | Viralité visuelle, citations |
-| **Jour J — 16h00 UTC** | **LinkedIn** | CTOs, VP Eng, Architectes d'entreprise | Crédibilité B2B, leads Enterprise |
-| **Jour J+1 — 13h00 UTC** | **Reddit (`r/golang`)** | Développeurs Go purs | Discussion technique (zéro dep, scanner lexical) |
-| **Jour J+1 — 15h00 UTC** | **Reddit (`r/devops`)** | Ingénieurs SRE & Kubernetes | Utilisation en DaemonSet/Sidecar résilient |
-| **Jour J+2 — 14h00 UTC** | **Dev.to / Hashnode** | Développeurs Backend / Distributed Systems | Référencement SEO durable |
+| **Jour J — 14h00 UTC** | **Hacker News (Show HN)** | Communauté hacker, ingénieurs systèmes | Étoiles GitHub, feedback architecture bas niveau |
+| **Jour J — 14h30 UTC** | **Twitter / X** | Développeurs Go, Cloud Native, Edge | Découverte rapide, citations, snippets |
+| **Jour J — 16h00 UTC** | **LinkedIn** | CTOs, VP Eng, Architectes de plateformes | Crédibilité technique, retours d'expérience B2B |
+| **Jour J+1 — 13h00 UTC** | **Reddit (`r/golang`)** | Développeurs Go purs | Discussion technique (zéro dépendance, scanner lexical, GC) |
+| **Jour J+1 — 15h00 UTC** | **Reddit (`r/devops`)** | Ingénieurs SRE & Kubernetes | Utilisation en Sidecar local anti-perte de logs |
+| **Jour J+2 — 14h00 UTC** | **Dev.to / Hashnode** | Développeurs Backend / Distributed Systems | Référencement SEO et article de fond durable |
 
 ---
 
-## 2. Show HN (Hacker News)
+## 2. Thèse de Positionnement : En quoi Walspool diffère de Kafka, RabbitMQ et Redis ?
 
-**Titre :**  
-`Show HN: Walspool – A 1.1M ops/s Write-Ahead Log buffer and SSE stream in pure Go`
+Le but de Walspool n'est **absolument pas de concurrencer ou de remplacer Kafka, RabbitMQ ou Redis**. Ces mastodontes sont des systèmes distribués centraux exceptionnels, conçus pour gérer des bus d'événements à l'échelle d'une entreprise ou des caches partagés en mémoire.
 
-**Texte du Post :**
+Walspool résout un angle mort auquel personne ne prête attention avant de perdre des données en production : **le dernier kilomètre avant le réseau (The First-Hop Reliability Problem)**.
+
+### A. L'Analogie : L'Air-Bag Local vs Le Réseau Autoroutier Central
+
+- **Kafka / RabbitMQ** sont les trains à grande vitesse et les autoroutes reliant des villes entières (les clusters centraux).
+- **Redis** est la mémoire vive partagée d'une équipe de travail.
+- **Walspool** est **l'air-bag et la boîte noire installés directement à l'intérieur du véhicule** (sur le nœud local, dans le même pod Kubernetes ou sur la même VM).
+
+```mermaid
+flowchart LR
+    subgraph Pod["Pod Kubernetes / Machine Locale"]
+        App["Votre Application<br>(Go, Node.js, Python, Rust)"]
+        LocalWAL["Walspool (Sidecar local)<br>localhost:9099<br>15 Mo RAM, NVMe WAL"]
+        App -->|HTTP local < 15µs| LocalWAL
+    end
+
+    subgraph Central["Infrastructure Réseau / Cloud"]
+        Brokers["Kafka / RabbitMQ / Vector / ClickHouse / Datadog"]
+    end
+
+    LocalWAL -->|Drainage asynchrone sécurisé| Brokers
+    LocalWAL -.->|Si coupure réseau ou HTTP 429| Disk["Buffer Disque NVMe Local<br>(Aucune perte de données)"]
+```
+
+---
+
+### B. Que se passe-t-il réellement en production sous défaillance ?
+
+Imaginons que votre cluster Kafka, votre collecteur Vector ou votre endpoint Datadog rencontre un incident (glitch réseau VPC, certificat TLS expiré, redémarrage de brokers, ou saturation renvoyant des erreurs `HTTP 429 Too Many Requests`) :
+
+#### 1. Avec Kafka / RabbitMQ directement dans l'application :
+- **Si l'écriture est synchrone** : Le microservice attend la réponse du broker, ses workers s'accumulent, les threads se bloquent et l'application s'effondre en renvoyant des `HTTP 504 Gateway Timeout` aux utilisateurs finaux.
+- **Si l'écriture est asynchrone** (in-memory buffer de librdkafka ou canal Go) : La file en RAM se remplit en 10 à 30 secondes. Si le nœud redémarre ou que l'OOM-Killer passe, **100 % des données en vol non transmises disparaissent**.
+- **Pourquoi ne pas mettre Kafka ou RabbitMQ en sidecar local ?** C'est techniquement irréaliste : RabbitMQ nécessite la machine virtuelle Erlang (BEAM) et plusieurs centaines de mégaoctets de RAM. Kafka nécessite la JVM ou un runtime complexe, des gigaoctets de mémoire et plusieurs secondes de boot.
+
+#### 2. Avec Redis localement :
+- Redis est fondamentalement un magasin en **mémoire vive**.
+- Si le backend aval est indisponible pendant 30 minutes sous fort trafic, Redis sature la RAM allouée. Dès que `maxmemory` est atteint, soit il évince arbitrairement les clés les plus anciennes (**perte silencieuse de données critiques**), soit il bloque avec une erreur `OOM command not allowed`.
+- Si le conteneur Redis crashe ou redémarre avant le fsync de son AOF, les données volatiles sont perdues.
+- Redis ne possède aucun mécanisme natif d'expédition automatique vers un tiers (pas d'outbox, pas de retry avec backoff exponentiel vers un endpoint HTTP).
+
+---
+
+### C. La Valeur Unique de Walspool (Le « Sweet Spot »)
+
+Walspool a été conçu sur une idée radicale de simplicité : **un tampon matériellement inarrêtable à coût opérationnel quasi-nul**.
+
+1. **Empreinte minimale** : Un binaire Go unique d'environ 15 Mo, démarrant en 5 millisecondes, consommant entre 15 et 30 Mo de RAM fixe (grâce à son Ring Buffer circulaire $O(1)$).
+2. **Persistance disque pure (Zero RAM Bloat)** : Chaque log ingéré via `POST /enqueue` est écrit séquentiellement sur le disque NVMe local avec un Group Commit de 128 Ko et une intégrité CRC32 (1,07M ops/s). Même si le réseau extérieur est coupé pendant 3 heures, Walspool encaisse des gigaoctets sur disque sans faire grimper l'empreinte mémoire d'un seul mégaoctet.
+3. **Moteur d'Expédition (Outbox Intégré)** : Un worker d'arrière-plan dépile les enregistrements par lots vers le backend de votre choix. S'il reçoit un `HTTP 429` ou une erreur réseau, il recule avec un backoff exponentiel, retient les données sur disque et reprend sans aucune perte dès le rétablissement.
+4. **Arrêt Propre (Graceful Teardown K8s)** : Sur `SIGTERM`, Walspool stoppe les nouvelles connexions et draine l'intégralité du buffer disque vers le collecteur aval avant que Kubernetes ne termine le conteneur.
+5. **Observabilité Immédiate sans Agent Lourd** : Un développeur ou SRE peut ouvrir un terminal et voir les logs de son pod défiler en temps réel via un simple `curl -N localhost:9099/v1/logs/stream` (flux Server-Sent Events natif).
+
+---
+
+### D. Tableau Comparatif Synthétique
+
+| Critère | **Redis** | **RabbitMQ** | **Kafka / Redpanda** | **Walspool** |
+| :--- | :--- | :--- | :--- | :--- |
+| **Mission principale** | Cache & structures en mémoire | Broker de messages d'entreprise | Bus d'événements distribué central | **Amortisseur local de nœud & Outbox (Local Buffer)** |
+| **Déploiement typique** | Cluster ou instance dédiée | Cluster central | Cluster multi-nœuds complexe | **Sidecar local sur `localhost:9099`** |
+| **Empreinte mémoire** | Proportionnelle aux données (risque OOM) | 200 Mo – 2 Go (Erlang BEAM) | 1 Go – 8 Go (JVM / C++) | **~15 – 30 Mo fixe** (Ring Buffer $O(1)$) |
+| **Garantie de persistance** | Mémoire (AOF asynchrone optionnel) | Disque + RAM | Disque distribué partitionné | **Disque NVMe local séquentiel (WAL + CRC32)** |
+| **En cas de panne réseau aval** | Ne gère pas l'expédition vers l'aval | Bloque ou accumule en cluster | L'application émettrice bloque ou perd | **Écrit sur disque NVMe local sans saturer la RAM** |
+| **Drainage vers l'aval** | Manuel (à coder par le client) | Consommateurs pull requis | Consommateurs pull requis | **Automatique intégré (HTTP, retry 429, backoff)** |
+| **Live tail / Streaming direct** | Pub/Sub éphémère | Queues temporaires | Consumer groups à créer | **SSE natif en direct (`curl -N /v1/logs/stream`)** |
+| **Dépendances & Runtime** | C | Erlang VM | Java / C++ / Zookeeper / KRaft | **Go pur (0 dépendance, binaire statique)** |
+
+---
+
+## 3. Show HN (Hacker News) — Voix Ingénieur / Zéro Cliché
 
 ```text
-Hi HN! I’m Yohann (https://github.com/YohannHommet), and I built Walspool.
+Show HN: Walspool – A lightweight Write-Ahead Log daemon in pure Go
 
-If you’ve built distributed microservices or edge pipelines, you've probably faced this dilemma:
-1. In-memory queues (Go channels, Python queues, Redis in-memory): Blazing fast, but ephemeral. If your pod crashes, restarts for a Kubernetes rolling update, or gets hit by the OOM-killer, 100% of pending telemetry and un-shipped logs are instantly lost.
-2. Heavy distributed brokers (Kafka, Redpanda, RabbitMQ): Rock solid, but huge overkill when you just need a resilient local buffer on a single node or edge appliance. A managed Kafka cluster costs thousands a month and requires dedicated Ops.
+Hey HN,
 
-I built Walspool to bridge that exact gap: a single, self-contained binary (~15 MB) that acts as an unkillable local buffer and live observability hub.
+I’m Yohann (https://github.com/YohannHommet). Over the last few months I built Walspool, a single-binary daemon that acts as an unkillable local buffer and live log stream for microservices.
 
-### What it does under the hood
+Why build this?
+In almost every team I've worked with, we faced the same annoying tradeoff for telemetry and background events:
+- In-memory queues (Go channels, Python queues, Redis): fast, until an OOM or a Kubernetes rolling update kills the pod, taking whatever logs were queued with it.
+- Full brokers (Kafka, RabbitMQ): solid, but running a cluster just to buffer edge node logs before forwarding to ClickHouse, Vector, or Datadog is operationally heavy and expensive.
 
-Walspool runs as a sidecar or standalone daemon exposing a lightweight HTTP API (`POST /enqueue`):
-1. Disk WAL Engine: Writes records sequentially with a 29-byte binary framing and IEEE CRC32 checksum. Uses a 128 KB user-space Group Commit buffer, achieving 1,074,441 ops/s (1.41 µs/op, 1 heap allocation).
-2. Resilient Downstream Shipping: A background worker drains records in batches to your downstream sink (OpenTelemetry collector, Vector, ClickHouse, Datadog, or custom HTTP endpoint). If the downstream returns HTTP 429 (Rate Limit) or network drops, Walspool holds data safely on disk and replays it upon recovery.
-3. In-Memory Observability Hub: Simultaneously retains recent logs in an O(1) circular ring buffer with zero-alloc lexical metadata extraction (service, trace_id, level) and streams them via Server-Sent Events (`GET /v1/logs/stream`) at 2,846,908 ops/s.
-4. Kubernetes-Ready: Native `/healthz`, `/readyz` probes and Prometheus `/metrics` endpoint.
+I wanted something dumb, resilient, and minimal: a process running alongside the app on localhost, accepting logs over HTTP, dumping them immediately to an append-only file with CRC32 verification, and draining them downstream when the network allows.
 
-### Engineering Decisions & Zero-Dependency Rule
-- Pure Go standard library: 0 external Go dependencies (`go.mod` has zero external packages).
-- 0 data races: Clean under `go test -race ./...`.
-- Crash-safety: Physical disk rollback (`truncate`) on write faults (no zero-padding), OOM guard capping corrupted record headers to 10 MB on startup replay, and strict 64-bit integer preservation via `decoder.UseNumber()`.
-- 4-phase Graceful Teardown: On SIGTERM, it shuts down the live SSE hub, stops incoming HTTP connections, flushes all un-shipped disk batches to downstream sinks, and safely closes disk handles.
+A few technical decisions from the implementation:
 
-### Quickstart (Docker & Binary)
-```bash
-# Run with Docker (multi-arch AMD64/ARM64)
-docker run -d -p 9099:9099 -v /tmp/spool:/data/spool ghcr.io/yohannhommet/walspool:v1.0.0
+1. Zero external Go dependencies: It only uses the Go standard library. The binary compiles to ~15MB statically with CGO_ENABLED=0.
 
-# Ingest a record
-curl -X POST http://localhost:9099/enqueue \
-  -H "Content-Type: application/json" \
-  -d '{"service":"checkout","level":"INFO","trace_id":"tr-9812","msg":"Order placed"}'
+2. Group Commit & 29-byte framing: Writing each entry to disk with fsync kills throughput. Walspool batches appends in a 128KB buffer with a simple binary header (magic bytes, CRC32, uint64 record ID, nanosecond timestamp, payload length). On a decent NVMe drive, it clocks at around 1.07M ops/sec.
 
-# Stream live logs in real time via SSE
-curl -N http://localhost:9099/v1/logs/stream
-```
+3. Crash recovery without zero-padding: A bug I frequently hit with simpler WALs is that a failed append leaves zeroed bytes at the tail, confusing subsequent recovery. Walspool records the physical offset before writing (`rollbackTo`) and truncates the file immediately on write failure. Replay on startup also enforces an OOM guard (records claiming to be >10MB are rejected instead of allocating gigabytes).
 
-### Source & License
-Source code: https://github.com/YohannHommet/walspool  
-Docs & Live Preview: https://yohannhommet.github.io/walspool  
+4. Zero-alloc metadata extraction: For live inspection (`GET /v1/logs/stream` via SSE), parsing JSON with `json.Unmarshal` for every entry crushed the garbage collector under load. I wrote a small lexical byte scanner (`scanTopLevelMeta`) that extracts `trace_id`, `service`, and `level` directly from raw slices without heap allocations.
 
-Walspool is licensed under the Functional Source License (FSL-1.1-MIT). It is 100% free and open for internal use in development, staging, and production. To prevent cloud giants from wrapping it into a closed commercial SaaS, commercial hosting as a service is restricted for the first 2 years, after which it automatically converts to pure MIT.
+What Walspool is NOT:
+It is not a distributed broker. It does not replace Kafka or RabbitMQ, and does not do multi-node clustering. It sits right in front of them, acting as the local shock absorber on the node so your microservice never drops data when the downstream is rate-limiting or recovering.
 
-I'd love your feedback on the WAL framing design, memory hub indexing, or how you currently handle edge telemetry buffering. Thanks for reading!
+Licensing:
+The code is under FSL-1.1-MIT (Fair Source). It’s completely free for internal commercial use, but prevents cloud providers from wrapping it as a managed service for 2 years, after which each release automatically reverts to standard MIT.
+
+Code: https://github.com/YohannHommet/walspool
+Docs & live demo: https://yohannhommet.github.io/walspool
+
+Curious to hear how you deal with edge buffering in your stacks, and happy to answer questions about the file format or the SSE hub.
 ```
 
 ---
 
-## 3. Article Technique Deep-Dive
+## 4. Article Technique Deep-Dive
 
-**Plateformes cibles :** Dev.to, Hashnode, Substack, Medium  
-**Titre suggéré :** *Building a Sub-Microsecond Write-Ahead Log in Pure Go: Dual-Engine Architecture, Zero Allocations, and Crash-Proof Group Commit*
+**Titre :** *Building a Sub-Microsecond Write-Ahead Log in Pure Go: Dual-Engine Architecture, Zero Allocations, and Crash-Proof Group Commit*  
+**Plateformes :** Dev.to / Hashnode / Substack / Blog technique
 
 ```markdown
 # Building a Sub-Microsecond Write-Ahead Log in Pure Go: Dual-Engine Architecture, Zero Allocations, and Crash-Proof Group Commit
 
 When building high-throughput telemetry pipelines, backend engineers often hit an uncomfortable architectural compromise:
 - **In-memory queues** offer microsecond latency, but a pod restart or crash means instant data loss.
-- **Enterprise brokers (Kafka, RabbitMQ)** guarantee durability, but running a multi-node broker just to buffer local node logs is operational madness.
+- **Enterprise brokers (Kafka, RabbitMQ)** guarantee durability, but running a multi-node broker just to buffer local node logs is operational overkill.
 
 In this article, we dive deep into the internals of **Walspool** (https://github.com/YohannHommet/walspool), an open-source Dual-Engine daemon built in pure Go without external dependencies, certified at **1.07M disk ops/sec** and **2.84M in-memory stream ops/sec**.
 
 ---
 
-## 1. Black-Box Architecture: Clean Ports & Adapters
+## 1. The Architectural Role: The Local Shock Absorber
 
-Walspool strictly isolates durability from delivery using standard interfaces defined in `ports.go`:
+Walspool does not aim to replace Kafka or RabbitMQ. It solves the **first-hop delivery problem**:
 
-```go
-type StorageEngine interface {
-    Append(ctx context.Context, topic string, payload []byte) (Offset, error)
-    Read(ctx context.Context, from Offset, maxRecords int) ([]Record, error)
-    Checkpoint(ctx context.Context, offset Offset) error
-    Close() error
-}
-
-type Sink interface {
-    Deliver(ctx context.Context, batch []Record) error
-}
-
-type IngestionObserver interface {
-    OnRecordIngested(rec Record)
-}
+```text
+[Your App] ---> (localhost:9099) ---> [Walspool Disk WAL] ---> (Internet / VPC) ---> [Kafka / ClickHouse / Datadog]
 ```
 
-By decoupling storage from shipping, the core engine treats disk I/O, network egress, and memory observability as black boxes.
+When the central Kafka cluster or telemetry collector is unreachable (DNS glitch, rate limiting HTTP 429, rolling deploy), Walspool absorbs all incoming events sequentially onto local NVMe storage without consuming container RAM. As soon as the central pipe recovers, its background dispatcher drains batches automatically with exponential backoff.
 
 ---
 
@@ -196,170 +243,128 @@ Check out the code, run the benchmarks, and star the repo:
 
 ---
 
-## 4. Publications Communautaires Reddit
+## 5. Publications Communautaires Reddit
 
-### A. Reddit `r/golang`
+### A. Reddit `r/golang` : Focus Bas Niveau & Go Pur
 
 **Titre :**  
-`I built Walspool: a 1.1M ops/s Write-Ahead Log & SSE telemetry hub with zero external dependencies`
+`Built a 1M ops/s Write-Ahead Log in pure Go (stdlib only, zero dependencies)`
 
-**Contenu :**
+**Texte :**
 
 ```text
-Hey Gophers,
+Hey everyone,
 
-Over the past few months, I've been working on Walspool (https://github.com/YohannHommet/walspool), an open-source Write-Ahead Log sidecar daemon written in standard Go.
+I wanted to share a project I've been refining: Walspool (https://github.com/YohannHommet/walspool). It's a local WAL daemon and real-time log hub written in standard Go without a single third-party package in `go.mod`.
 
-The motivation came from a recurrent frustration: standard Go channels are great until your process crashes or gets OOM-killed, losing all un-shipped telemetry. On the flip side, running a multi-node Kafka cluster just to buffer edge logs is overkill.
+I wrote it because I wanted a local disk buffer that wouldn't drop events when a container gets restarted by Kubernetes, but without pulling in CGO dependencies (like SQLite or RocksDB) or running a full broker.
 
-Key technical details you might appreciate:
-1. Zero external dependencies: Only the Go standard library (`os`, `net/http`, `sync`, `log/slog`).
-2. Dual-Engine Architecture:
-   - Disk WAL: 29-byte binary framing with IEEE CRC32 integrity, 128 KB group commit buffer, running at ~1.07M ops/sec.
-   - Memory Hub: O(1) circular ring buffer with SSE streaming at ~2.84M ops/sec.
-3. Zero-allocation metadata scanning: Instead of running `json.Unmarshal` on every log line, `scanTopLevelMeta` extracts `trace_id`, `service`, and `level` directly from raw bytes, avoiding heavy GC pressure.
-4. Hardened concurrency:
-   - 100% race-free under `go test -race ./...`.
-   - Exact physical rollback (`rollbackTo`) on disk write failures instead of zero-padding.
-   - 64-bit integer preservation for Twitter-Snowflakes and timestamps via `decoder.UseNumber()`.
-   - Safe GC cleanup when ring buffer wraps around (`traceList[0] = nil`).
+Some implementation details fellow Go developers might find interesting:
 
-Repo: https://github.com/YohannHommet/walspool  
-Docs & benchmarks: https://yohannhommet.github.io/walspool
+- No JSON reflection in the hot path: The daemon serves a live SSE stream (`/v1/logs/stream`) and stores recent logs in an in-memory ring buffer. Instead of doing `json.Unmarshal` into an `interface{}` or map on every ingest, a custom lexical scanner (`scanTopLevelMeta`) walks the byte slice to find `trace_id` and `service`. This cut allocations down to 1 per op.
+- Preserving 64-bit IDs: We use `decoder.UseNumber()` so snowflake IDs (Twitter/Discord style) aren't silently converted into float64 and mangled.
+- Memory leak prevention on ring buffer wrap: In Go, when an in-memory ring buffer overwrites old slots, keeping slices inside sub-arrays can prevent the GC from reclaiming referenced payloads. We explicitly set the overwritten slice reference to nil before moving the pointer.
+- 100% race-free: Passed under `go test -race ./...` across macOS, Linux, and Windows in CI.
+- Shutdown sequence: When receiving SIGTERM, it first closes the LogHub (which unblocks open SSE connections immediately), stops HTTP ingress, forces a flush of pending disk buffers to the downstream sink, and finally closes the file handles.
 
-Would love to hear your thoughts on the framing format or the zero-alloc scanner!
+The repo is at https://github.com/YohannHommet/walspool. 
+
+Benchmarks, issues, and code reviews on the storage engine are very welcome.
 ```
 
 ---
 
-### B. Reddit `r/devops` & `r/microservices`
+### B. Reddit `r/devops` : Focus Fiabilité Pods & Kubernetes
 
 **Titre :**  
-`Stop losing telemetry on Kubernetes pod restarts: Walspool, a lightweight (~15MB) WAL buffer & SSE sidecar`
+`Tired of losing telemetry on pod restarts: I built a lightweight (~15MB) WAL buffer daemon`
 
-**Contenu :**
+**Texte :**
 
 ```text
-Hi r/devops and r/microservices!
+Hi r/devops,
 
-If you've ever dealt with microservices dropping logs and metrics during deployment rollouts or downstream rate-limits (HTTP 429 Too Many Requests), here is a tool you might find useful.
+Quick question: how do your services handle telemetry when your downstream collector (Vector, OpenTelemetry Collector, Datadog agent) is temporarily unresponsive or rate-limiting you?
 
-I created Walspool (https://github.com/YohannHommet/walspool) as an ultra-lightweight sidecar daemon:
-- Acts as a local shock-absorber on `localhost:9099`.
-- Persists events to NVMe sequentially via Write-Ahead Log (1.07M ops/s).
-- Buffers events when downstream sinks (Vector, OpenTelemetry, Datadog, ClickHouse) are slow or failing.
-- Replays data automatically with retry/backoff upon recovery.
-- Exposes Prometheus `/metrics` and Kubernetes `/healthz` & `/readyz` probes.
-- Drains cleanly on `SIGTERM` before container teardown.
-- Live telemetry streaming via SSE (`GET /v1/logs/stream`) for instant terminal debugging without touching log indexers.
+Most apps either:
+1. Buffer in memory (channels, ring buffers). If the pod gets killed or OOM'd during a deployment rollout, un-flushed logs vanish.
+2. Block the main request path waiting for network I/O.
 
-It ships as a non-root scratch/Alpine container (~15 MB) with AMD64 and ARM64 support:
+I built Walspool to solve this specific edge case. It’s a sidecar daemon designed to run in the same pod (or on the same VM) on `localhost:9099`:
+
+- Apps send logs via HTTP POST (`/enqueue`).
+- It writes them to a local disk WAL (NVMe/EBS) in microsecond time with CRC32 integrity.
+- A background routine ships batches to your actual backend. If the downstream responds with `HTTP 429` (Rate Limited) or `503`, Walspool pauses, backs off, and retains everything on disk until recovery.
+- On `SIGTERM`, it executes a 4-step graceful drain to ship pending batches before Kubernetes tears down the container.
+- Includes `/readyz` (fails if storage is full or process is draining), `/healthz`, and standard Prometheus `/metrics`.
+
+It runs as a non-root Alpine container (~15MB) with multi-arch support:
+`docker run -p 9099:9099 -v /tmp/spool:/data/spool ghcr.io/yohannhommet/walspool:v1.0.0`
+
+Code and K8s manifests are on GitHub: https://github.com/YohannHommet/walspool
+
+Feedback on how you handle sidecar backpressure is very welcome!
+```
+
+---
+
+## 6. Thread Twitter / X (Authentique & Percutant)
+
+**Tweet 1 :**  
+If your app buffers logs in memory, every Kubernetes pod restart or OOM kills your in-flight telemetry.  
+If you run Kafka just to buffer local node events, you're overpaying.  
+
+I built Walspool: a single 15MB Go binary that acts as an unkillable disk buffer and live SSE stream.  
+https://github.com/YohannHommet/walspool
+
+---
+
+**Tweet 2 :**  
+How it works:  
+1. App POSTs logs to `localhost:9099/enqueue`  
+2. Written to disk WAL with 128KB Group Commit & CRC32 (1M+ ops/s)  
+3. Background worker ships batches downstream (with auto-backoff on HTTP 429)  
+4. Streams live logs via SSE: `curl -N localhost:9099/v1/logs/stream`
+
+---
+
+**Tweet 3 :**  
+A detail I care about: zero external dependencies.  
+No CGO, no third-party Go packages, clean `go test -race ./...`.  
+Physical disk rollback on write failure (no corrupt zero-padded tails).  
+
+Try the Docker image:  
 `docker run -p 9099:9099 ghcr.io/yohannhommet/walspool:v1.0.0`
 
-Feedback and contributions are very welcome!
-```
-
 ---
 
-## 5. Thread Twitter / X
-
-**Tweet 1 (Hook & Annonce) :**  
-🚀 Announcing Walspool v1.0!  
-An ultra-fast Write-Ahead Log buffer & live telemetry hub built in pure Go.  
-
-⚡ 1,074,000 disk ops/s (Group Commit 128KB, CRC32)  
-🔥 2,840,000 ops/s in-memory SSE stream  
-🛡️ 0 external dependencies. Single ~15MB binary.  
-
-GitHub: https://github.com/YohannHommet/walspool 🧵👇
-
----
-
-**Tweet 2 (The Problem) :**  
-The distributed telemetry dilemma:  
-- Go channels & in-memory buffers: Fast, but 100% data loss if your pod restarts or hits OOM.  
-- Kafka / Redpanda: Rock-solid, but massive overkill and thousands of dollars/mo for local node buffering.  
-
-Walspool bridges that gap.
-
----
-
-**Tweet 3 (The Disk WAL) :**  
-Under the hood of the disk engine:  
-- 29-byte custom binary header with IEEE CRC32 checksums.  
-- 128 KB user-space Group Commit.  
-- Physical rollback (`file.Truncate`) on disk error (no corrupt zero-padding).  
-- Startup OOM Guard capping record payloads to 10 MB.  
-
----
-
-**Tweet 4 (The Memory Hub) :**  
-Need live log tailing?  
-Instead of parsing full JSON via reflection, Walspool features `scanTopLevelMeta`: a zero-alloc lexical scanner extracting `trace_id`, `service`, and `level` directly from raw bytes.  
-
-Stream logs live via Server-Sent Events:  
-`curl -N localhost:9099/v1/logs/stream`
-
----
-
-**Tweet 5 (Reliability & K8s) :**  
-Production-ready for cloud-native workloads:  
-✅ Native `/healthz` & `/readyz` Kubernetes probes  
-✅ Full Prometheus `/metrics`  
-✅ Downstream HTTP 429 backoff retry  
-✅ 4-stage graceful drain on SIGTERM  
-✅ 100% race-free (`go test -race ./...`)  
-
----
-
-**Tweet 6 (Docker & Quickstart) :**  
-Try it in 5 seconds with Docker (multi-arch AMD64 & ARM64):  
-```bash
-docker run -d -p 9099:9099 \
-  -v /tmp/spool:/data/spool \
-  ghcr.io/yohannhommet/walspool:v1.0.0
-```
-
----
-
-**Tweet 7 (Call to Action) :**  
+**Tweet 4 :**  
 Walspool is licensed under Fair Source FSL-1.1-MIT (free for internal commercial use, 100% reverts to MIT in 2 years).  
 
-⭐ Star the repo and read the architecture deep-dive:  
-https://github.com/YohannHommet/walspool  
-
-Let me know what you think! 💬
+Check out the code and architecture docs:  
+https://github.com/YohannHommet/walspool
 
 ---
 
-## 6. Post LinkedIn
-
-**Format :** Post fondateur & retour d'expérience d'architecte logiciel.
+## 7. Post LinkedIn (Retour d'Expérience Architecte)
 
 ```text
-💡 Pourquoi nous avons conçu un moteur Write-Ahead Log à 1M ops/sec en Go pur (sans aucune dépendance externe).
+Dans la plupart des architectures de microservices, la fiabilité de la télémétrie repose sur un compromis bancal :
 
-Dans la quasi-totalité des architectures microservices et edge actuelles, la gestion des logs et événements critiques fait face à un compromis difficile :
-1️⃣ Les queues en mémoire (Go channels, Redis in-memory) : ultra-rapides, mais volatiles. Au moindre crash ou redéploiement Kubernetes, 100 % des données non transmises sont perdues.
-2️⃣ Les brokers distribués lourds (Kafka, RabbitMQ) : extrêmement puissants, mais surdimensionnés et coûteux lorsqu'il s'agit simplement de tamponner localement la télémétrie d'un nœud.
+Soit on garde les logs en mémoire pour aller vite, et le moindre redémarrage de pod Kubernetes fait disparaître les événements en transit.
+Soit on met en place des briques lourdes (brokers distribués, clusters dédiés) qui demandent une maintenance disproportionnée pour du simple tamponnage local.
 
-Pour résoudre ce problème à la racine, j'ai développé Walspool (v1.0.0).
+J'ai conçu Walspool pour combler ce vide : un composant autonome d'environ 15 Mo, sans aucune dépendance externe, qui sert d'absorbeur de chocs local sur disque NVMe.
 
-L'objectif : un sidecar autonome d'environ 15 Mo, zéro dépendance externe, capable d'absorber les pics de charge et de garantir la persistance locale sur NVMe en cas de panne réseau ou de saturation aval.
+Ce n'est pas un remplaçant de Kafka ou de RabbitMQ. C'est le maillon manquant en amont :
+- L'application dépose ses logs en local sur localhost:9099 (< 15 µs).
+- Walspool garantit la persistance immédiate sur disque avec un Group Commit de 128 Ko et intégrité CRC32 (plus d'un million d'écritures par seconde).
+- Si le collecteur central (Vector, Datadog, Kafka) est temporairement indisponible ou renvoie du HTTP 429, Walspool encaisse sur disque sans toucher à la mémoire vive du conteneur, puis dépile dès le retour à la normale.
+- En prime, un simple "curl -N localhost:9099/v1/logs/stream" permet de suivre ses logs en streaming temps réel (SSE) sans installer d'agent lourd.
 
-Ce que nous avons accompli sur le plan architectural :
-🔹 Performance brute : 1 074 441 écritures disque/sec (1,41 µs/op) grâce à un Group Commit de 128 Ko et un framing binaire de 29 octets avec CRC32.
-🔹 Streaming temps réel : Un hub circulaire en mémoire diffusant les logs par Server-Sent Events (SSE) à 2 846 908 ops/sec, avec un scanner lexical de métadonnées sans allocation JSON.
-🔹 Résilience certifiée : Zéro datarace sous charge concurrente, reprise sur panne sans zero-padding, et absorption du backpressure aval (HTTP 429).
-🔹 Intégration Cloud-Native : Sondes Kubernetes natives (/healthz, /readyz) et métriques Prometheus (/metrics).
+Le projet est open-source (sous licence Fair Source FSL-1.1-MIT) :
+Dépôt GitHub : https://github.com/YohannHommet/walspool
+Documentation : https://yohannhommet.github.io/walspool
 
-Walspool est publié sous licence Fair Source FSL-1.1-MIT : gratuit et libre pour toute utilisation interne en entreprise, avec une conversion automatique en licence MIT pure au bout de 2 ans.
-
-Le dépôt GitHub officiel et la documentation technique sont en ligne :
-🔗 Dépôt : https://github.com/YohannHommet/walspool
-🔗 Site & Docs : https://yohannhommet.github.io/walspool
-
-Curieux d'avoir vos retours d'expérience sur la résilience de vos pipelines de données !
-
-#Golang #SoftwareArchitecture #DevOps #Microservices #CloudNative #OpenSource #HighPerformance
+Retours d'expérience et discussions techniques bienvenus en commentaire.
 ```
