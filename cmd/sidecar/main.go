@@ -259,11 +259,13 @@ func (m *SidecarMetrics) FormatPrometheus(hub walspool.LogHub, storage walspool.
 // SidecarServer exposes an HTTP API for polyglot services (Python, Node, Ruby, Rust, etc.).
 // It integrates disk WAL spooling with in-memory log indexing and real-time SSE streaming.
 type SidecarServer struct {
-	spooler      walspool.Spooler
-	hub          walspool.LogHub
-	storage      walspool.StorageEngine
-	metrics      *SidecarMetrics
-	shuttingDown atomic.Bool
+	spooler          walspool.Spooler
+	hub              walspool.LogHub
+	storage          walspool.StorageEngine
+	metrics          *SidecarMetrics
+	shuttingDown     atomic.Bool
+	otlpEnabled      bool
+	otlpDefaultTopic string
 }
 
 // NewSidecarServer constructs a SidecarServer. Optional LogHub can be injected (e.g. for testing).
@@ -275,9 +277,11 @@ func NewSidecarServer(spooler walspool.Spooler, hub ...walspool.LogHub) *Sidecar
 		h = walspool.NewMemoryLogHub(walspool.DefaultHubCapacity)
 	}
 	return &SidecarServer{
-		spooler: spooler,
-		hub:     h,
-		metrics: NewSidecarMetrics(),
+		spooler:          spooler,
+		hub:              h,
+		metrics:          NewSidecarMetrics(),
+		otlpEnabled:      true,
+		otlpDefaultTopic: "otel_logs",
 	}
 }
 
@@ -291,6 +295,15 @@ func (s *SidecarServer) WithStorage(storage walspool.StorageEngine) *SidecarServ
 func (s *SidecarServer) WithMetrics(metrics *SidecarMetrics) *SidecarServer {
 	if metrics != nil {
 		s.metrics = metrics
+	}
+	return s
+}
+
+// WithOTLP configures OpenTelemetry ingestion settings.
+func (s *SidecarServer) WithOTLP(enabled bool, defaultTopic string) *SidecarServer {
+	s.otlpEnabled = enabled
+	if defaultTopic != "" {
+		s.otlpDefaultTopic = defaultTopic
 	}
 	return s
 }
@@ -342,15 +355,32 @@ func (s *SidecarServer) Routes() http.Handler {
 	mux.HandleFunc("/enqueue", s.handleEnqueue)
 	mux.HandleFunc("/v1/enqueue", s.handleEnqueue)
 	mux.HandleFunc("/flush", s.handleFlush)
-	mux.HandleFunc("/v1/logs", s.handleLogsQuery)
+	mux.HandleFunc("/v1/logs", s.handleLogsRoute)
 	mux.HandleFunc("/v1/logs/stream", s.handleLogsStream)
 	mux.HandleFunc("/v1/logs/stats", s.handleLogsStats)
 	// Convenience aliases
-	mux.HandleFunc("/logs", s.handleLogsQuery)
+	mux.HandleFunc("/logs", s.handleLogsRoute)
 	mux.HandleFunc("/logs/stream", s.handleLogsStream)
 	mux.HandleFunc("/logs/stats", s.handleLogsStats)
 	mux.HandleFunc("/v1/metrics", s.handleMetrics)
 	return s.corsMiddleware(mux)
+}
+
+func (s *SidecarServer) handleLogsRoute(w http.ResponseWriter, r *http.Request) {
+	switch r.Method {
+	case http.MethodGet:
+		s.handleLogsQuery(w, r)
+	case http.MethodPost:
+		if !s.otlpEnabled {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusForbidden)
+			_, _ = w.Write([]byte(`{"error":"otlp_disabled","message":"OTLP ingestion is disabled"}` + "\n"))
+			return
+		}
+		s.handleOTLPLogs(w, r)
+	default:
+		http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
+	}
 }
 
 func (s *SidecarServer) corsMiddleware(next http.Handler) http.Handler {
@@ -678,16 +708,18 @@ func (s *SidecarServer) handleFlush(w http.ResponseWriter, r *http.Request) {
 
 // SidecarConfig encapsulates validated runtime configuration for the sidecar process.
 type SidecarConfig struct {
-	Addr          string
-	DataDir       string
-	TargetSinkURL string
-	BatchSize     int
-	FlushMs       int
-	MaxRecords    int
-	HubCapacity   int
-	LogFormat     string
-	LogLevel      string
-	ShowVersion   bool
+	Addr             string
+	DataDir          string
+	TargetSinkURL    string
+	BatchSize        int
+	FlushMs          int
+	MaxRecords       int
+	HubCapacity      int
+	LogFormat        string
+	LogLevel         string
+	OTLPEnabled      bool
+	OTLPDefaultTopic string
+	ShowVersion      bool
 }
 
 // Validate enforces strict invariants across configuration values.
@@ -709,6 +741,9 @@ func (c *SidecarConfig) Validate() error {
 	}
 	if c.HubCapacity <= 0 {
 		return fmt.Errorf("%w: hub-capacity must be > 0 (got %d)", walspool.ErrPreconditionViolated, c.HubCapacity)
+	}
+	if c.OTLPEnabled && strings.TrimSpace(c.OTLPDefaultTopic) == "" {
+		return fmt.Errorf("%w: otlp-default-topic must not be empty", walspool.ErrPreconditionViolated)
 	}
 	switch strings.ToLower(strings.TrimSpace(c.LogFormat)) {
 	case "text", "json":
@@ -768,6 +803,13 @@ func ParseConfig(args []string, lookupEnv func(string) (string, bool)) (*Sidecar
 		return nil, err
 	}
 
+	otlpDefaultTopic := getEnvStr("WALSPOOL_OTLP_DEFAULT_TOPIC", "otel_logs")
+	otlpEnabledStr := getEnvStr("WALSPOOL_OTLP_ENABLED", "true")
+	otlpEnabled := true
+	if val, err := strconv.ParseBool(otlpEnabledStr); err == nil {
+		otlpEnabled = val
+	}
+
 	fs := flag.NewFlagSet("walspool-sidecar", flag.ContinueOnError)
 
 	var cfg SidecarConfig
@@ -780,6 +822,8 @@ func ParseConfig(args []string, lookupEnv func(string) (string, bool)) (*Sidecar
 	fs.IntVar(&cfg.HubCapacity, "hub-capacity", hubCapacity, "In-memory ring buffer capacity for logs hub")
 	fs.StringVar(&cfg.LogFormat, "log-format", getEnvStr("WALSPOOL_LOG_FORMAT", "text"), "Log output format (text|json)")
 	fs.StringVar(&cfg.LogLevel, "log-level", getEnvStr("WALSPOOL_LOG_LEVEL", "info"), "Log level (debug|info|warn|error)")
+	fs.BoolVar(&cfg.OTLPEnabled, "otlp-enabled", otlpEnabled, "Enable OpenTelemetry (OTLP) HTTP log ingestion on POST /v1/logs")
+	fs.StringVar(&cfg.OTLPDefaultTopic, "otlp-default-topic", otlpDefaultTopic, "Default topic for OTLP logs when service.name is absent")
 	fs.BoolVar(&cfg.ShowVersion, "version", false, "Show version information and exit")
 
 	if err := fs.Parse(args); err != nil {
@@ -898,14 +942,16 @@ func main() {
 	}
 
 	if cfg.ShowVersion {
-		fmt.Printf("walspool-sidecar version %s (commit %s, built %s)\n", Version, GitCommit, BuildDate)
+		fmt.Printf("walspool community edition version %s (commit %s, built %s) [powered by meow labs]\n", Version, GitCommit, BuildDate)
 		return
 	}
 
 	SetupLogger(cfg.LogFormat, cfg.LogLevel)
 
-	slog.Info("Starting walspool sidecar daemon",
+	slog.Info("Starting walspool community sidecar daemon",
 		"version", Version,
+		"edition", "community",
+		"vendor", "meow labs",
 		"commit", GitCommit,
 		"addr", cfg.Addr,
 		"data_dir", cfg.DataDir,
@@ -916,6 +962,8 @@ func main() {
 		"hub_capacity", cfg.HubCapacity,
 		"log_format", cfg.LogFormat,
 		"log_level", cfg.LogLevel,
+		"otlp_enabled", cfg.OTLPEnabled,
+		"otlp_default_topic", cfg.OTLPDefaultTopic,
 	)
 
 	// Initialize disk storage
@@ -947,7 +995,8 @@ func main() {
 
 	server := NewSidecarServer(spool, hub).
 		WithStorage(storage).
-		WithMetrics(metrics)
+		WithMetrics(metrics).
+		WithOTLP(cfg.OTLPEnabled, cfg.OTLPDefaultTopic)
 
 	httpServer := &http.Server{
 		Addr:              cfg.Addr,
@@ -985,7 +1034,8 @@ func main() {
 
 	slog.Info("walspool sidecar listening",
 		"url", listenURL,
-		"endpoints", "POST /enqueue, GET /healthz, GET /readyz, GET /metrics, POST /flush, GET /v1/logs, GET /v1/logs/stream",
+		"edition", "community",
+		"endpoints", "POST /v1/logs (OTLP), GET /v1/logs, GET /v1/logs/stream, POST /enqueue, GET /healthz, GET /readyz, GET /metrics, POST /flush",
 	)
 	if err := httpServer.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 		slog.Error("Server error", "error", err)

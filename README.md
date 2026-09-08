@@ -2,17 +2,18 @@
   <img src="assets/logo.png" alt="walspool logo" width="180" style="border-radius: 24px; box-shadow: 0 12px 35px rgba(204,255,0,0.25);"/>
 </p>
 
-<h1 align="center">Walspool</h1>
+<h1 align="center">Walspool Community Edition</h1>
 
 <p align="center">
-  <strong>The SQLite of Reliable Event Delivery & Real-Time Observability</strong><br>
-  Dual-Engine Write-Ahead Log (WAL) Spooler & Streaming Hub in Pure Go.
+  <strong>The Zero-Allocation WAL Shock Absorber for Observability & Event Streaming</strong><br>
+  Dual-Engine Write-Ahead Log (WAL) Spooler & OpenTelemetry Ingestion Hub in Pure Go.<br>
+  <em>Engineered by <a href="https://meowlabs.tech">Meow Labs</a></em>
 </p>
 
 <p align="center">
   <a href="https://golang.org"><img src="https://img.shields.io/badge/Go-%3E%3D%201.22-00ADD8?style=for-the-badge&logo=go&logoColor=white" alt="Go Version"/></a>
   <a href="https://goreportcard.com/report/github.com/YohannHommet/walspool"><img src="https://img.shields.io/badge/Go_Report-A+-A3E635?style=for-the-badge&logo=go&logoColor=black" alt="Go Report Card"/></a>
-  <a href="https://github.com/YohannHommet/walspool/releases/tag/v1.0.0"><img src="https://img.shields.io/badge/Release-v1.0.0-EA580C?style=for-the-badge&logo=github&logoColor=white" alt="Release Version"/></a>
+  <a href="https://github.com/YohannHommet/walspool/releases/tag/v1.0.0"><img src="https://img.shields.io/badge/Edition-Community-38BDF8?style=for-the-badge&logo=github&logoColor=white" alt="Edition Community"/></a>
   <a href="https://github.com/YohannHommet/walspool/actions"><img src="https://img.shields.io/badge/Tests-Passing-CCFF00?style=for-the-badge&logo=githubactions&logoColor=black" alt="Tests Status"/></a>
   <a href="https://github.com/YohannHommet/walspool/pkgs/container/walspool"><img src="https://img.shields.io/badge/Docker-Ready-2496ED?style=for-the-badge&logo=docker&logoColor=white" alt="Docker Ready"/></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-FSL--1.1--MIT-CCFF00?style=for-the-badge&logoColor=black&labelColor=16171C" alt="License FSL-1.1-MIT"/></a>
@@ -23,6 +24,23 @@
     <img src="assets/hero_screenshot.png" alt="Walspool Landing Page Hero" width="100%" style="border-radius: 12px; border: 1px solid #272930; box-shadow: 0 20px 40px -15px rgba(0,0,0,0.7);"/>
   </a>
 </p>
+
+> [!NOTE]
+> **Walspool Community Edition** is free and source-available under the [Functional Source License (FSL-1.1-MIT)](LICENSE) (which automatically converts to Apache 2.0 after two years).  
+> For production environments requiring High-Availability Raft consensus, hardware KMS encryption, or native zero-bloat PostgreSQL outbox streaming, discover our commercial tiers at **[meowlabs.tech](https://meowlabs.tech)**.
+
+### Product Editions Matrix
+
+| Capability | **Community Edition** *(This Repo)* | **Walspool Pro** *(990 €/yr)* | **Walspool Enterprise** *(2,490 €/yr)* | **Walspool Transactional** *(1,490 €/yr)* |
+|---|:---:|:---:|:---:|:---:|
+| **License** | **Free (FSL-1.1-MIT)** | Commercial Perpetual | Commercial Perpetual | Commercial Perpetual |
+| **Ingestion Protocols** | **OpenTelemetry OTLP (`POST /v1/logs`), Custom HTTP** | OTLP, HTTP, CLI | OTLP, HTTP, gRPC mTLS | **Go SDK sub-15µs (UDS)** |
+| **Storage Engine** | **Local NVMe WAL (CRC32)** | Local NVMe WAL (CRC32) | **Raft Multi-Node HA** | **PostgreSQL Outbox (Zero-Bloat)** |
+| **Drain Destinations** | **HTTP Webhook / Console** | **ClickHouse, S3 Parquet** | Snowflake, Kafka SASL | Kafka, SQS, Webhooks |
+| **Compliance & Security** | CRC32 Integrity Check | Alerting (Slack/Discord) | **KMS AES-256, PCI-DSS PII Masking** | Exactly-Once Idempotency |
+| **Deployment** | Single Binary / Docker | Docker / Helm Chart | **Kubernetes Enterprise Operator** | Docker / Embedded Library |
+| **Commercial Support** | Community GitHub Issues | Priority Email (48h SLA) | Dedicated SLA (24h) | Integration Architecture Support |
+| **Get Started** | *`docker run` / `go get`* | **[meowlabs.tech](https://meowlabs.tech)** | **[meowlabs.tech](https://meowlabs.tech)** | **[meowlabs.tech](https://meowlabs.tech)** |
 
 An embedded write-ahead log (WAL) spooler and real-time streaming hub written in pure Go with zero third-party dependencies.
 
@@ -292,10 +310,11 @@ All endpoints enforce strict HTTP method constraints and return JSON error struc
 
 | Method | Endpoint | Description | Status Code | Notes |
 | :--- | :--- | :--- | :--- | :--- |
-| `POST` | `/v1/enqueue` | Appends event to WAL and notifies in-memory hub | `202 Accepted` | Ingestion in < 15 µs. Returns `503` if spool is full. |
+| `POST` | `/v1/logs` | **OpenTelemetry (OTLP) HTTP Log Receiver** | `200 OK` | Native OTLP ingestion (`application/x-protobuf` & `application/json`). Returns `503` with `Retry-After: 1` if full. |
 | `GET` | `/v1/logs` | Queries recent indexed entries from ring buffer | `200 OK` | Filters: `trace_id`, `service`, `level`, `limit`. |
 | `GET` | `/v1/logs/stream` | Streams live events via Server-Sent Events (SSE) | `200 OK` | Filters: `service`, `level`. Periodic keepalive comments. |
 | `GET` | `/v1/logs/stats` | Returns capacity and usage metrics of memory hub | `200 OK` | Capacity, active subscribers, dropped stream events. |
+| `POST` | `/v1/enqueue` | Appends custom event to WAL and notifies in-memory hub | `202 Accepted` | Ingestion in < 15 µs. Returns `503` if spool is full. |
 | `POST` | `/flush` | Forces immediate synchronous drain to sink | `200 OK` | Blocks until in-flight WAL batches are delivered. |
 | `GET` | `/healthz` | Kubernetes Liveness Probe | `200 OK` | Confirms HTTP listener process responsiveness. |
 | `GET` | `/readyz` | Kubernetes Readiness Probe | `200 OK` / `503` | Validates storage integrity. Flips to `503` on shutdown. |
@@ -305,18 +324,40 @@ Prometheus metrics are additionally exported at `GET /metrics`.
 ### Usage Examples
 
 ```bash
-# 1. Enqueue an event
+# 1. Zero-Code OpenTelemetry Ingestion
+# Simply set standard OTel environment variables on any microservice:
+export OTEL_EXPORTER_OTLP_LOGS_ENDPOINT="http://localhost:9099/v1/logs"
+export OTEL_SERVICE_NAME="order-service"
+
+# Or ingest OTLP JSON logs directly via curl:
+curl -i -X POST http://localhost:9099/v1/logs \
+  -H "Content-Type: application/json" \
+  -d '{
+    "resourceLogs": [{
+      "resource": {"attributes": [{"key": "service.name", "value": {"stringValue": "billing-api"}}]},
+      "scopeLogs": [{
+        "logRecords": [{
+          "timeUnixNano": "1725835200000000000",
+          "severityText": "INFO",
+          "body": {"stringValue": "Invoice generated #4412"},
+          "traceId": "4bf92f3577b34da6a3ce929d0e0e4736"
+        }]
+      }]
+    }]
+  }'
+
+# 2. Custom JSON Enqueue (Legacy endpoint)
 curl -i -X POST http://localhost:9099/v1/enqueue \
   -H "Content-Type: application/json" \
   -d '{"topic":"orders","trace_id":"trace-42","service":"api","level":"info","payload":{"id":102,"total":49.90}}'
 
-# 2. Query historical logs by trace ID (< 15 µs)
-curl "http://localhost:9099/v1/logs?trace_id=trace-42"
+# 3. Query historical logs by trace ID (< 15 µs)
+curl "http://localhost:9099/v1/logs?trace_id=4bf92f3577b34da6a3ce929d0e0e4736"
 
-# 3. Stream live events in real-time
-curl -N "http://localhost:9099/v1/logs/stream?service=api&level=info"
+# 4. Stream live events in real-time
+curl -N "http://localhost:9099/v1/logs/stream?service=billing-api&level=info"
 
-# 4. Check readiness
+# 5. Check readiness
 curl http://localhost:9099/readyz
 ```
 
