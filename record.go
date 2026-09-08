@@ -2,7 +2,6 @@ package walspool
 
 import (
 	"encoding/binary"
-	"errors"
 	"fmt"
 	"hash/crc32"
 	"time"
@@ -13,11 +12,6 @@ const (
 	magicByte2  byte = 0x53 // 'S'
 	wireVersion byte = 0x01
 	headerSize       = 29 // 2 (magic) + 1 (ver) + 4 (crc) + 8 (id) + 8 (time) + 2 (topicLen) + 4 (payloadLen)
-)
-
-var (
-	ErrCorruptRecord = errors.New("walspool: corrupt record or checksum mismatch")
-	ErrTruncatedData = errors.New("walspool: unexpected EOF or truncated data")
 )
 
 // Offset represents a monotonic position in the write-ahead log.
@@ -65,44 +59,36 @@ func (r Record) MarshalBinary() ([]byte, error) {
 
 // UnmarshalBinary decodes a record from binary bytes, verifying magic bytes and CRC32 checksum.
 func (r *Record) UnmarshalBinary(data []byte) error {
-	// 1. Valider que len(data) >= headerSize.
 	if len(data) < headerSize {
 		return ErrTruncatedData
 	}
 
-	// 2. Valider magic bytes et wire version.
+	// Verify magic bytes and wire version
 	if data[0] != magicByte1 || data[1] != magicByte2 || data[2] != wireVersion {
 		return fmt.Errorf("%w: invalid magic bytes or version", ErrCorruptRecord)
 	}
 
-	// 3. Extraire topicLen et payloadLen depuis le header.
 	topicLen := int(binary.BigEndian.Uint16(data[23:25]))
 	payloadLen := int(binary.BigEndian.Uint32(data[25:29]))
-
-	// 4. Calculer totalLen := headerSize + topicLen + payloadLen.
 	totalLen := headerSize + topicLen + payloadLen
 
-	// 5. Vérifier if len(data) < totalLen { return ErrTruncatedData }.
 	if len(data) < totalLen {
 		return ErrTruncatedData
 	}
 
-	// 6. Calculer computedChecksum := crc32.ChecksumIEEE(data[7:totalLen]).
+	// Verify CRC32 IEEE checksum
 	expectedChecksum := binary.BigEndian.Uint32(data[3:7])
 	computedChecksum := crc32.ChecksumIEEE(data[7:totalLen])
-
-	// 7. Si expectedChecksum != computedChecksum { return fmt.Errorf("%w: expected 0x%x, calculated 0x%x", ErrCorruptRecord, expectedChecksum, computedChecksum) }.
 	if expectedChecksum != computedChecksum {
 		return fmt.Errorf("%w: expected 0x%x, calculated 0x%x", ErrCorruptRecord, expectedChecksum, computedChecksum)
 	}
 
-	// 8. Peupler r.ID, r.Timestamp, r.Topic, r.Checksum.
 	r.ID = binary.BigEndian.Uint64(data[7:15])
 	r.Timestamp = time.Unix(0, int64(binary.BigEndian.Uint64(data[15:23])))
 	r.Topic = string(data[headerSize : headerSize+topicLen])
 	r.Checksum = expectedChecksum
 
-	// 9. Effectuer une copie défensive pour r.Payload :
+	// Defensive copy of payload slice to guarantee immutability
 	payloadCopy := make([]byte, payloadLen)
 	copy(payloadCopy, data[headerSize+topicLen:totalLen])
 	r.Payload = payloadCopy

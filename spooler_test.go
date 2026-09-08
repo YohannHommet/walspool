@@ -333,7 +333,7 @@ func TestConcurrentEnqueue_RaceFree(t *testing.T) {
 	}
 }
 
-// 8. CRIT-04 / Bug #9: Concurrent Flush and Close must never deadlock
+// 8. Concurrent Flush and Close must never deadlock
 func TestConcurrentFlushAndClose_NoDeadlock(t *testing.T) {
 	storage := walspool.NewMemoryStorageEngine(5000)
 	sink := &recordingSink{}
@@ -458,7 +458,7 @@ func BenchmarkSpoolerEnqueue_InMemory(b *testing.B) {
 	}
 }
 
-// 10. Phase 2: UnmarshalBinary with excess bytes / padding must succeed and ignore padding (MAJ-04)
+// 10. UnmarshalBinary with excess bytes / padding must succeed and ignore padding
 func TestRecord_UnmarshalBinary_Padding(t *testing.T) {
 	orig := walspool.Record{
 		ID:        42,
@@ -495,7 +495,7 @@ func TestRecord_UnmarshalBinary_Padding(t *testing.T) {
 	}
 }
 
-// 11. Phase 2: UnmarshalBinary with truncated data must return ErrTruncatedData (MAJ-04)
+// 11. UnmarshalBinary with truncated data must return ErrTruncatedData
 func TestRecord_UnmarshalBinary_Truncated(t *testing.T) {
 	orig := walspool.Record{
 		ID:        100,
@@ -528,7 +528,7 @@ func TestRecord_UnmarshalBinary_Truncated(t *testing.T) {
 	}
 }
 
-// 12. Phase 2: Defensive Copy Isolation test (MAJ-02)
+// 12. Defensive Copy Isolation test
 func TestSpooler_DefensiveCopy_Isolation(t *testing.T) {
 	storage := walspool.NewMemoryStorageEngine(100)
 	sink := &recordingSink{
@@ -569,7 +569,7 @@ func TestSpooler_DefensiveCopy_Isolation(t *testing.T) {
 	}
 }
 
-// 13. Phase 2: IngestionObserver Port notification test (MAJ-03)
+// 13. IngestionObserver notification verification
 type mockIngestionObserver struct {
 	mu       sync.Mutex
 	ingested []walspool.Record
@@ -640,5 +640,88 @@ func TestSpooler_IngestionObserver_Notification(t *testing.T) {
 		if recs[i].ID == 0 {
 			t.Errorf("record %d ID must not be zero", i)
 		}
+	}
+}
+
+// 14. Record ID Continuity Across Process Restarts
+// Verifies that Record.ID is strictly monotonic across spooler restarts, resuming from
+// storage.LastID() so record IDs never duplicate after a crash or planned restart.
+func TestSpooler_IDContinuityAcrossRestart(t *testing.T) {
+	tmpDir, err := os.MkdirTemp("", "walspool_id_*")
+	if err != nil {
+		t.Fatalf("failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	storage1, err := walspool.NewFileStorageEngine(tmpDir, 100)
+	if err != nil {
+		t.Fatalf("init storage1 failed: %v", err)
+	}
+
+	sink1 := &recordingSink{}
+	cfg := walspool.DefaultConfig()
+	cfg.BatchSize = 10
+	cfg.FlushInterval = 5 * time.Millisecond
+
+	obs1 := &mockIngestionObserver{}
+	spool1, err := walspool.New(cfg, storage1, sink1, nil, walspool.WithObserver(obs1))
+	if err != nil {
+		t.Fatalf("init spool1 failed: %v", err)
+	}
+
+	ctx := context.Background()
+	for i := 0; i < 3; i++ {
+		if err := spool1.Enqueue(ctx, "events.user", []byte(`{"event":"click"}`)); err != nil {
+			t.Fatalf("enqueue spool1 failed: %v", err)
+		}
+	}
+
+	if err := spool1.Flush(ctx); err != nil {
+		t.Fatalf("flush spool1 failed: %v", err)
+	}
+	if err := spool1.Close(); err != nil {
+		t.Fatalf("close spool1 failed: %v", err)
+	}
+
+	if obs1.count() != 3 {
+		t.Fatalf("expected 3 records in obs1, got %d", obs1.count())
+	}
+	for idx, r := range obs1.records() {
+		expectedID := uint64(idx + 1)
+		if r.ID != expectedID {
+			t.Errorf("spool1 record %d expected ID %d, got %d", idx, expectedID, r.ID)
+		}
+	}
+
+	// Reopen storage engine in the same WAL directory
+	storage2, err := walspool.NewFileStorageEngine(tmpDir, 100)
+	if err != nil {
+		t.Fatalf("reopen storage2 failed: %v", err)
+	}
+	if storage2.LastID() != 3 {
+		t.Fatalf("expected storage2.LastID() == 3, got %d", storage2.LastID())
+	}
+
+	sink2 := &recordingSink{}
+	obs2 := &mockIngestionObserver{}
+	spool2, err := walspool.New(cfg, storage2, sink2, nil, walspool.WithObserver(obs2))
+	if err != nil {
+		t.Fatalf("init spool2 failed: %v", err)
+	}
+	defer spool2.Close()
+
+	if err := spool2.Enqueue(ctx, "events.user", []byte(`{"event":"signup"}`)); err != nil {
+		t.Fatalf("enqueue spool2 failed: %v", err)
+	}
+	if err := spool2.Flush(ctx); err != nil {
+		t.Fatalf("flush spool2 failed: %v", err)
+	}
+
+	if obs2.count() != 1 {
+		t.Fatalf("expected 1 record in obs2, got %d", obs2.count())
+	}
+	fourthRecord := obs2.records()[0]
+	if fourthRecord.ID != 4 {
+		t.Fatalf("expected ID continuity across restart: expected ID 4, got %d", fourthRecord.ID)
 	}
 }

@@ -2,11 +2,12 @@
 FROM --platform=$BUILDPLATFORM golang:1.22-alpine AS builder
 ARG TARGETOS
 ARG TARGETARCH
+ARG VERSION=1.0.0
 WORKDIR /app
 COPY go.mod ./
 COPY *.go ./
 COPY cmd/ ./cmd/
-RUN CGO_ENABLED=0 GOOS=${TARGETOS:-linux} GOARCH=${TARGETARCH:-amd64} go build -ldflags="-s -w -extldflags '-static' -X main.Version=1.0.0" -o /walspool-sidecar ./cmd/sidecar
+RUN CGO_ENABLED=0 GOOS=${TARGETOS:-linux} GOARCH=${TARGETARCH:-amd64} go build -ldflags="-s -w -extldflags '-static' -X main.Version=${VERSION}" -o /walspool-sidecar ./cmd/sidecar
 
 # Production Stage
 FROM alpine:3.19
@@ -31,4 +32,5 @@ ENV WALSPOOL_ADDR=":9099" \
 
 USER 10001:10001
 EXPOSE 9099
+HEALTHCHECK --interval=10s --timeout=2s --retries=3 CMD wget -q -O- http://127.0.0.1:9099/readyz || exit 1
 ENTRYPOINT ["/usr/local/bin/walspool-sidecar"]

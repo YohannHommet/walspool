@@ -1,4 +1,9 @@
-# Architecture Logicielle de Walspool
+# 🏗️ Architecture Logicielle de Walspool
+
+> **Auteur & Mainteneur :** Yohann Hommet ([@YohannHommet](https://github.com/YohannHommet))  
+> **Projet :** [`github.com/YohannHommet/walspool`](https://github.com/YohannHommet/walspool)  
+> **Licence :** FSL-1.1-MIT  
+> **Statut :** Spécification d'Ingénierie & Doctrine Black-Box
 
 Ce document présente l'architecture logicielle de **Walspool** (`github.com/YohannHommet/walspool`), un moteur double-moteur (Dual-Engine) alliant la persistance locale sur disque par journal séquentiel (**Write-Ahead Log - WAL**) et un index mémoire circulaire (**MemoryLogHub**) avec streaming Server-Sent Events (SSE).
 

@@ -38,9 +38,11 @@ class WalspoolClient {
       throw new Error("walspool: topic must be a non-empty string");
     }
 
+    const processedPayload = Buffer.isBuffer(payload) ? payload.toString("utf8") : payload;
+
     const body = {
       topic,
-      payload,
+      payload: processedPayload,
       trace_id: options.traceId || options.trace_id,
       service: options.service,
       level: options.level || "INFO",
@@ -60,6 +62,25 @@ class WalspoolClient {
       throw new Error(`walspool enqueue failed (HTTP ${res.status}): ${errText}`);
     }
 
+    return await res.json();
+  }
+
+  /**
+   * Forces an immediate flush of in-flight buffered records through to downstream sinks.
+   * @returns {Promise<{status: string}>}
+   */
+  async flush() {
+    const res = await fetch(`${this.endpoint}/flush`, {
+      method: "POST",
+      headers: {
+        Accept: "application/json",
+        "User-Agent": "walspool-node/1.0.0",
+      },
+    });
+    if (!res.ok) {
+      const errText = await res.text();
+      throw new Error(`walspool flush failed (HTTP ${res.status}): ${errText}`);
+    }
     return await res.json();
   }
 
@@ -115,6 +136,7 @@ class WalspoolClient {
   streamLogs(filter = {}, onEvent, onError) {
     let closed = false;
     let currentReq = null;
+    let reconnectTimer = null;
     let retryDelay = 1000;
 
     const connect = () => {
@@ -191,8 +213,9 @@ class WalspoolClient {
     };
 
     const scheduleReconnect = () => {
-      if (closed) return;
-      setTimeout(() => {
+      if (closed || reconnectTimer) return;
+      reconnectTimer = setTimeout(() => {
+        reconnectTimer = null;
         if (!closed) connect();
       }, retryDelay);
       retryDelay = Math.min(retryDelay * 1.5, 10000);
@@ -203,6 +226,10 @@ class WalspoolClient {
     return {
       close: () => {
         closed = true;
+        if (reconnectTimer) {
+          clearTimeout(reconnectTimer);
+          reconnectTimer = null;
+        }
         if (currentReq) {
           try {
             currentReq.destroy();

@@ -16,7 +16,10 @@ func main() {
 	fs := http.FileServer(http.Dir(docsDir))
 	http.Handle("/", fs)
 
-	port := "8088"
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "8088"
+	}
 	fmt.Printf("🌐 walspool docs & landing page serving at: http://localhost:%s\n", port)
 	fmt.Printf("📄 Serving directory: %s\n", docsDir)
 

@@ -10,6 +10,15 @@ var (
 
 	// ErrSpoolerClosed indicates an operation was attempted on a terminated spooler.
 	ErrSpoolerClosed = errors.New("walspool: spooler is closed")
+
+	// ErrHubClosed indicates an operation was attempted on a terminated log hub.
+	ErrHubClosed = ErrSpoolerClosed
+
+	// ErrCorruptRecord indicates a record failed magic byte validation or CRC32 checksum verification.
+	ErrCorruptRecord = errors.New("walspool: corrupt record or checksum mismatch")
+
+	// ErrTruncatedData indicates unexpected EOF or partial record encountered during deserialization.
+	ErrTruncatedData = errors.New("walspool: unexpected EOF or truncated data")
 )
 
 // Tier 2: Expected Domain Outcomes (Operational States)

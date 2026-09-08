@@ -648,7 +648,7 @@ func TestSidecar_DiskWAL_DurabilityWithCRC32(t *testing.T) {
 	}
 }
 
-// CRIT-05: HTTP 429 (Too Many Requests) and 408 (Request Timeout) must be treated as transient
+// HTTP 429 (Too Many Requests) and 408 (Request Timeout) must be treated as transient
 // errors (walspool.ErrSinkUnavailable) and retried with backoff without dropping data.
 func TestSidecar_HTTPSink_Transient429And408Retry(t *testing.T) {
 	var attempts atomic.Int32
@@ -768,7 +768,7 @@ func TestSidecar_HTTPSink_Transient429And408Retry(t *testing.T) {
 	}
 }
 
-// CRIT-03, MAJ-07: Graceful shutdown under load must unblock SSE streams without delay,
+// Graceful shutdown under load must unblock SSE streams without delay,
 // drain all active HTTP requests, and flush 100% of accepted in-flight logs to the sink without loss.
 func TestSidecar_GracefulShutdownUnderLoad_NoDataLoss(t *testing.T) {
 	var deliveredRecords atomic.Int64
@@ -915,7 +915,7 @@ func TestSidecar_GracefulShutdownUnderLoad_NoDataLoss(t *testing.T) {
 	}
 }
 
-// CRIT-07: CLI flags must take absolute precedence over environment variables,
+// CLI flags must take absolute precedence over environment variables,
 // which in turn override default fallback values. Strict validation must reject invalid configs.
 func TestSidecar_ConfigPrecedenceAndValidation(t *testing.T) {
 	t.Run("DefaultValuesWhenUnset", func(t *testing.T) {
@@ -1119,7 +1119,7 @@ func TestSidecar_ConfigPrecedenceAndValidation(t *testing.T) {
 	})
 }
 
-// MAJ-10: Prometheus & OpenMetrics endpoint GET /metrics
+// Prometheus & OpenMetrics endpoint GET /metrics
 func TestSidecar_PrometheusMetrics(t *testing.T) {
 	remoteMock := &mockSinkServer{paused: true}
 	remoteServer := httptest.NewServer(remoteMock)
@@ -1331,7 +1331,7 @@ func TestSidecar_PrometheusMetrics(t *testing.T) {
 	})
 }
 
-// MIN-08: Kubernetes probes (/healthz and /readyz)
+// Kubernetes probes (/healthz and /readyz)
 func TestSidecar_KubernetesProbes_ReadyzAndHealthz(t *testing.T) {
 	storage := walspool.NewMemoryStorageEngine(100)
 	sink := &HTTPSink{}
@@ -1455,7 +1455,7 @@ func TestSidecar_KubernetesProbes_ReadyzAndHealthz(t *testing.T) {
 	})
 }
 
-// MIN-08: Structured logging with log/slog
+// Structured logging with log/slog
 func TestSidecar_StructuredLogging_Slog(t *testing.T) {
 	t.Run("JSONHandlerFormatting", func(t *testing.T) {
 		var buf bytes.Buffer

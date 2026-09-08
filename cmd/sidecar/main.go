@@ -49,7 +49,7 @@ func (s *HTTPSink) Deliver(ctx context.Context, batch []walspool.Record) error {
 	if s.TargetURL == "" {
 		// If no target sink configured, log to stdout for testing/demo
 		for _, rec := range batch {
-			slog.Info("[SINK CONSOLE] Shipped", "offset", rec.Offset, "topic", rec.Topic, "payload", string(rec.Payload))
+			slog.Debug("[SINK CONSOLE] Shipped", "offset", rec.Offset, "topic", rec.Topic, "bytes", len(rec.Payload))
 			if s.Metrics != nil {
 				s.Metrics.RecordDelivered(rec.Topic)
 			}
@@ -89,7 +89,12 @@ func (s *HTTPSink) Deliver(ctx context.Context, batch []walspool.Record) error {
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("User-Agent", "walspool-sidecar/1.0")
 
-	resp, err := s.HTTPClient.Do(req)
+	client := s.HTTPClient
+	if client == nil {
+		client = &http.Client{Timeout: 10 * time.Second}
+	}
+
+	resp, err := client.Do(req)
 	if err != nil {
 		return fmt.Errorf("%w: network transport fault: %v", walspool.ErrSinkUnavailable, err)
 	}
@@ -345,21 +350,37 @@ func (s *SidecarServer) Routes() http.Handler {
 	mux.HandleFunc("/logs/stream", s.handleLogsStream)
 	mux.HandleFunc("/logs/stats", s.handleLogsStats)
 	mux.HandleFunc("/v1/metrics", s.handleMetrics)
-	return mux
+	return s.corsMiddleware(mux)
+}
+
+func (s *SidecarServer) corsMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, HEAD, OPTIONS")
+		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Trace-ID, X-Service, X-Log-Level")
+		if r.Method == http.MethodOptions {
+			w.WriteHeader(http.StatusNoContent)
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
 }
 
 func (s *SidecarServer) handleHealthz(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
+	if r.Method != http.MethodGet && r.Method != http.MethodHead {
 		http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
+	if r.Method == http.MethodHead {
+		return
+	}
 	_, _ = w.Write([]byte(`{"status":"ok","engine":"walspool"}` + "\n"))
 }
 
 func (s *SidecarServer) handleReadyz(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
+	if r.Method != http.MethodGet && r.Method != http.MethodHead {
 		http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
 		return
 	}
@@ -367,20 +388,26 @@ func (s *SidecarServer) handleReadyz(w http.ResponseWriter, r *http.Request) {
 
 	if s.IsShuttingDown() {
 		w.WriteHeader(http.StatusServiceUnavailable)
-		_, _ = w.Write([]byte(`{"status":"shutting_down","ready":false}` + "\n"))
+		if r.Method != http.MethodHead {
+			_, _ = w.Write([]byte(`{"status":"shutting_down","ready":false}` + "\n"))
+		}
 		return
 	}
 
 	if s.storage != nil {
 		if _, err := s.storage.UncommittedCount(); err != nil {
 			w.WriteHeader(http.StatusServiceUnavailable)
-			_, _ = w.Write([]byte(fmt.Sprintf(`{"status":"storage_unavailable","ready":false,"error":%q}`+"\n", err.Error())))
+			if r.Method != http.MethodHead {
+				_, _ = w.Write([]byte(fmt.Sprintf(`{"status":"storage_unavailable","ready":false,"error":%q}`+"\n", err.Error())))
+			}
 			return
 		}
 	}
 
 	w.WriteHeader(http.StatusOK)
-	_, _ = w.Write([]byte(`{"status":"ready","ready":true}` + "\n"))
+	if r.Method != http.MethodHead {
+		_, _ = w.Write([]byte(`{"status":"ready","ready":true}` + "\n"))
+	}
 }
 
 func (s *SidecarServer) handleMetrics(w http.ResponseWriter, r *http.Request) {
@@ -699,7 +726,7 @@ func (c *SidecarConfig) Validate() error {
 }
 
 // ParseConfig resolves configuration by prioritizing CLI flags over environment variables,
-// which in turn take precedence over hardcoded defaults (CRIT-07).
+// which in turn take precedence over hardcoded defaults.
 func ParseConfig(args []string, lookupEnv func(string) (string, bool)) (*SidecarConfig, error) {
 	if lookupEnv == nil {
 		lookupEnv = os.LookupEnv
@@ -813,7 +840,7 @@ type ShutdownSignaler interface {
 	MarkShuttingDown()
 }
 
-// GracefulShutdown executes the secure 4-step shutdown sequence (CRIT-03, MAJ-07):
+// GracefulShutdown executes the deterministic 4-step shutdown sequence:
 // 0. Signal shutting down state to signalers (e.g. SidecarServer readyz probe)
 // 1. hub.Close() (closes subscriber channels and immediately unblocks open SSE streams)
 // 2. httpServer.Shutdown(ctx) (stops accepting new connections, drains in-flight HTTP requests)
@@ -933,6 +960,7 @@ func main() {
 	// Handle graceful shutdown on SIGTERM / SIGINT
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
+	shutdownDone := make(chan struct{})
 
 	go func() {
 		<-sigChan
@@ -945,15 +973,25 @@ func main() {
 			slog.Error("Error during graceful shutdown", "error", err)
 		}
 		slog.Info("Sidecar stopped safely.")
-		os.Exit(0)
+		close(shutdownDone)
 	}()
 
+	listenURL := cfg.Addr
+	if strings.HasPrefix(listenURL, ":") {
+		listenURL = "http://localhost" + listenURL
+	} else if !strings.HasPrefix(listenURL, "http://") && !strings.HasPrefix(listenURL, "https://") {
+		listenURL = "http://" + listenURL
+	}
+
 	slog.Info("walspool sidecar listening",
-		"url", fmt.Sprintf("http://localhost%s", cfg.Addr),
+		"url", listenURL,
 		"endpoints", "POST /enqueue, GET /healthz, GET /readyz, GET /metrics, POST /flush, GET /v1/logs, GET /v1/logs/stream",
 	)
 	if err := httpServer.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 		slog.Error("Server error", "error", err)
 		os.Exit(1)
 	}
+
+	// Wait for GracefulShutdown goroutine to finish flushing buffers and closing storage
+	<-shutdownDone
 }

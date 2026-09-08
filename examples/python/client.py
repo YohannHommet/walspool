@@ -48,9 +48,17 @@ class WalspoolClient:
         if not topic:
             raise ValueError("walspool: topic must not be empty")
 
+        payload_data = payload
+        if isinstance(payload, bytes):
+            try:
+                payload_data = payload.decode("utf-8")
+            except UnicodeDecodeError:
+                import base64
+                payload_data = base64.b64encode(payload).decode("ascii")
+
         body: Dict[str, Any] = {
             "topic": topic,
-            "payload": payload,
+            "payload": payload_data,
             "level": level,
         }
         if trace_id:
@@ -75,6 +83,26 @@ class WalspoolClient:
         except urllib.error.HTTPError as e:
             err_content = e.read().decode("utf-8")
             raise RuntimeError(f"walspool enqueue failed (HTTP {e.code}): {err_content}") from e
+        except urllib.error.URLError as e:
+            raise ConnectionError(f"walspool sidecar unreachable at {self.endpoint}: {e.reason}") from e
+
+    def flush(self) -> Dict[str, Any]:
+        """
+        Forces an immediate flush of in-flight buffered records through to downstream sinks.
+        :return: Receipt dictionary {"status": "flushed"}
+        """
+        req = urllib.request.Request(
+            f"{self.endpoint}/flush",
+            headers={"Accept": "application/json", "User-Agent": "walspool-python/1.0.0"},
+            method="POST",
+            data=b"",
+        )
+        try:
+            with urllib.request.urlopen(req, timeout=self.timeout) as resp:
+                return json.loads(resp.read().decode("utf-8"))
+        except urllib.error.HTTPError as e:
+            err_content = e.read().decode("utf-8")
+            raise RuntimeError(f"walspool flush failed (HTTP {e.code}): {err_content}") from e
         except urllib.error.URLError as e:
             raise ConnectionError(f"walspool sidecar unreachable at {self.endpoint}: {e.reason}") from e
 
@@ -176,6 +204,9 @@ class WalspoolClient:
                                 yield json.loads(json_str)
                             except json.JSONDecodeError:
                                 continue
+                    # Stream ended cleanly on server side
+                    if not auto_reconnect:
+                        return
             except (urllib.error.URLError, ConnectionResetError, TimeoutError) as e:
                 if not auto_reconnect:
                     raise

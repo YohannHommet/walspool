@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"encoding/binary"
 	"fmt"
-	"hash/crc32"
 	"io"
 	"log/slog"
 	"os"
@@ -70,6 +69,7 @@ type FileStorageEngine struct {
 	writePos    int64
 	checkpoint  Offset
 	records     []offsetPos // in-memory index of [offset -> file byte position]
+	maxID       uint64      // highest recovered or persisted record ID
 	maxCapacity int
 	opts        FileStorageOptions
 	closed      bool
@@ -270,12 +270,10 @@ func (f *FileStorageEngine) recover() error {
 			break
 		}
 
-		// Recalculate CRC32 IEEE over metadata and payload (offset 7 to end)
-		fullData := make([]byte, totalRecordLen)
-		copy(fullData[:headerSize], header)
-		copy(fullData[headerSize:], bodyBuf)
-
-		_ = crc32.ChecksumIEEE(fullData[7:])
+		recID := binary.BigEndian.Uint64(header[7:15])
+		if recID > f.maxID {
+			f.maxID = recID
+		}
 
 		f.records = append(f.records, offsetPos{
 			Offset: offsetCounter,
@@ -357,6 +355,10 @@ func (f *FileStorageEngine) Append(rec Record) (Offset, error) {
 			f.rollbackTo(pos)
 			return 0, fmt.Errorf("%w: sync failed", ErrStorageUnavailable)
 		}
+	}
+
+	if rec.ID > f.maxID {
+		f.maxID = rec.ID
 	}
 
 	f.writePos += int64(len(data))
@@ -528,4 +530,11 @@ func (f *FileStorageEngine) Close() error {
 		}
 	})
 	return f.closeErr
+}
+
+// LastID returns the highest record ID persisted or recovered by the storage engine.
+func (f *FileStorageEngine) LastID() uint64 {
+	f.mu.RLock()
+	defer f.mu.RUnlock()
+	return f.maxID
 }

@@ -14,7 +14,7 @@ import (
 	"github.com/YohannHommet/walspool"
 )
 
-// 1. Crash Recovery with Truncated/Torn Tail (CRIT-02, MAJ-05, MAJ-06)
+// 1. Crash Recovery with Truncated/Torn Tail
 // Verifies that when a WAL file ends with truncated/torn data (partial header, partial body, corrupt magic at EOF),
 // recover() automatically truncates the active.wal back to the last valid record, repairing the file
 // on physical disk so earlier logs remain 100% readable and new appends resume seamlessly.

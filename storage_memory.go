@@ -104,3 +104,20 @@ func (m *MemoryStorageEngine) Close() error {
 	m.closed = true
 	return nil
 }
+
+// LastID returns the highest record ID stored in memory.
+func (m *MemoryStorageEngine) LastID() uint64 {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	if len(m.records) == 0 {
+		return 0
+	}
+	var maxID uint64
+	for _, r := range m.records {
+		if r.ID > maxID {
+			maxID = r.ID
+		}
+	}
+	return maxID
+}

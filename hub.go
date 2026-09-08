@@ -136,7 +136,7 @@ func (h *MemoryLogHub) Ingest(entry LogEntry) error {
 	h.mu.Lock()
 	if h.closed {
 		h.mu.Unlock()
-		return ErrSpoolerClosed
+		return ErrHubClosed
 	}
 
 	// Invariant assignment
@@ -158,6 +158,13 @@ func (h *MemoryLogHub) Ingest(entry LogEntry) error {
 	}
 	entry.Service = strings.ToLower(strings.TrimSpace(entry.Service))
 	entry.TraceID = strings.TrimSpace(entry.TraceID)
+
+	// Defensive copy of payload to ensure immutability across subscribers and circular eviction
+	if len(entry.Payload) > 0 {
+		payloadCopy := make(json.RawMessage, len(entry.Payload))
+		copy(payloadCopy, entry.Payload)
+		entry.Payload = payloadCopy
+	}
 
 	item := &entry
 	h.totalIngested++

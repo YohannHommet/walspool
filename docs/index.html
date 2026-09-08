@@ -15,12 +15,15 @@
   <meta name="theme-color" content="#08080A">
   <meta name="msapplication-TileColor" content="#08080A">
 
-  <!-- OpenGraph & Social Metadata -->
+  <!-- Canonical & Social Metadata -->
+  <link rel="canonical" href="https://yohannhommet.github.io/walspool/">
   <meta property="og:type" content="website">
+  <meta property="og:url" content="https://yohannhommet.github.io/walspool/">
   <meta property="og:title" content="walspool — Dual-Engine Outbox & Real-Time Observability Hub">
   <meta property="og:description" content="Dual-Engine Write-Ahead Log spooler and real-time observability hub in pure Go. 1,132,000 ops/s sequential WAL, sub-15µs trace queries, and real-time SSE streaming.">
   <meta property="og:image" content="https://raw.githubusercontent.com/YohannHommet/walspool/main/assets/logo.png">
   <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:creator" content="@YohannHommet">
   <meta name="twitter:title" content="walspool — Dual-Engine Outbox & Real-Time Observability Hub">
   <meta name="twitter:image" content="https://raw.githubusercontent.com/YohannHommet/walspool/main/assets/logo.png">
   
@@ -137,6 +140,7 @@
       <nav class="hidden lg:flex items-center gap-6 text-sm font-medium text-slate-300">
         <a href="#dual-engine" class="hover:text-[#CCFF00] transition">Dual-Engine</a>
         <a href="#benchmarks" class="hover:text-[#CCFF00] transition">Benchmarks</a>
+        <a href="#comparison" class="hover:text-[#CCFF00] transition">Comparison</a>
         <a href="#simulator" class="hover:text-[#CCFF00] transition">Simulator</a>
         <a href="#endpoints" class="hover:text-[#CCFF00] transition">HTTP API</a>
         <a href="#docker-architectures" class="hover:text-[#CCFF00] transition">Docker & Microservices</a>
@@ -660,11 +664,11 @@
       - walspool
 
   <span class="text-[#CCFF00]">walspool</span>:
-    <span class="text-slate-400">image</span>: walspool-sidecar:prod
+    <span class="text-slate-400">image</span>: ghcr.io/yohannhommet/walspool:v1.0.0
     <span class="text-slate-400">environment</span>:
       - WALSPOOL_ADDR=:9099
       - WALSPOOL_DATA_DIR=/data/spool
-      - WALSPOOL_SINK_URL=https://central.corp/v1/sink
+      - WALSPOOL_SINK_URL=https://sink.example.com/v1/events
       - WALSPOOL_BATCH_SIZE=100
     <span class="text-slate-400">volumes</span>:
       - wal-data:/data/spool
@@ -702,11 +706,11 @@
             </div>
             <pre class="bg-[#08080A] p-4 rounded-xl border border-obsidian-border text-xs font-mono text-slate-200 overflow-x-auto"><code><span class="text-orange-400">services</span>:
   <span class="text-[#CCFF00]">walspool</span>:
-    <span class="text-slate-400">image</span>: walspool-sidecar:prod
+    <span class="text-slate-400">image</span>: ghcr.io/yohannhommet/walspool:v1.0.0
     <span class="text-slate-400">ports</span>:
       - <span class="text-[#D4FF33]">"9099:9099"</span>
     <span class="text-slate-400">environment</span>:
-      - WALSPOOL_SINK_URL=https://lake.internal/v1/events
+      - WALSPOOL_SINK_URL=https://lake.example.com/v1/events
       - WALSPOOL_MAX_RECORDS=100000
 
   <span class="text-[#CCFF00]">billing</span>:
@@ -789,8 +793,8 @@
               <p class="text-slate-300 font-sans">Full technical specifications available in <code class="text-[#CCFF00]">docs/architecture/</code>:</p>
               <div class="space-y-1.5">
                 <div class="text-[#CCFF00] font-bold">📁 docs/architecture/</div>
-                <div class="text-slate-300">├── ARCHITECTURE.md (Dual-Engine, Ports & Adapters, O(1) Ring)</div>
-                <div class="text-slate-300">└── OBSERVABILITY_REPORT.md (Crash Recovery, SSE & Trace ID)</div>
+                <div>├── <a href="https://github.com/YohannHommet/walspool/blob/main/docs/architecture/ARCHITECTURE.md" target="_blank" rel="noopener" class="text-white hover:text-[#CCFF00] underline underline-offset-2 transition-colors">ARCHITECTURE.md</a> <span class="text-slate-400">(Dual-Engine, Ports & Adapters, O(1) Ring)</span></div>
+                <div>└── <a href="https://github.com/YohannHommet/walspool/blob/main/docs/architecture/OBSERVABILITY_REPORT.md" target="_blank" rel="noopener" class="text-white hover:text-[#CCFF00] underline underline-offset-2 transition-colors">OBSERVABILITY_REPORT.md</a> <span class="text-slate-400">(Crash Recovery, SSE & Trace ID)</span></div>
               </div>
               <p class="text-slate-400 text-[11px] pt-2 border-t border-obsidian-border">Detailed contracts, invariant guarantees & latency models</p>
             </div>
@@ -803,7 +807,7 @@
   <!-- CONFIGURATION & CLI FLAGS TABLE -->
   <section id="config" class="max-w-6xl mx-auto px-4 sm:px-6 mb-28">
     <div class="text-center mb-14">
-      <div class="text-xs uppercase font-mono tracking-widest text-[#CCFF00] font-bold mb-2">Deterministic Precedence (CRIT-07)</div>
+      <div class="text-xs uppercase font-mono tracking-widest text-[#CCFF00] font-bold mb-2">Deterministic Precedence (CLI &gt; ENV &gt; Defaults)</div>
       <h2 class="text-3xl sm:text-4xl font-extrabold text-white">CLI Flags & Environment Variables</h2>
       <p class="text-slate-300 text-sm max-w-2xl mx-auto mt-3 font-normal">
         Walspool resolves configuration strictly: <strong class="text-white">CLI Flags > Environment Variables > Hardcoded Defaults</strong>.
@@ -1177,6 +1181,7 @@ curl http://localhost:9099/metrics</code></pre>
       <div class="flex gap-6">
         <a href="#dual-engine" class="hover:text-slate-200 transition">Dual-Engine</a>
         <a href="#benchmarks" class="hover:text-slate-200 transition">Benchmarks</a>
+        <a href="#comparison" class="hover:text-slate-200 transition">Comparison</a>
         <a href="#simulator" class="hover:text-slate-200 transition">Simulator</a>
         <a href="#endpoints" class="hover:text-slate-200 transition">HTTP API</a>
         <a href="#code" class="hover:text-slate-200 transition">Code SDK</a>

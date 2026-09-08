@@ -86,11 +86,17 @@ func New(cfg Config, storage StorageEngine, sink Sink, clock Clock, opts ...Opti
 		cfg.MaxPayloadSize = 1024 * 1024
 	}
 
+	var initialID uint64
+	if resumable, ok := storage.(interface{ LastID() uint64 }); ok {
+		initialID = resumable.LastID()
+	}
+
 	e := &Engine{
 		cfg:       cfg,
 		storage:   storage,
 		sink:      sink,
 		clock:     clock,
+		idCounter: initialID,
 		notifyCh:  make(chan struct{}, 1),
 		flushCh:   make(chan flushRequest),
 		stopCh:    make(chan struct{}),
@@ -214,7 +220,7 @@ func (e *Engine) runDispatcher() {
 	currentBackoff := e.cfg.InitialBackoff
 	for {
 		// Drain all available records up to BatchSize
-		drained, err := e.drainPendingBatches()
+		drained, err := e.drainPendingBatches(nil)
 		if err != nil && IsTransient(err) {
 			// Apply exponential backoff when sink is experiencing transient faults
 			select {
@@ -256,7 +262,7 @@ func (e *Engine) runDispatcher() {
 	}
 }
 
-func (e *Engine) drainPendingBatches() (bool, error) {
+func (e *Engine) drainPendingBatches(ctx context.Context) (bool, error) {
 	batch, err := e.storage.ReadBatch(e.cfg.BatchSize)
 	if err != nil {
 		return false, err
@@ -265,10 +271,14 @@ func (e *Engine) drainPendingBatches() (bool, error) {
 		return false, nil
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
+	callCtx := ctx
+	var cancel context.CancelFunc
+	if callCtx == nil {
+		callCtx, cancel = context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+	}
 
-	deliverErr := e.sink.Deliver(ctx, batch)
+	deliverErr := e.sink.Deliver(callCtx, batch)
 	if deliverErr != nil {
 		if errors.Is(deliverErr, ErrPermanentRejection) {
 			// Sink permanently rejected; commit to advance past poisonous batch
@@ -299,7 +309,7 @@ func (e *Engine) calculateNextBackoff(current time.Duration) time.Duration {
 func (e *Engine) drainAll(ctx context.Context) error {
 	currentBackoff := e.cfg.InitialBackoff
 	for {
-		drained, err := e.drainPendingBatches()
+		drained, err := e.drainPendingBatches(ctx)
 		if err != nil {
 			if IsTransient(err) {
 				select {
