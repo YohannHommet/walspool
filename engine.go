@@ -220,7 +220,7 @@ func (e *Engine) runDispatcher() {
 	currentBackoff := e.cfg.InitialBackoff
 	for {
 		// Drain all available records up to BatchSize
-		drained, err := e.drainPendingBatches(nil)
+		drained, err := e.drainPendingBatches(context.Background())
 		if err != nil && IsTransient(err) {
 			// Apply exponential backoff when sink is experiencing transient faults
 			select {
@@ -271,12 +271,8 @@ func (e *Engine) drainPendingBatches(ctx context.Context) (bool, error) {
 		return false, nil
 	}
 
-	callCtx := ctx
-	var cancel context.CancelFunc
-	if callCtx == nil {
-		callCtx, cancel = context.WithTimeout(context.Background(), 10*time.Second)
-		defer cancel()
-	}
+	callCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	defer cancel()
 
 	deliverErr := e.sink.Deliver(callCtx, batch)
 	if deliverErr != nil {
