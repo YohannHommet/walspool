@@ -1,0 +1,114 @@
+goos: linux
+goarch: amd64
+pkg: github.com/YohannHommet/walspool
+cpu: 12th Gen Intel(R) Core(TM) i7-1255U
+BenchmarkHub_Ingest-6                                      	 1000000	      1337 ns/op	     203 B/op	       1 allocs/op
+BenchmarkHub_Ingest-6                                      	 1000000	      1070 ns/op	     203 B/op	       1 allocs/op
+BenchmarkHub_Ingest-6                                      	 1236422	      1142 ns/op	     203 B/op	       1 allocs/op
+BenchmarkHub_Ingest-6                                      	 1000000	      1104 ns/op	     203 B/op	       1 allocs/op
+BenchmarkHub_Ingest-6                                      	 1000000	      1189 ns/op	     203 B/op	       1 allocs/op
+BenchmarkHub_QueryByTraceID-6                              	  214760	      5506 ns/op	    1440 B/op	      11 allocs/op
+BenchmarkHub_QueryByTraceID-6                              	  284480	      3606 ns/op	    1440 B/op	      11 allocs/op
+BenchmarkHub_QueryByTraceID-6                              	  366295	      3788 ns/op	    1440 B/op	      11 allocs/op
+BenchmarkHub_QueryByTraceID-6                              	  232016	      4314 ns/op	    1440 B/op	      11 allocs/op
+BenchmarkHub_QueryByTraceID-6                              	  260401	      4323 ns/op	    1440 B/op	      11 allocs/op
+BenchmarkHub_QueryByService-6                              	   62277	     16183 ns/op	    6944 B/op	      51 allocs/op
+BenchmarkHub_QueryByService-6                              	   57033	     18867 ns/op	    6944 B/op	      51 allocs/op
+BenchmarkHub_QueryByService-6                              	   91513	     13674 ns/op	    6944 B/op	      51 allocs/op
+BenchmarkHub_QueryByService-6                              	   89526	     13980 ns/op	    6944 B/op	      51 allocs/op
+BenchmarkHub_QueryByService-6                              	   59474	     17760 ns/op	    6944 B/op	      51 allocs/op
+BenchmarkHub_QueryRingBuffer-6                             	   89056	     13171 ns/op	    6944 B/op	      51 allocs/op
+BenchmarkHub_QueryRingBuffer-6                             	   71466	     15483 ns/op	    6944 B/op	      51 allocs/op
+BenchmarkHub_QueryRingBuffer-6                             	   62872	     16075 ns/op	    6944 B/op	      51 allocs/op
+BenchmarkHub_QueryRingBuffer-6                             	   74046	     16723 ns/op	    6944 B/op	      51 allocs/op
+BenchmarkHub_QueryRingBuffer-6                             	   70872	     16108 ns/op	    6944 B/op	      51 allocs/op
+BenchmarkHub_OnIngested-6                                  	  321747	      3215 ns/op	     236 B/op	       5 allocs/op
+BenchmarkHub_OnIngested-6                                  	  351801	      4129 ns/op	     235 B/op	       5 allocs/op
+BenchmarkHub_OnIngested-6                                  	  345345	      3640 ns/op	     237 B/op	       5 allocs/op
+BenchmarkHub_OnIngested-6                                  	  390015	      2937 ns/op	     236 B/op	       5 allocs/op
+BenchmarkHub_OnIngested-6                                  	 1000000	      2857 ns/op	     235 B/op	       5 allocs/op
+BenchmarkHub_Ingest_Parallel-6                             	 1570671	       786.3 ns/op	     205 B/op	       1 allocs/op
+BenchmarkHub_Ingest_Parallel-6                             	 1327599	       908.4 ns/op	     206 B/op	       1 allocs/op
+BenchmarkHub_Ingest_Parallel-6                             	 1248874	       802.3 ns/op	     206 B/op	       1 allocs/op
+BenchmarkHub_Ingest_Parallel-6                             	 1215081	       867.7 ns/op	     206 B/op	       1 allocs/op
+BenchmarkHub_Ingest_Parallel-6                             	 1350763	       894.6 ns/op	     206 B/op	       1 allocs/op
+BenchmarkHub_ReadWrite_Parallel-6                          	  858486	      1620 ns/op	     515 B/op	       3 allocs/op
+BenchmarkHub_ReadWrite_Parallel-6                          	 1000000	      1547 ns/op	     514 B/op	       3 allocs/op
+BenchmarkHub_ReadWrite_Parallel-6                          	  933975	      1612 ns/op	     514 B/op	       3 allocs/op
+BenchmarkHub_ReadWrite_Parallel-6                          	  863331	      1692 ns/op	     514 B/op	       3 allocs/op
+BenchmarkHub_ReadWrite_Parallel-6                          	  675556	      1573 ns/op	     514 B/op	       3 allocs/op
+BenchmarkHub_Ingest_SaturationWrapAround-6                 	 1207052	      1049 ns/op	     192 B/op	       1 allocs/op
+BenchmarkHub_Ingest_SaturationWrapAround-6                 	 1116931	      1089 ns/op	     192 B/op	       1 allocs/op
+BenchmarkHub_Ingest_SaturationWrapAround-6                 	 1321790	      1143 ns/op	     192 B/op	       1 allocs/op
+BenchmarkHub_Ingest_SaturationWrapAround-6                 	 1091102	      1403 ns/op	     192 B/op	       1 allocs/op
+BenchmarkHub_Ingest_SaturationWrapAround-6                 	  860690	      1290 ns/op	     192 B/op	       1 allocs/op
+BenchmarkSpoolerEnqueue_InMemory-6                         	  520902	      2419 ns/op	    1155 B/op	       1 allocs/op
+BenchmarkSpoolerEnqueue_InMemory-6                         	  694011	      1969 ns/op	    1064 B/op	       1 allocs/op
+BenchmarkSpoolerEnqueue_InMemory-6                         	  849451	      1713 ns/op	    1115 B/op	       1 allocs/op
+BenchmarkSpoolerEnqueue_InMemory-6                         	  682000	      1500 ns/op	    1110 B/op	       1 allocs/op
+BenchmarkSpoolerEnqueue_InMemory-6                         	  824652	      1599 ns/op	    1145 B/op	       1 allocs/op
+BenchmarkFileStorage_Append_SyncEveryRecord-6              	     255	   4045607 ns/op	     149 B/op	       1 allocs/op
+BenchmarkFileStorage_Append_SyncEveryRecord-6              	     225	   4920841 ns/op	     154 B/op	       1 allocs/op
+BenchmarkFileStorage_Append_SyncEveryRecord-6              	     298	   3767749 ns/op	     144 B/op	       1 allocs/op
+BenchmarkFileStorage_Append_SyncEveryRecord-6              	     325	   3872026 ns/op	     116 B/op	       1 allocs/op
+BenchmarkFileStorage_Append_SyncEveryRecord-6              	     322	   3576569 ns/op	     141 B/op	       1 allocs/op
+BenchmarkFileStorage_Append_SyncInterval_Buffered128KB-6   	 1396974	      1188 ns/op	     255 B/op	       1 allocs/op
+BenchmarkFileStorage_Append_SyncInterval_Buffered128KB-6   	  805218	      1247 ns/op	     238 B/op	       1 allocs/op
+BenchmarkFileStorage_Append_SyncInterval_Buffered128KB-6   	 1331635	       927.7 ns/op	     232 B/op	       1 allocs/op
+BenchmarkFileStorage_Append_SyncInterval_Buffered128KB-6   	 1209034	      1482 ns/op	     244 B/op	       1 allocs/op
+BenchmarkFileStorage_Append_SyncInterval_Buffered128KB-6   	  630000	      1852 ns/op	     241 B/op	       1 allocs/op
+BenchmarkFileStorage_Append_SyncBatchCommit-6              	    8572	    171626 ns/op	     227 B/op	       1 allocs/op
+BenchmarkFileStorage_Append_SyncBatchCommit-6              	    6516	    175946 ns/op	     221 B/op	       1 allocs/op
+BenchmarkFileStorage_Append_SyncBatchCommit-6              	    8733	    117649 ns/op	     225 B/op	       1 allocs/op
+BenchmarkFileStorage_Append_SyncBatchCommit-6              	   11264	    113784 ns/op	     231 B/op	       1 allocs/op
+BenchmarkFileStorage_Append_SyncBatchCommit-6              	    8348	    148276 ns/op	     198 B/op	       1 allocs/op
+BenchmarkFileStorage_Append_Parallel-6                     	  846900	      1681 ns/op	     248 B/op	       1 allocs/op
+BenchmarkFileStorage_Append_Parallel-6                     	 1111375	      1371 ns/op	     272 B/op	       1 allocs/op
+BenchmarkFileStorage_Append_Parallel-6                     	  664504	      1569 ns/op	     250 B/op	       1 allocs/op
+BenchmarkFileStorage_Append_Parallel-6                     	  955677	      1244 ns/op	     261 B/op	       1 allocs/op
+BenchmarkFileStorage_Append_Parallel-6                     	  600049	      1826 ns/op	     263 B/op	       1 allocs/op
+BenchmarkFileStorage_Append_PayloadSizes/64B-6             	  823251	      1422 ns/op	  45.00 MB/s	     235 B/op	       1 allocs/op
+BenchmarkFileStorage_Append_PayloadSizes/64B-6             	  802213	      1978 ns/op	  32.36 MB/s	     239 B/op	       1 allocs/op
+BenchmarkFileStorage_Append_PayloadSizes/64B-6             	 1106482	      1649 ns/op	  38.82 MB/s	     256 B/op	       1 allocs/op
+BenchmarkFileStorage_Append_PayloadSizes/64B-6             	 1000000	      1177 ns/op	  54.37 MB/s	     239 B/op	       1 allocs/op
+BenchmarkFileStorage_Append_PayloadSizes/64B-6             	  650884	      2211 ns/op	  28.95 MB/s	     237 B/op	       1 allocs/op
+BenchmarkFileStorage_Append_PayloadSizes/1KB-6             	   96742	     11077 ns/op	  92.44 MB/s	    1285 B/op	       1 allocs/op
+BenchmarkFileStorage_Append_PayloadSizes/1KB-6             	  161278	      6450 ns/op	 158.75 MB/s	    1280 B/op	       1 allocs/op
+BenchmarkFileStorage_Append_PayloadSizes/1KB-6             	  233526	      7249 ns/op	 141.26 MB/s	    1292 B/op	       1 allocs/op
+BenchmarkFileStorage_Append_PayloadSizes/1KB-6             	  111865	     13149 ns/op	  77.88 MB/s	    1267 B/op	       1 allocs/op
+BenchmarkFileStorage_Append_PayloadSizes/1KB-6             	   94568	     12301 ns/op	  83.25 MB/s	    1288 B/op	       1 allocs/op
+BenchmarkFileStorage_Append_PayloadSizes/16KB-6            	   10000	    165049 ns/op	  99.27 MB/s	   18524 B/op	       1 allocs/op
+BenchmarkFileStorage_Append_PayloadSizes/16KB-6            	    6133	    184151 ns/op	  88.97 MB/s	   18507 B/op	       1 allocs/op
+BenchmarkFileStorage_Append_PayloadSizes/16KB-6            	   11647	    170974 ns/op	  95.83 MB/s	   18540 B/op	       1 allocs/op
+BenchmarkFileStorage_Append_PayloadSizes/16KB-6            	    6326	    171357 ns/op	  95.61 MB/s	   18504 B/op	       1 allocs/op
+BenchmarkFileStorage_Append_PayloadSizes/16KB-6            	   12972	    145307 ns/op	 112.75 MB/s	   18529 B/op	       1 allocs/op
+BenchmarkFileStorage_Append_PayloadSizes/64KB-6            	    3436	    710189 ns/op	  92.28 MB/s	   73817 B/op	       1 allocs/op
+BenchmarkFileStorage_Append_PayloadSizes/64KB-6            	    2109	    508546 ns/op	 128.87 MB/s	   73779 B/op	       1 allocs/op
+BenchmarkFileStorage_Append_PayloadSizes/64KB-6            	    1983	    729549 ns/op	  89.83 MB/s	   73783 B/op	       1 allocs/op
+BenchmarkFileStorage_Append_PayloadSizes/64KB-6            	    2133	    532368 ns/op	 123.10 MB/s	   73778 B/op	       1 allocs/op
+BenchmarkFileStorage_Append_PayloadSizes/64KB-6            	    1732	    747167 ns/op	  87.71 MB/s	   73790 B/op	       1 allocs/op
+PASS
+ok  	github.com/YohannHommet/walspool	163.736s
+?   	github.com/YohannHommet/walspool/cmd/demo	[no test files]
+?   	github.com/YohannHommet/walspool/cmd/preview	[no test files]
+goos: linux
+goarch: amd64
+pkg: github.com/YohannHommet/walspool/cmd/sidecar
+cpu: 12th Gen Intel(R) Core(TM) i7-1255U
+BenchmarkSidecar_HTTP_Enqueue_Sequential-6   	      99	  11409396 ns/op	   0.01 MB/s	   14105 B/op	     170 allocs/op
+BenchmarkSidecar_HTTP_Enqueue_Sequential-6   	     106	   9507668 ns/op	   0.01 MB/s	   15022 B/op	     169 allocs/op
+BenchmarkSidecar_HTTP_Enqueue_Sequential-6   	     244	   7045338 ns/op	   0.02 MB/s	   13946 B/op	     166 allocs/op
+BenchmarkSidecar_HTTP_Enqueue_Sequential-6   	     170	   6296779 ns/op	   0.02 MB/s	   13922 B/op	     162 allocs/op
+BenchmarkSidecar_HTTP_Enqueue_Sequential-6   	     546	   6440428 ns/op	   0.02 MB/s	   13064 B/op	     163 allocs/op
+BenchmarkSidecar_HTTP_Enqueue_Parallel-6     	    1141	   1103202 ns/op	   0.12 MB/s	   12340 B/op	     150 allocs/op
+BenchmarkSidecar_HTTP_Enqueue_Parallel-6     	     681	   1605968 ns/op	   0.08 MB/s	   12793 B/op	     153 allocs/op
+BenchmarkSidecar_HTTP_Enqueue_Parallel-6     	     861	   1286225 ns/op	   0.10 MB/s	   12473 B/op	     151 allocs/op
+BenchmarkSidecar_HTTP_Enqueue_Parallel-6     	     856	   1235764 ns/op	   0.10 MB/s	   12790 B/op	     151 allocs/op
+BenchmarkSidecar_HTTP_Enqueue_Parallel-6     	     828	   1394310 ns/op	   0.09 MB/s	   12344 B/op	     153 allocs/op
+BenchmarkSidecar_HTTP_QueryLogs_TraceID-6    	    5106	    319565 ns/op	   17179 B/op	     186 allocs/op
+BenchmarkSidecar_HTTP_QueryLogs_TraceID-6    	    3250	    312993 ns/op	   17162 B/op	     186 allocs/op
+BenchmarkSidecar_HTTP_QueryLogs_TraceID-6    	    5084	    302550 ns/op	   17276 B/op	     186 allocs/op
+BenchmarkSidecar_HTTP_QueryLogs_TraceID-6    	    4311	    284013 ns/op	   17236 B/op	     186 allocs/op
+BenchmarkSidecar_HTTP_QueryLogs_TraceID-6    	    3892	    300292 ns/op	   17245 B/op	     186 allocs/op
+PASS
+ok  	github.com/YohannHommet/walspool/cmd/sidecar	31.584s

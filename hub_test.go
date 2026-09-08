@@ -275,104 +275,6 @@ func TestHub_ConcurrentRaceFree(t *testing.T) {
 	wg.Wait()
 }
 
-func BenchmarkHub_Ingest(b *testing.B) {
-	hub := walspool.NewMemoryLogHub(50000)
-	defer hub.Close()
-
-	payload := json.RawMessage(`{"user_id":"usr_42","amount":199.99,"status":"ok"}`)
-	entry := walspool.LogEntry{
-		Topic:   "benchmark",
-		Service: "bench-service",
-		TraceID: "bench-trace",
-		Level:   "INFO",
-		Payload: payload,
-	}
-
-	b.ResetTimer()
-	b.ReportAllocs()
-	for i := 0; i < b.N; i++ {
-		_ = hub.Ingest(entry)
-	}
-}
-
-func BenchmarkHub_QueryByTraceID(b *testing.B) {
-	hub := walspool.NewMemoryLogHub(50000)
-	defer hub.Close()
-
-	// Pre-populate with 10,000 logs across 1,000 traces
-	for i := 0; i < 10000; i++ {
-		_ = hub.Ingest(walspool.LogEntry{
-			Topic:   "benchmark",
-			Service: fmt.Sprintf("svc-%d", i%10),
-			TraceID: fmt.Sprintf("trace-%04d", i%1000),
-			Level:   "INFO",
-			Payload: json.RawMessage(`{"step":1}`),
-		})
-	}
-
-	q := walspool.LogQuery{
-		TraceID: "trace-0500",
-		Limit:   100,
-	}
-
-	b.ResetTimer()
-	b.ReportAllocs()
-	for i := 0; i < b.N; i++ {
-		_ = hub.Query(q)
-	}
-}
-
-func BenchmarkHub_QueryByService(b *testing.B) {
-	hub := walspool.NewMemoryLogHub(50000)
-	defer hub.Close()
-
-	for i := 0; i < 10000; i++ {
-		_ = hub.Ingest(walspool.LogEntry{
-			Topic:   "benchmark",
-			Service: fmt.Sprintf("svc-%d", i%10),
-			TraceID: fmt.Sprintf("trace-%04d", i%1000),
-			Level:   "INFO",
-			Payload: json.RawMessage(`{"step":1}`),
-		})
-	}
-
-	q := walspool.LogQuery{
-		Service: "svc-5",
-		Limit:   50,
-	}
-
-	b.ResetTimer()
-	b.ReportAllocs()
-	for i := 0; i < b.N; i++ {
-		_ = hub.Query(q)
-	}
-}
-
-func BenchmarkHub_QueryRingBuffer(b *testing.B) {
-	hub := walspool.NewMemoryLogHub(50000)
-	defer hub.Close()
-
-	for i := 0; i < 10000; i++ {
-		_ = hub.Ingest(walspool.LogEntry{
-			Topic:   "benchmark",
-			Service: fmt.Sprintf("svc-%d", i%10),
-			TraceID: fmt.Sprintf("trace-%04d", i%1000),
-			Level:   "INFO",
-			Payload: json.RawMessage(`{"step":1}`),
-		})
-	}
-
-	q := walspool.LogQuery{
-		Limit: 50,
-	}
-
-	b.ResetTimer()
-	b.ReportAllocs()
-	for i := 0; i < b.N; i++ {
-		_ = hub.Query(q)
-	}
-}
-
 func TestHub_SSE_Concurrent100Subscribers_NoLockContention(t *testing.T) {
 	hub := walspool.NewMemoryLogHub(10000)
 	defer hub.Close()
@@ -700,24 +602,5 @@ func TestHub_OnIngested_ObserverContract(t *testing.T) {
 	}
 	if res[0].ID != 99 {
 		t.Fatalf("expected entry ID 99, got %d", res[0].ID)
-	}
-}
-
-// OnIngested metadata extraction on the hot path should stay allocation-light.
-func BenchmarkHub_OnIngested(b *testing.B) {
-	hub := walspool.NewMemoryLogHub(50000)
-	defer hub.Close()
-
-	rec := walspool.Record{
-		Timestamp: time.Now(),
-		Topic:     "benchmark",
-		Payload:   []byte(`{"trace_id":"tr-bench","service":"billing","level":"info","user_id":"u42","amount":9223372036854775807}`),
-	}
-
-	b.ResetTimer()
-	b.ReportAllocs()
-	for i := 0; i < b.N; i++ {
-		rec.ID = uint64(i + 1)
-		hub.OnIngested(rec)
 	}
 }

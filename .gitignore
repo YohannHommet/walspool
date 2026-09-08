@@ -7,6 +7,9 @@ walspool-preview
 # Test artifacts
 *.out
 /tmp/
+*.pprof
+bench_baseline_*.txt
+!bench_baseline_v1.0.txt
 
 # OS artifacts
 .DS_Store
