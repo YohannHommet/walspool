@@ -63,7 +63,7 @@ Walspool sits in the sweet spot: **the durability of a write-ahead log, the simp
 
 ## How It Works
 
-Walspool operates as a **Dual-Engine** behind clean [Ports & Adapters](docs/architecture/ARCHITECTURE.md) boundaries (see also [Visual Architecture Diagrams](docs/diagrams/)):
+Walspool operates as a **Dual-Engine** behind clean [Ports & Adapters](docs/architecture/ARCHITECTURE.md) boundaries (see also [Observability Architecture](docs/architecture/OBSERVABILITY_REPORT.md)):
 
 ```
                   Incoming Event (Go API or HTTP POST /v1/enqueue)
@@ -431,7 +431,13 @@ go test -run=^$ -bench=. -benchmem ./...
 | `Spooler.Enqueue` (Dual-Engine Ingestion) | 607,164 ops/s | 1.65 µs/op | 1,131 B/op | 1 alloc/op |
 | `FileStorage.Append` (`SyncEveryRecord`, sync fsync) | 329 ops/s | 3,037 µs/op | 115 B/op | 1 alloc/op |
 
-*Zero data races detected across all suites (`go test -race ./...`).*
+---
+
+## Documentation & Releases
+
+- **[Architecture Deep-Dive](docs/architecture/ARCHITECTURE.md)**: Detailed Ports & Adapters specifications, O(1) in-memory ring buffer, group commit invariants.
+- **[Observability & Resilience Report](docs/architecture/OBSERVABILITY_REPORT.md)**: Real-time SSE streaming, zero-allocation scanner, trace correlation.
+- **[v1.0.0 Release Notes](docs/release/RELEASE_NOTES_v1.0.0.md)**: Complete changelog, binary distributions, and upgrade instructions.
 
 ---
 
