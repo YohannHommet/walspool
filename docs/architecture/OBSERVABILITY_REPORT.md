@@ -1,50 +1,63 @@
-# 📡 Rapport d'Architecture & de Livraison : Observabilité Distribuée & Streaming Temps Réel
+# 📡 Architecture d'Observabilité Distribuée & Streaming Temps Réel
 
-## 1. Vue d'Ensemble & Objectifs Atteints
-
-Le système d'observabilité distribué de bout en bout a été conçu, implémenté, testé et validé sur l'ensemble de la stack microservices en respectant rigoureusement les principes de la **Black-Box Architecture** (Parnas, Meyer DbC, Cockburn Ports & Adapters, Ousterhout Deep Modules) :
-
-- **Ingestion ultra-rapide & streaming temps réel** : `walspool` (Go) sert de hub in-memory circulaire thread-safe (50 000 logs) avec persistance disque WAL (Write-Ahead Log) et streaming Server-Sent Events (SSE).
-- **Corrélation de trace distribuée** : `api-gateway` (Node.js/LoopBack 4) propage de manière non invasive l'en-tête `x-request-id` via `AsyncLocalStorage` et émet des logs structurés sans bloquer l'Event Loop.
-- **Propagation Python/Django asynchrone** : `micro-services/aipi` propage le `trace_id` via `contextvars` et journalise directement vers Walspool via un `WalspoolHandler` non bloquant avec worker thread dédié.
-- **Interface Utilisateur Réactive** : `frontend/apps/platform` (Vue 3 / Pinia) intègre une console de logs live (LiveLogConsole) et une cascade interactive de trace (TraceWaterfall) accessibles directement depuis la section Administration.
+> **Auteur & Mainteneur :** Yohann Hommet ([@YohannHommet](https://github.com/YohannHommet))  
+> **Projet :** [`github.com/YohannHommet/walspool`](https://github.com/YohannHommet/walspool)  
+> **Statut :** Spécification d'Ingénierie & Guide d'Intégration Polyglotte
 
 ---
 
-## 2. Architecture Globale du Système
+## 1. Vue d'Ensemble & Principes Directeurs
+
+Ce document détaille l'architecture d'observabilité distribuée de bout en bout propulsée par **Walspool**.
+
+Le système applique rigoureusement la **Doctrine Black-Box** (Parnas, Meyer DbC, Cockburn Ports & Adapters, Ousterhout Deep Modules) pour résoudre le compromis historique entre fiabilité de stockage et observabilité en temps réel :
+
+1. **Ingestion Ultra-Rapide & Tolérance aux Pannes Locale** :
+   - Walspool opère directement à l'intérieur du pod ou sur le nœud hôte via son sidecar HTTP (`:9099`).
+   - L'ingestion (`POST /v1/enqueue`) persiste immédiatement l'événement dans un journal append-only séquentiel (**Write-Ahead Log - WAL**) protégé par somme de contrôle **IEEE CRC32** avec Group Commit 128 Ko.
+2. **Indexation Mémoire Circulaire $O(1)$ & Zero-GC Leak** :
+   - En parallèle du disque, le **MemoryLogHub** maintient un Ring Buffer circulaire fixe (ex: 50 000 logs) avec index inversés secondaires par `trace_id` et par `service`.
+   - L'éviction continue des anciens enregistrements s'effectue en temps constant $O(1)$ sans allocation dynamique continue, éliminant toute pause Garbage Collector.
+3. **Diffusion Server-Sent Events (SSE) Découplée Hors Verrou** :
+   - Les flux d'observabilité (`GET /v1/logs/stream`) diffusent instantanément chaque événement aux dashboards web ou consoles SRE.
+   - Les clients lents ne ralentissent jamais le chemin critique d'ingestion grâce à un découpage strict : l'insertion dans le ring buffer se fait sous verrou court, tandis que la transmission vers les canaux abonnés s'exécute de manière non bloquante (`select ... default`).
+
+---
+
+## 2. Topologie Distribuée & Corrélation de Traces
 
 ```mermaid
 flowchart TD
-    subgraph Client ["Navigateur Client"]
-        BrowserUI["Plateforme Frontend\n/platform/observability"]
+    subgraph Client ["Navigateur Client & Dashboards SRE"]
+        BrowserUI["Console d'Observabilité Live\n(LiveLogConsole & TraceWaterfall)"]
     end
 
-    subgraph ReverseProxy ["Nginx (docker-cms-1)"]
-        Nginx["Reverse Proxy\nhttps://test.ignimission.inside"]
+    subgraph ReverseProxy ["Reverse Proxy (Nginx / Envoy)"]
+        Nginx["Reverse Proxy HTTP/2\nhttps://api.domain.internal"]
     end
 
-    subgraph Gateway ["API Gateway (docker-api-gateway-1)"]
-        TraceMW["TraceMiddleware\n(AsyncLocalStorage)"]
-        ObsController["ObservabilityController\n(SSE Proxy)"]
-        AsyncLogger["GatewayLogger\n(Non-blocking fetch)"]
+    subgraph Gateway ["API Gateway (Node.js / Go)"]
+        TraceMW["TraceMiddleware\n(Propagation x-request-id)"]
+        ObsController["Observability Controller\n(Proxy SSE)"]
+        AsyncLogger["Gateway Logger\n(Non-blocking fetch)"]
     end
 
-    subgraph PythonAIPI ["AIPI Microservice (docker-aipi-1)"]
-        PyTraceMW["TraceMiddleware\n(contextvars)"]
-        WalspoolHdlr["WalspoolHandler\n(Queue Worker)"]
+    subgraph Microservices ["Microservices Métier (Python / Java / Go)"]
+        PyTraceMW["Context Middleware\n(Propagation trace_id)"]
+        WalspoolHdlr["Walspool Handler\n(Thread d'arrière-plan ou channel)"]
     end
 
     subgraph Hub ["Walspool Sidecar (Port :9099)"]
-        WAL["Disk WAL Engine\n(CRC32 Checksum)"]
-        RingBuffer["MemoryLogHub\n(Ring Buffer 50k)"]
-        SSEBroadcaster["SSE Broadcaster\n(Keepalive & Filters)"]
+        WAL["Moteur WAL Disque\n(CRC32 Checksum + 128KB Buffer)"]
+        RingBuffer["MemoryLogHub\n(Ring Buffer O(1) 50k logs)"]
+        SSEBroadcaster["Diffuseur SSE\n(Keepalive 10s & Filtres)"]
     end
 
     BrowserUI -->|GET /api/v1/observability/logs/stream| Nginx
-    Nginx -->|Proxy pass| ObsController
+    Nginx -->|Proxy pass sans buffer| ObsController
     ObsController -->|SSE Relay| SSEBroadcaster
 
-    BrowserUI -.->|Requête HTTP standard| Nginx
+    BrowserUI -.->|Requête Métier Utilisateur| Nginx
     Nginx -.->|x-request-id| TraceMW
     TraceMW -->|x-request-id| PyTraceMW
 
@@ -60,150 +73,168 @@ flowchart TD
 
 ---
 
-## 3. Diagramme de Séquence : Flux d'une Requête et de Streaming
+## 3. Diagramme de Séquence : Flux de Requête & Diffusion Temps Réel
 
 ```mermaid
 sequenceDiagram
     autonumber
-    actor User as Utilisateur (Navigateur)
-    participant UI as Platform (Vue 3 Store)
-    participant GW as API Gateway (Node)
-    participant AIPI as AIPI (Django)
-    participant Hub as Walspool (Go Sidecar)
+    actor User as Utilisateur / Client HTTP
+    participant UI as Dashboard Observabilité (Vue/React)
+    participant GW as API Gateway (Node.js)
+    participant Worker as Service Métier (Python/Go)
+    participant Hub as Walspool Sidecar (Go :9099)
 
     Note over UI,Hub: 1. Établissement de la connexion SSE temps réel
     UI->>GW: GET /api/v1/observability/logs/stream
     GW->>Hub: GET /v1/logs/stream
     Hub-->>GW: HTTP 200 text/event-stream (: connected)
     GW-->>UI: Flux SSE ouvert & actif
+    Hub-->>UI: : keepalive (toutes les 10s)
 
-    Note over User,AIPI: 2. Traitement d'une requête métier corrélée
-    User->>GW: POST /api/v1/ai/generate (TraceMiddleware injecte trace_id)
-    GW->>AIPI: POST /api/v1/ai/internal (avec x-request-id)
-    AIPI->>Hub: POST /v1/enqueue (log début inférence)
-    Hub-->>GW: data: {id: 1, service: "aipi", trace_id: "...", message: "Inference started"}
-    GW-->>UI: data: {id: 1, ...} (Rendu instantané dans LiveLogConsole)
-    AIPI-->>GW: Réponse inférence terminée
-    GW->>Hub: POST /v1/enqueue (log fin de requête gateway 200 OK)
-    Hub-->>GW: data: {id: 2, service: "api-gateway", trace_id: "...", duration_ms: 210}
-    GW-->>UI: data: {id: 2, ...} (Mise à jour réactive immédiate)
+    Note over User,Worker: 2. Traitement d'une requête métier corrélée
+    User->>GW: POST /api/v1/orders/checkout (Header x-request-id: tr-8921)
+    GW->>Hub: POST /v1/enqueue (log étape 1: réception commande)
+    Hub-->>GW: HTTP 202 Accepted (< 15µs)
+    Hub-->>UI: data: {"id":1, "service":"gateway", "trace_id":"tr-8921", "level":"INFO"}
+
+    GW->>Worker: POST /v1/internal/process (avec x-request-id: tr-8921)
+    Worker->>Hub: POST /v1/enqueue (log étape 2: débit stock et validation)
+    Hub-->>Worker: HTTP 202 Accepted (< 15µs)
+    Hub-->>UI: data: {"id":2, "service":"billing", "trace_id":"tr-8921", "level":"INFO"}
+
+    Worker-->>GW: Réponse succès (200 OK)
+    GW->>Hub: POST /v1/enqueue (log étape 3: fin de transaction 200 OK)
+    Hub-->>UI: data: {"id":3, "service":"gateway", "trace_id":"tr-8921", "duration_ms":42}
 ```
 
 ---
 
-## 4. Détails des Composants Livrés
+## 4. Intégration Polyglotte & Clients Inclus
 
-### A. Walspool (`walspool`)
-- **`hub.go` (`MemoryLogHub`)** :
-  - Buffer circulaire thread-safe protégé par `sync.RWMutex`.
-  - Capacité fixe (50 000 enregistrements) avec éviction en $O(1)$ sans allocation dynamique continue.
-  - Index secondaires inversés par `trace_id` et par `service` avec nettoyage atomique lors des évictions (zéro fuite mémoire).
-  - Hub SSE pub/sub avec channels découplés et ticker keepalive (10s) pour traverser les proxys Nginx sans timeout.
-- **`cmd/sidecar/main.go`** :
-  - `GET /v1/logs?trace_id=<id>&service=<svc>&level=<lvl>&limit=<n>` : Requête ordonnée exécutée en sous-milliseconde (< 1ms).
-  - `GET /v1/logs/stream` : Streaming SSE avec en-têtes `X-Accel-Buffering: no` et `Cache-Control: no-cache`.
-  - Configuration `http.Server` adaptée aux flux continus (`ReadHeaderTimeout: 5s`, `WriteTimeout: 0` pour les connexions streaming longue durée).
-- **Tests** : Suite Go validée avec le détecteur de race conditions (`go test -race ./...`).
+Le dépôt fournit des clients de référence autonomes dans [`examples/`](../../examples/), conçus sans dépendances externes lourdes :
 
-### B. API Gateway (`api-gateway`)
-- **`src/middleware/trace.middleware.ts`** :
-  - `AsyncLocalStorage` pour propager `x-request-id` à travers toute la chaîne asynchrone Node.js sans fuite de contexte.
-- **`src/utils/gateway-logger.ts`** :
-  - Dispatcheur asynchrone non-bloquant au format standardisé `StandardLogEvent`.
-- **`src/controllers/Observability/observability.controller.ts`** :
-  - Contrôleur LoopBack 4 servant de passerelle transparente et sécurisée pour `/api/v1/observability/logs` et `/api/v1/observability/logs/stream`.
-  - Intégration de l'IP gateway Docker `http://172.99.0.1:9099`.
-- **Tests** : 13/13 tests unitaires Mocha validés.
+### A. Client Python Pur (`examples/python/client.py`)
+Utilise exclusivement la bibliothèque standard (`urllib`) avec support complet du streaming SSE et reconnexion automatique :
 
-### C. AIPI Django (`micro-services/aipi`)
-- **`src/middleware/trace_middleware.py`** :
-  - Capture et propagation de `x-request-id` via `contextvars.ContextVar`.
-- **`src/utils/walspool_handler.py`** :
-  - Handler Python `logging.Handler` avec file d'attente bornée (`queue.Queue`) et worker thread d'arrière-plan.
-  - Journalisation en microsecondes sans impact sur les temps de réponse de l'inférence.
-- **Tests** : 246/246 tests Django passés avec succès.
+```python
+from client import WalspoolClient
 
-### D. Frontend Platform (`frontend/apps/platform`)
-- **`src/modules/observability/types/Observability.interface.ts`** :
-  - Contrat `StandardLogEvent`, calcul de cascade de trace `computeTraceSummary()`, et fonction normalisatrice `normalizeLogEvent()`.
-- **`src/modules/observability/stores/UseObservabilityStore.ts`** :
-  - Store Pinia gérant la connexion SSE (`EventSource`), la réactivité Vue 3 par réassignation d'immutabilité (`logs.value = [...logs.value, log]`), la déduplication par `id`, et une synchronisation périodique de réconciliation (toutes les 3s).
-- **`src/modules/observability/components/LiveLogConsole.vue`** :
-  - Console style terminal sombre, badges de niveau et de service, recherche plein-texte, filtres dynamiques, tiroir JSON d'inspection au clic, et auto-scroll intelligent.
-- **`src/modules/observability/components/TraceWaterfall.vue`** :
-  - Diagramme de Gantt interactif représentant la chronologie et les durées respectives des spans entre microservices.
-- **`src/modules/observability/views/ObservabilityView.vue`** :
-  - Intégré dans l'interface d'administration sous `https://test.ignimission.inside/platform/observability`.
-- **Tests** : 8/8 tests unitaires Vitest validés.
+client = WalspoolClient(endpoint="http://127.0.0.1:9099")
 
----
+# Ingestion sub-microseconde avec intégrité CRC32
+client.enqueue(
+    topic="telemetry",
+    payload={"order_id": "ord_99", "amount": 149.99},
+    trace_id="tr-checkout-42",
+    service="billing-svc",
+    level="INFO"
+)
 
-## 5. Guide de Vérification Manuelle
+# Écoute continue du flux SSE temps réel
+for event in client.stream(service="billing-svc"):
+    print(f"[{event['level']}] {event['service']} - {event['payload']}")
+```
 
-1. **Accès à la page** :
-   Ouvrez votre navigateur sur :
-   `https://test.ignimission.inside/platform/observability`
-   (ou cliquez sur **"Observabilité"** dans la barre latérale d'administration).
+### B. Client Node.js / TypeScript (`examples/nodejs/client.js`)
+Implémente un logger non bloquant utilisant l'API native `fetch` et `ReadableStream` :
 
-2. **Console Live** :
-   - Le badge d'état affiche **`CONNECTED`** en vert.
-   - Les logs déjà indexés s'affichent automatiquement.
-   - Cliquez sur n'importe quel log pour dérouler le tiroir d'inspection du JSON brut (`StandardLogEvent`) et tester le bouton "Copier JSON".
+```javascript
+const { WalspoolClient } = require('./client');
 
-3. **Cascade de Trace (Waterfall)** :
-   - Cliquez sur un tag de trace (ex: `#live-stream-de`) ou sélectionnez une trace récente dans le sélecteur.
-   - L'onglet bascule sur la vue **Cascade de Trace (Gantt)** montrant les spans ordonnés, les durées en millisecondes et la répartition temporelle entre `api-gateway` et `aipi`.
+const client = new WalspoolClient('http://127.0.0.1:9099');
 
-4. **Vérification du Streaming Temps Réel sans recharger la page** :
-   - Laissez la page ouverte à l'écran.
-   - Dans votre terminal, lancez le script de simulation :
-     ```bash
-     python3 /home/yohann/.gemini/antigravity-cli/brain/ad79243a-aea8-41f6-aa11-9dbb957f6267/scratch/stream_demo.py
-     ```
-   - **Observez l'écran** : Les 5 nouveaux logs s'affichent instantanément les uns après les autres sans nécessiter aucun rechargement !
+// Envoi asynchrone non-bloquant
+await client.enqueue({
+  topic: 'orders',
+  payload: { userId: 'usr_1', status: 'confirmed' },
+  traceId: 'tr-checkout-42',
+  service: 'api-gateway',
+  level: 'INFO'
+});
+```
+
+### C. Consommation Frontend Web (Vue 3 / React / Vanilla JS)
+Connexion directe via l'API standard du navigateur `EventSource` :
+
+```javascript
+const eventSource = new EventSource('http://localhost:9099/v1/logs/stream?service=billing-svc');
+
+eventSource.onmessage = (event) => {
+  const log = JSON.parse(event.data);
+  console.log("Nouveau log reçu en direct :", log);
+};
+
+eventSource.onerror = () => {
+  console.warn("Reconnexion automatique du flux SSE en cours...");
+};
+```
 
 ---
 
-## 6. Pourquoi Walspool est Écrit en Go ? (Avantages, Inconvénients & Trade-offs)
+## 5. Guide d'Exécution & Simulation Temps Réel
 
-Le choix technologique de **Go** pour Walspool découle de contraintes d'ingénierie système précises :
-- **Ingestion à latence ultra-faible (< 50µs)** sans dégrader les temps de réponse de l'API Gateway ou du microservice IA.
-- **Empreinte mémoire fixe (< 20 Mo)** sans réallocations continues susceptibles de déclencher des gels d'Event Loop ou des pauses Garbage Collector prolongées.
-- **Support natif de milliers de flux SSE concurrents** via les Goroutines légères (2 Ko par goroutine vs 1-2 Mo pour un thread système).
+Pour vérifier le fonctionnement de bout en bout sur votre machine :
 
-### Matrice Comparée des Technologies
+1. **Démarrer le sidecar Walspool** :
+   ```bash
+   go run ./cmd/sidecar -addr :9099 -data-dir ./tmp/spool
+   ```
 
-| Critère d'Évaluation | Go (Choix Walspool) | Node.js (API Gateway) | Python (AIPI / Django) |
+2. **Écouter le flux SSE dans un premier terminal** :
+   ```bash
+   curl -N http://127.0.0.1:9099/v1/logs/stream
+   ```
+
+3. **Émettre des événements corrélés via le client de démonstration** :
+   ```bash
+   python3 examples/python/client.py demo
+   ```
+   *Les événements s'affichent instantanément dans le premier terminal avec un temps de traversée sub-milliseconde.*
+
+4. **Interroger l'historique d'une trace spécifique** :
+   ```bash
+   curl -s "http://127.0.0.1:9099/v1/logs?trace_id=tr-demo-42&limit=10" | jq .
+   ```
+
+---
+
+## 6. Analyse Comparative & Justification Technique de Go
+
+Le choix technologique de **Go** pour Walspool découle de contraintes d'ingénierie système fondamentales :
+
+| Critère d'Évaluation | Go (Choix Walspool) | Node.js (Event Loop) | Python (GIL) |
 | :--- | :--- | :--- | :--- |
-| **Binaire & Déploiement** | Binaire statique unique (~15 Mo) autonome | Interpréteur Node + dossier `node_modules` (> 200 Mo) | Interpréteur Python + environnement virtuel venv |
-| **Concurrence & Threads** | Goroutines (2 Ko) ultra-légères | Event Loop mono-thread (vulnérable aux blocages I/O disque) | GIL (Global Interpreter Lock) limitant le parallélisme CPU |
-| **Empreinte RAM** | < 20 Mo (y compris avec 50k logs en mémoire) | > 150 Mo | > 120 Mo |
+| **Binaire & Déploiement** | Binaire statique autonome (~15 Mo, `CGO_ENABLED=0`) | Interpréteur Node + volumineux `node_modules` | Interpréteur Python + virtualenv |
+| **Concurrence & Threads** | Goroutines légères (2 Ko) scalant à des millions | Mono-thread sensible aux blocages I/O disque | Global Interpreter Lock (GIL) limitant le parallélisme |
+| **Empreinte RAM** | **< 20 Mo** (y compris avec 50 000 logs en ring buffer) | > 150 Mo | > 120 Mo |
 | **I/O Système Séquentielles** | Accès direct `os.File` & `syscall` Append-Only | Abstractions streams & bindings libuv | Wrappers C / CPython avec overhead GIL |
-
-### Compromis & Atténuation Black-Box :
-- *Inconvénient* : L'équipe développe principalement en Python et TypeScript.
-- *Atténuation Black-Box* : Walspool est une **boîte noire** totalement étanche. Les microservices communiquent avec lui uniquement par des protocoles universels HTTP et SSE (`POST /v1/enqueue` et `GET /v1/logs/stream`). Aucun développeur n'a besoin de coder en Go pour consommer ou enrichir les logs.
+| **Garbage Collection** | Scanner lexical sans allocation (`1 alloc/op`) | Ramasse-miettes V8 à cycles parfois perceptibles | Comptage de références + cycle collector |
 
 ---
 
-## 7. Implémentation dans une Architecture Microservices avec Docker
+## 7. Topologie Conteneurisée Docker & Configuration Nginx
 
-### Topologie et Réseau Docker
+### Topologie Réseau
+- En production conteneurisée, Walspool est déployé en **Sidecar** dans le même pod Kubernetes (partageant `localhost`), ou sur le réseau bridge Docker interne (`http://walspool:9099`).
+- Les microservices communiquent avec lui exclusivement par HTTP local, garantissant une isolation totale : si Walspool redémarre, aucun microservice ne subit de crash.
 
-Dans l'environnement de production conteneurisé :
-1. **Réseau Docker Bridge (`172.99.0.0/24`)** :
-   - Tous les microservices (`docker-api-gateway-1`, `docker-aipi-1`, `docker-cms-1`) cohabitent sur le sous-réseau interne.
-   - Walspool peut tourner soit directement sur la machine hôte (`172.99.0.1:9099`), soit comme service conteneurisé dédié (`http://walspool:9099`) avec volume persistant (`./data/spool:/data/spool`).
-2. **Résilience et Tolérance aux Pannes (Client-Side Failsafe)** :
-   - Côté microservices, l'émission de logs est totalement découplée du thread principal de traitement :
-     - En Python (AIPI) : file d'attente bornée en mémoire (`queue.Queue(maxsize=5000)`) et worker thread d'arrière-plan.
-     - En Node.js (Gateway) : promesse asynchrone non-bloquante avec timeout strict (500ms).
-   - **Garantie** : Si Walspool est éteint ou redémarre, **aucun microservice ne plante ni ne ralentit ses requêtes utilisateurs**.
-3. **Configuration Nginx Reverse Proxy** :
-   - Le proxy Nginx (`docker-cms-1`) transmet le flux SSE sans le mettre en mémoire tampon grâce aux directives critiques :
-     ```nginx
-     proxy_buffering off;
-     add_header X-Accel-Buffering "no";
-     proxy_read_timeout 3600s;
-     ```
-   - Walspool émet un battement de cœur `: keepalive\n\n` toutes les 10 secondes pour empêcher la fermeture silencieuse des sockets TCP par les pare-feux réseau ou les équilibreurs de charge.
+### Directives Nginx Reverse-Proxy (Anti-Buffering SSE)
+Pour que les événements Server-Sent Events traversent un reverse-proxy Nginx sans délai de mise en mémoire tampon, appliquez ces directives :
+
+```nginx
+location /v1/logs/stream {
+    proxy_pass http://127.0.0.1:9099/v1/logs/stream;
+    proxy_http_version 1.1;
+    proxy_set_header Connection "";
+    
+    # Directives critiques pour le streaming SSE en temps réel
+    proxy_buffering off;
+    proxy_cache off;
+    chunked_transfer_encoding off;
+    add_header X-Accel-Buffering "no";
+    
+    proxy_read_timeout 3600s;
+    proxy_send_timeout 3600s;
+}
+```
+Walspool émet un battement de cœur `: keepalive\n\n` toutes les 10 secondes, évitant la fermeture silencieuse des connexions TCP par les pare-feux réseau ou les équilibreurs de charge cloud.
