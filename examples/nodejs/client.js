@@ -38,7 +38,15 @@ class WalspoolClient {
       throw new Error("walspool: topic must be a non-empty string");
     }
 
-    const processedPayload = Buffer.isBuffer(payload) ? payload.toString("utf8") : payload;
+    let processedPayload = payload;
+    if (Buffer.isBuffer(payload)) {
+      const utf8Str = payload.toString("utf8");
+      if (Buffer.from(utf8Str, "utf8").compare(payload) === 0) {
+        processedPayload = utf8Str;
+      } else {
+        processedPayload = payload.toString("base64");
+      }
+    }
 
     const body = {
       topic,

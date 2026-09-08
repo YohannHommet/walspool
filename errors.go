@@ -1,6 +1,9 @@
 package walspool
 
-import "errors"
+import (
+	"errors"
+	"fmt"
+)
 
 // Tier 1: Contract Violations / Preconditions (Caller Fault)
 var (
@@ -12,7 +15,7 @@ var (
 	ErrSpoolerClosed = errors.New("walspool: spooler is closed")
 
 	// ErrHubClosed indicates an operation was attempted on a terminated log hub.
-	ErrHubClosed = ErrSpoolerClosed
+	ErrHubClosed = fmt.Errorf("%w: log hub is closed", ErrSpoolerClosed)
 
 	// ErrCorruptRecord indicates a record failed magic byte validation or CRC32 checksum verification.
 	ErrCorruptRecord = errors.New("walspool: corrupt record or checksum mismatch")

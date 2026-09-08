@@ -207,6 +207,8 @@ class WalspoolClient:
                     # Stream ended cleanly on server side
                     if not auto_reconnect:
                         return
+                    time.sleep(reconnect_delay)
+                    reconnect_delay = min(reconnect_delay * 1.5, max_reconnect_delay)
             except (urllib.error.URLError, ConnectionResetError, TimeoutError) as e:
                 if not auto_reconnect:
                     raise

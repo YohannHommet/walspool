@@ -263,6 +263,10 @@ func (e *Engine) runDispatcher() {
 }
 
 func (e *Engine) drainPendingBatches(ctx context.Context) (bool, error) {
+	if err := ctx.Err(); err != nil {
+		return false, err
+	}
+
 	batch, err := e.storage.ReadBatch(e.cfg.BatchSize)
 	if err != nil {
 		return false, err
@@ -271,8 +275,13 @@ func (e *Engine) drainPendingBatches(ctx context.Context) (bool, error) {
 		return false, nil
 	}
 
-	callCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
-	defer cancel()
+	// If caller did not set an explicit deadline, apply a 10s default safety timeout
+	callCtx := ctx
+	var cancel context.CancelFunc
+	if _, hasDeadline := ctx.Deadline(); !hasDeadline {
+		callCtx, cancel = context.WithTimeout(ctx, 10*time.Second)
+		defer cancel()
+	}
 
 	deliverErr := e.sink.Deliver(callCtx, batch)
 	if deliverErr != nil {

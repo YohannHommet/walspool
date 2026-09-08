@@ -3,6 +3,7 @@ package walspool
 import (
 	"bufio"
 	"encoding/binary"
+	"errors"
 	"fmt"
 	"io"
 	"log/slog"
@@ -308,8 +309,12 @@ func (f *FileStorageEngine) rollbackTo(pos int64) {
 		target = fi.Size()
 	}
 	f.writer.Reset(f.walFile)
-	_ = f.walFile.Truncate(target)
-	_, _ = f.walFile.Seek(target, io.SeekStart)
+	if err := f.walFile.Truncate(target); err != nil {
+		slog.Error("walspool: rollback truncate failed", "target", target, "error", err)
+	}
+	if _, err := f.walFile.Seek(target, io.SeekStart); err != nil {
+		slog.Error("walspool: rollback seek failed", "target", target, "error", err)
+	}
 	f.writePos = target
 	keep := len(f.records)
 	for keep > 0 && f.records[keep-1].Pos+int64(f.records[keep-1].Length) > target {
@@ -520,14 +525,17 @@ func (f *FileStorageEngine) Close() error {
 		closeErr := f.walFile.Close()
 		f.mu.Unlock()
 
-		switch {
-		case flushErr != nil:
-			f.closeErr = fmt.Errorf("%w: buffer flush failed during close", ErrStorageUnavailable)
-		case syncErr != nil:
-			f.closeErr = fmt.Errorf("%w: wal sync failed during close", ErrStorageUnavailable)
-		case closeErr != nil:
-			f.closeErr = fmt.Errorf("%w: file close failed", ErrStorageUnavailable)
+		var errs []error
+		if flushErr != nil {
+			errs = append(errs, fmt.Errorf("%w: buffer flush failed during close", ErrStorageUnavailable))
 		}
+		if syncErr != nil {
+			errs = append(errs, fmt.Errorf("%w: wal sync failed during close", ErrStorageUnavailable))
+		}
+		if closeErr != nil {
+			errs = append(errs, fmt.Errorf("%w: file close failed", ErrStorageUnavailable))
+		}
+		f.closeErr = errors.Join(errs...)
 	})
 	return f.closeErr
 }

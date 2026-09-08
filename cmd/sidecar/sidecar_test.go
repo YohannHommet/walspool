@@ -1005,7 +1005,7 @@ func TestSidecar_ConfigPrecedenceAndValidation(t *testing.T) {
 		}
 	})
 
-	t.Run("CLIOverridesEnv_CRIT07", func(t *testing.T) {
+	t.Run("CLIOverridesEnv", func(t *testing.T) {
 		envMap := map[string]string{
 			"WALSPOOL_ADDR":         ":8088",
 			"WALSPOOL_DATA_DIR":     "/env/data",
@@ -1071,7 +1071,7 @@ func TestSidecar_ConfigPrecedenceAndValidation(t *testing.T) {
 	t.Run("StrictValidationRules", func(t *testing.T) {
 		emptyEnv := func(k string) (string, bool) { return "", false }
 
-		// 1. addr non vide
+		// 1. Non-empty address
 		_, err := ParseConfig([]string{"-addr", ""}, emptyEnv)
 		if !errors.Is(err, walspool.ErrPreconditionViolated) {
 			t.Errorf("expected ErrPreconditionViolated for empty addr, got %v", err)
@@ -1453,6 +1453,71 @@ func TestSidecar_KubernetesProbes_ReadyzAndHealthz(t *testing.T) {
 			t.Fatalf("expected 405 on POST /readyz, got %d", recPostReady.Code)
 		}
 	})
+
+	// 5. HEAD method supported on probes without body
+	t.Run("HEADMethodSupportedOnProbes", func(t *testing.T) {
+		freshStorage := walspool.NewMemoryStorageEngine(100)
+		freshSpool, err := walspool.New(walspool.DefaultConfig(), freshStorage, sink, nil)
+		if err != nil {
+			t.Fatalf("failed to init spooler: %v", err)
+		}
+		defer freshSpool.Close()
+
+		freshServer := NewSidecarServer(freshSpool, hub).WithStorage(freshStorage)
+		freshRoutes := freshServer.Routes()
+
+		reqHeadHealth := httptest.NewRequest(http.MethodHead, "/healthz", nil)
+		recHeadHealth := httptest.NewRecorder()
+		freshRoutes.ServeHTTP(recHeadHealth, reqHeadHealth)
+		if recHeadHealth.Code != http.StatusOK {
+			t.Fatalf("expected 200 on HEAD /healthz, got %d", recHeadHealth.Code)
+		}
+		if len(recHeadHealth.Body.Bytes()) != 0 {
+			t.Fatalf("expected empty body on HEAD /healthz, got %q", recHeadHealth.Body.String())
+		}
+
+		reqHeadReady := httptest.NewRequest(http.MethodHead, "/readyz", nil)
+		recHeadReady := httptest.NewRecorder()
+		freshRoutes.ServeHTTP(recHeadReady, reqHeadReady)
+		if recHeadReady.Code != http.StatusOK {
+			t.Fatalf("expected 200 on HEAD /readyz, got %d", recHeadReady.Code)
+		}
+		if len(recHeadReady.Body.Bytes()) != 0 {
+			t.Fatalf("expected empty body on HEAD /readyz, got %q", recHeadReady.Body.String())
+		}
+	})
+}
+
+// CORS preflight OPTIONS request returns 204 No Content with appropriate headers
+func TestSidecar_CORSPreflight_Options204(t *testing.T) {
+	storage := walspool.NewMemoryStorageEngine(10)
+	sink := &HTTPSink{}
+	hub := walspool.NewMemoryLogHub(10)
+	spool, err := walspool.New(walspool.DefaultConfig(), storage, sink, nil)
+	if err != nil {
+		t.Fatalf("init spooler failed: %v", err)
+	}
+	defer spool.Close()
+
+	server := NewSidecarServer(spool, hub)
+	routes := server.Routes()
+
+	endpoints := []string{"/healthz", "/readyz", "/enqueue", "/v1/enqueue", "/v1/logs", "/v1/logs/stream"}
+	for _, ep := range endpoints {
+		req := httptest.NewRequest(http.MethodOptions, ep, nil)
+		rec := httptest.NewRecorder()
+		routes.ServeHTTP(rec, req)
+
+		if rec.Code != http.StatusNoContent {
+			t.Errorf("expected 204 No Content on OPTIONS %s, got %d", ep, rec.Code)
+		}
+		if rec.Header().Get("Access-Control-Allow-Origin") != "*" {
+			t.Errorf("missing or invalid Access-Control-Allow-Origin on %s", ep)
+		}
+		if !strings.Contains(rec.Header().Get("Access-Control-Allow-Methods"), "OPTIONS") {
+			t.Errorf("missing OPTIONS in Access-Control-Allow-Methods on %s", ep)
+		}
+	}
 }
 
 // Structured logging with log/slog
