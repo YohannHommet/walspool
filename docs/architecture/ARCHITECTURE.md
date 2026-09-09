@@ -18,7 +18,8 @@ Walspool sépare hermétiquement les **contrats métier** de ses **adaptateurs d
 ```mermaid
 flowchart TB
     subgraph PrimaryAdapters["🔌 Adaptateurs Primaires (Driving / Inbound)"]
-        HTTPClient["Client HTTP / Backend App"] -->|POST /enqueue| HTTPServer["Sidecar HTTP Router"]
+        OTelClient["Client OpenTelemetry (SDK OTel)"] -->|POST /v1/logs (OTLP)| HTTPServer["Sidecar HTTP Router"]
+        HTTPClient["Client HTTP Legacy"] -->|POST /enqueue| HTTPServer
         PlatformUI["Frontend Observabilité / Backoffice"] -->|GET /v1/logs/stream| SSEServer["Broadcaster SSE"]
         CLI["Script d'admin / Probe K8s"] -->|GET /metrics, /readyz| Telemetry["Metrics & Health Handler"]
     end
@@ -232,11 +233,12 @@ sequenceDiagram
 
 ## 6. Observabilité & Télémétrie
 
-Le sidecar expose 7 endpoints HTTP/SSE unifiés :
+Le sidecar expose 8 endpoints HTTP/SSE unifiés :
 
 | Méthode & Chemin | Description & Objectif |
 | :--- | :--- |
-| `POST /enqueue` / `POST /v1/enqueue` | Ingestion synchrone WAL + Hub ($< 50\mu\text{s}$) avec code `202 Accepted`. |
+| `POST /v1/logs` | **Récepteur OpenTelemetry (OTLP/HTTP)** natif (`application/x-protobuf` et `application/json`). Persistance WAL sub-15µs et indexation immédiate. Voir [Guide OpenTelemetry](../OPENTELEMETRY.md). |
+| `POST /enqueue` / `POST /v1/enqueue` | Ingestion synchrone WAL + Hub ($< 50\mu\text{s}$) avec code `202 Accepted` pour payloads JSON personnalisés. |
 | `GET /v1/logs` | Requête historique sur le Ring Buffer avec filtres `trace_id`, `service`, `level`, `limit`. |
 | `GET /v1/logs/stream` | Flux Server-Sent Events (SSE) temps réel avec keepalive toutes les 10s. |
 | `GET /metrics` | Métriques standardisées au format OpenMetrics / Prometheus. |

@@ -361,6 +361,8 @@ curl -N "http://localhost:9099/v1/logs/stream?service=billing-api&level=info"
 curl http://localhost:9099/readyz
 ```
 
+> 📖 **Comprehensive Polyglot Guide**: For detailed code examples in **Go, Python, Node.js/TypeScript, Java (Spring Boot), and Rust**, as well as Kubernetes sidecar deployment manifests and OTel Collector forwarding configs, see the [OpenTelemetry (OTLP) Integration Guide](docs/OPENTELEMETRY.md).
+
 ---
 
 ## Kubernetes & Telemetry (Production SRE)

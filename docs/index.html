@@ -534,6 +534,15 @@
         </thead>
         <tbody class="divide-y divide-obsidian-border text-slate-200">
           <tr class="hover:bg-obsidian-850/50 transition">
+            <td class="py-3.5 px-4"><span class="px-2 py-0.5 rounded bg-blue-950 text-blue-400 border border-blue-500/40 font-bold">POST</span></td>
+            <td class="py-3.5 px-4 font-bold text-white">/v1/logs</td>
+            <td class="py-3.5 px-6 font-sans text-xs text-slate-300">
+              <strong class="text-white font-mono text-xs">OpenTelemetry (OTLP) Ingestion:</strong> Native OTLP/HTTP receiver (Protobuf & JSON). Auto-extracts service name, trace ID, and severity into NVMe WAL and MemoryLogHub.
+            </td>
+            <td class="py-3.5 px-4 text-right text-[#CCFF00] font-bold">< 20 µs</td>
+            <td class="py-3.5 px-4 text-center"><span class="text-[#CCFF00]">200 OK</span></td>
+          </tr>
+          <tr class="hover:bg-obsidian-850/50 transition">
             <td class="py-3.5 px-4"><span class="px-2 py-0.5 rounded bg-[#1A2200] text-[#CCFF00] border border-[#CCFF00]/50/40 font-bold">POST</span></td>
             <td class="py-3.5 px-4 font-bold text-white">/v1/enqueue</td>
             <td class="py-3.5 px-6 font-sans text-xs text-slate-300">
