@@ -1005,6 +1005,33 @@ func TestSidecar_ConfigPrecedenceAndValidation(t *testing.T) {
 		}
 	})
 
+	t.Run("FallbackEnvVariables", func(t *testing.T) {
+		envMap := map[string]string{
+			"PORT":      "9099",
+			"SPOOL_DIR": "/data/spool",
+			"LOG_LEVEL": "debug",
+		}
+		mockEnv := func(k string) (string, bool) {
+			v, ok := envMap[k]
+			return v, ok
+		}
+
+		cfg, err := ParseConfig([]string{}, mockEnv)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+
+		if cfg.Addr != ":9099" {
+			t.Errorf("expected addr from PORT :9099, got %s", cfg.Addr)
+		}
+		if cfg.DataDir != "/data/spool" {
+			t.Errorf("expected data-dir from SPOOL_DIR /data/spool, got %s", cfg.DataDir)
+		}
+		if cfg.LogLevel != "debug" {
+			t.Errorf("expected log-level from LOG_LEVEL debug, got %s", cfg.LogLevel)
+		}
+	})
+
 	t.Run("CLIOverridesEnv", func(t *testing.T) {
 		envMap := map[string]string{
 			"WALSPOOL_ADDR":         ":8088",

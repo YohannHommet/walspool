@@ -810,18 +810,29 @@ func ParseConfig(args []string, lookupEnv func(string) (string, bool)) (*Sidecar
 		otlpEnabled = val
 	}
 
+	defaultAddr := ":9099"
+	if p := getEnvStr("PORT", ""); p != "" {
+		if !strings.HasPrefix(p, ":") {
+			defaultAddr = ":" + p
+		} else {
+			defaultAddr = p
+		}
+	}
+	defaultDataDir := getEnvStr("SPOOL_DIR", "./data/spool")
+	defaultLogLevel := getEnvStr("LOG_LEVEL", "info")
+
 	fs := flag.NewFlagSet("walspool-sidecar", flag.ContinueOnError)
 
 	var cfg SidecarConfig
-	fs.StringVar(&cfg.Addr, "addr", getEnvStr("WALSPOOL_ADDR", ":9099"), "HTTP bind address")
-	fs.StringVar(&cfg.DataDir, "data-dir", getEnvStr("WALSPOOL_DATA_DIR", "./data/spool"), "Spool directory for WAL files")
+	fs.StringVar(&cfg.Addr, "addr", getEnvStr("WALSPOOL_ADDR", defaultAddr), "HTTP bind address")
+	fs.StringVar(&cfg.DataDir, "data-dir", getEnvStr("WALSPOOL_DATA_DIR", defaultDataDir), "Spool directory for WAL files")
 	fs.StringVar(&cfg.TargetSinkURL, "sink-url", getEnvStr("WALSPOOL_SINK_URL", ""), "Target HTTP URL to deliver batches to")
 	fs.IntVar(&cfg.BatchSize, "batch-size", batchSize, "Batch size for background drain")
 	fs.IntVar(&cfg.FlushMs, "flush-ms", flushMs, "Flush interval in milliseconds")
 	fs.IntVar(&cfg.MaxRecords, "max-records", maxRecords, "Maximum records quota before backpressure reject")
 	fs.IntVar(&cfg.HubCapacity, "hub-capacity", hubCapacity, "In-memory ring buffer capacity for logs hub")
 	fs.StringVar(&cfg.LogFormat, "log-format", getEnvStr("WALSPOOL_LOG_FORMAT", "text"), "Log output format (text|json)")
-	fs.StringVar(&cfg.LogLevel, "log-level", getEnvStr("WALSPOOL_LOG_LEVEL", "info"), "Log level (debug|info|warn|error)")
+	fs.StringVar(&cfg.LogLevel, "log-level", getEnvStr("WALSPOOL_LOG_LEVEL", defaultLogLevel), "Log level (debug|info|warn|error)")
 	fs.BoolVar(&cfg.OTLPEnabled, "otlp-enabled", otlpEnabled, "Enable OpenTelemetry (OTLP) HTTP log ingestion on POST /v1/logs")
 	fs.StringVar(&cfg.OTLPDefaultTopic, "otlp-default-topic", otlpDefaultTopic, "Default topic for OTLP logs when service.name is absent")
 	fs.BoolVar(&cfg.ShowVersion, "version", false, "Show version information and exit")
