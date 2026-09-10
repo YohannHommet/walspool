@@ -440,12 +440,17 @@ func TestHub_QueryPerformanceAndBoundedAllocations(t *testing.T) {
 		Service: "svc-1",
 		Limit:   50,
 	}
+	_ = hub.Query(q50)
+	var res50 []walspool.LogEntry
 	start50 := time.Now()
-	res50 := hub.Query(q50)
-	dur50 := time.Since(start50)
+	for i := 0; i < 20; i++ {
+		res50 = hub.Query(q50)
+	}
+	avgDur50 := time.Since(start50) / 20
 
-	if dur50 > maxDuration {
-		t.Fatalf("Query for 50 items took %v, expected < %v", dur50, maxDuration)
+	// 500µs tolerance for shared cloud CI runners (Windows timer resolution is ~15ms without high-res timer)
+	if avgDur50 > 500*time.Microsecond {
+		t.Fatalf("Query for 50 items took %v on average, expected < 500µs", avgDur50)
 	}
 	if len(res50) != 50 {
 		t.Fatalf("expected 50 items, got %d", len(res50))
