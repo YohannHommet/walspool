@@ -285,6 +285,13 @@ func (f *FileStorageEngine) recover() error {
 		validFileEnd = curPos + int64(totalRecordLen)
 	}
 
+	// Under SyncInterval the checkpoint is fsynced before the WAL tail, so after a crash it can exceed the
+	// recovered record count. Every recovered record is then committed; clamp so new appends land above it.
+	if f.checkpoint > offsetCounter {
+		slog.Warn("walspool: checkpoint ahead of recovered WAL, clamping", "checkpoint", uint64(f.checkpoint), "recovered", uint64(offsetCounter))
+		f.checkpoint = offsetCounter
+	}
+
 	// If there were any dangling bytes past the last valid record, truncate them
 	if fileSize > validFileEnd {
 		if err := f.walFile.Truncate(validFileEnd); err != nil {

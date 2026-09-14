@@ -675,3 +675,57 @@ func TestFileStorage_ConcurrentCloseIdempotent(t *testing.T) {
 		t.Fatalf("idempotent Close returned error: %v", err)
 	}
 }
+
+// Under SyncInterval the checkpoint is fsynced before the WAL tail, so a crash can leave
+// checkpoint.meta ahead of the recovered records. New appends must still be delivered.
+func TestFileStorage_Recover_CheckpointAheadOfWAL(t *testing.T) {
+	dir := t.TempDir()
+	engine, err := walspool.NewFileStorageEngine(dir, 1000)
+	if err != nil {
+		t.Fatalf("init failed: %v", err)
+	}
+	for i := 0; i < 5; i++ {
+		if _, err := engine.Append(walspool.Record{ID: uint64(i + 1), Timestamp: time.Now(), Topic: "t", Payload: []byte("x")}); err != nil {
+			t.Fatalf("append failed: %v", err)
+		}
+	}
+	if err := engine.Close(); err != nil {
+		t.Fatalf("close failed: %v", err)
+	}
+
+	// Simulate: all 5 committed and fsynced, but the last 2 records were lost with the page cache.
+	chk := make([]byte, 8)
+	binary.BigEndian.PutUint64(chk, 5)
+	if err := os.WriteFile(filepath.Join(dir, "checkpoint.meta"), chk, 0644); err != nil {
+		t.Fatalf("write checkpoint failed: %v", err)
+	}
+	walPath := filepath.Join(dir, "active.wal")
+	fi, err := os.Stat(walPath)
+	if err != nil {
+		t.Fatalf("stat failed: %v", err)
+	}
+	if err := os.Truncate(walPath, fi.Size()/5*3); err != nil {
+		t.Fatalf("truncate failed: %v", err)
+	}
+
+	reopened, err := walspool.NewFileStorageEngine(dir, 1000)
+	if err != nil {
+		t.Fatalf("reopen failed: %v", err)
+	}
+	defer reopened.Close()
+
+	if n, _ := reopened.UncommittedCount(); n != 0 {
+		t.Fatalf("expected 0 uncommitted after recovery, got %d", n)
+	}
+	if _, err := reopened.Append(walspool.Record{ID: 100, Timestamp: time.Now(), Topic: "t", Payload: []byte("new")}); err != nil {
+		t.Fatalf("append after recovery failed: %v", err)
+	}
+	n, _ := reopened.UncommittedCount()
+	batch, err := reopened.ReadBatch(10)
+	if err != nil {
+		t.Fatalf("read failed: %v", err)
+	}
+	if n != 1 || len(batch) != 1 || batch[0].ID != 100 {
+		t.Fatalf("new record must be visible: uncommitted=%d batch=%d", n, len(batch))
+	}
+}
