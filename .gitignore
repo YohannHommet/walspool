@@ -16,3 +16,6 @@ bench_baseline_*.txt
 __pycache__/
 *.pyc
 .claude/
+
+# Local review/plan scratch (never committed)
+.sdlc/
