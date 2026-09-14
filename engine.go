@@ -222,8 +222,11 @@ func (e *Engine) runDispatcher() {
 	for {
 		// Drain all available records up to BatchSize
 		drained, err := e.drainPendingBatches(context.Background())
-		if err != nil && IsTransient(err) {
-			// Apply exponential backoff when sink is experiencing transient faults
+		if err != nil {
+			// Every failure backs off: an unclassified sink or storage error must not spin at FlushInterval.
+			if !IsTransient(err) {
+				slog.Error("walspool: dispatcher drain failed", "error", err, "retry_in", currentBackoff)
+			}
 			select {
 			case <-e.stopCh:
 				return

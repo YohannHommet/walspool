@@ -790,3 +790,32 @@ func TestDiskWAL_CorruptRecordSkipped_DeliveryResumes(t *testing.T) {
 		t.Fatalf("expected the skipped record to be logged, got: %q", logBuf.String())
 	}
 }
+
+// A sink error that is neither ErrSinkUnavailable nor ErrPermanentRejection must still back off.
+func TestDispatcher_UnclassifiedSinkError_BacksOff(t *testing.T) {
+	const budget = 1000
+	sink := &recordingSink{failureCount: budget, failErr: errors.New("unclassified sink fault")}
+	cfg := walspool.DefaultConfig()
+	cfg.FlushInterval = time.Millisecond
+	cfg.InitialBackoff = 100 * time.Millisecond
+	cfg.MaxBackoff = time.Second
+
+	spool, err := walspool.New(cfg, walspool.NewMemoryStorageEngine(100), sink, nil)
+	if err != nil {
+		t.Fatalf("spooler init failed: %v", err)
+	}
+	defer spool.Close()
+
+	if err := spool.Enqueue(context.Background(), "t", []byte("x")); err != nil {
+		t.Fatalf("enqueue failed: %v", err)
+	}
+	time.Sleep(250 * time.Millisecond)
+
+	sink.mu.Lock()
+	calls := budget - sink.failureCount
+	sink.mu.Unlock()
+	// Without backoff the 1ms FlushInterval yields well over 100 attempts in this window.
+	if calls > 5 {
+		t.Fatalf("expected exponential backoff (<=5 attempts in 250ms), got %d", calls)
+	}
+}
