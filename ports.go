@@ -43,6 +43,8 @@ type StorageEngine interface {
 	Append(rec Record) (Offset, error)
 
 	// ReadBatch reads up to maxCount uncheckpointed records.
+	// When the first pending record fails integrity checks it returns *CorruptRecordError
+	// (and no records) so the caller can Commit past that single offset.
 	ReadBatch(maxCount int) ([]Record, error)
 
 	// Commit checkpoints all records up to and including the specified offset.

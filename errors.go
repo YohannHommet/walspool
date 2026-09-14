@@ -44,6 +44,21 @@ var (
 	ErrSinkUnavailable = errors.New("walspool: remote sink unavailable")
 )
 
+// CorruptRecordError names the WAL offset whose record failed integrity checks so the dispatcher can skip exactly it.
+type CorruptRecordError struct {
+	Offset Offset
+	Err    error
+}
+
+func (e *CorruptRecordError) Error() string {
+	return fmt.Sprintf("%v: corruption at offset %d: %v", ErrStorageUnavailable, e.Offset, e.Err)
+}
+
+// Unwrap keeps the Tier 3 ErrStorageUnavailable contract while also matching ErrCorruptRecord.
+func (e *CorruptRecordError) Unwrap() []error {
+	return []error{ErrStorageUnavailable, ErrCorruptRecord, e.Err}
+}
+
 // IsTransient returns true if an error warrants retry with backoff.
 func IsTransient(err error) bool {
 	return errors.Is(err, ErrSinkUnavailable)

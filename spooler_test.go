@@ -1,8 +1,10 @@
 package walspool_test
 
 import (
+	"bytes"
 	"context"
 	"errors"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"sync"
@@ -723,5 +725,68 @@ func TestSpooler_IDContinuityAcrossRestart(t *testing.T) {
 	fourthRecord := obs2.records()[0]
 	if fourthRecord.ID != 4 {
 		t.Fatalf("expected ID continuity across restart: expected ID 4, got %d", fourthRecord.ID)
+	}
+}
+
+// One bit-flipped record in the pending region must be skipped and logged, never stall
+// the records queued behind it.
+func TestDiskWAL_CorruptRecordSkipped_DeliveryResumes(t *testing.T) {
+	dir := t.TempDir()
+	storage, err := walspool.NewFileStorageEngine(dir, 1000)
+	if err != nil {
+		t.Fatalf("init failed: %v", err)
+	}
+	for i := 0; i < 3; i++ {
+		if _, err := storage.Append(walspool.Record{ID: uint64(i + 1), Timestamp: time.Now(), Topic: "t", Payload: []byte("payload")}); err != nil {
+			t.Fatalf("append failed: %v", err)
+		}
+	}
+	if err := storage.Close(); err != nil {
+		t.Fatalf("close failed: %v", err)
+	}
+
+	walPath := filepath.Join(dir, "active.wal")
+	data, err := os.ReadFile(walPath)
+	if err != nil {
+		t.Fatalf("read wal failed: %v", err)
+	}
+	data[len(data)/3-2] ^= 0xFF // last payload byte of record 0
+	if err := os.WriteFile(walPath, data, 0644); err != nil {
+		t.Fatalf("rewrite wal failed: %v", err)
+	}
+
+	var logBuf bytes.Buffer
+	prev := slog.Default()
+	slog.SetDefault(slog.New(slog.NewTextHandler(&logBuf, &slog.HandlerOptions{Level: slog.LevelError})))
+	defer slog.SetDefault(prev)
+
+	reopened, err := walspool.NewFileStorageEngine(dir, 1000)
+	if err != nil {
+		t.Fatalf("reopen failed: %v", err)
+	}
+	sink := &recordingSink{}
+	spool, err := walspool.New(walspool.DefaultConfig(), reopened, sink, nil)
+	if err != nil {
+		t.Fatalf("spooler init failed: %v", err)
+	}
+	defer spool.Close()
+
+	if err := spool.Enqueue(context.Background(), "t", []byte("fresh")); err != nil {
+		t.Fatalf("enqueue failed: %v", err)
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	if err := spool.Flush(ctx); err != nil {
+		t.Fatalf("flush failed: %v", err)
+	}
+
+	if got := sink.count(); got != 3 {
+		t.Fatalf("expected records 2, 3 and the fresh one delivered, got %d", got)
+	}
+	if n, _ := reopened.UncommittedCount(); n != 0 {
+		t.Fatalf("expected 0 uncommitted, got %d", n)
+	}
+	if !bytes.Contains(logBuf.Bytes(), []byte("skipping corrupt WAL record")) {
+		t.Fatalf("expected the skipped record to be logged, got: %q", logBuf.String())
 	}
 }

@@ -729,3 +729,66 @@ func TestFileStorage_Recover_CheckpointAheadOfWAL(t *testing.T) {
 		t.Fatalf("new record must be visible: uncommitted=%d batch=%d", n, len(batch))
 	}
 }
+
+// A corrupt record in the middle of the pending region must be surfaced alone, as a
+// *CorruptRecordError naming its offset, after the valid prefix has been handed back.
+func TestFileStorage_ReadBatch_IsolatesCorruptRecord(t *testing.T) {
+	dir := t.TempDir()
+	engine, err := walspool.NewFileStorageEngine(dir, 1000)
+	if err != nil {
+		t.Fatalf("init failed: %v", err)
+	}
+	for i := 0; i < 3; i++ {
+		if _, err := engine.Append(walspool.Record{ID: uint64(i + 1), Timestamp: time.Now(), Topic: "t", Payload: []byte("payload")}); err != nil {
+			t.Fatalf("append failed: %v", err)
+		}
+	}
+	if err := engine.Close(); err != nil {
+		t.Fatalf("close failed: %v", err)
+	}
+
+	walPath := filepath.Join(dir, "active.wal")
+	data, err := os.ReadFile(walPath)
+	if err != nil {
+		t.Fatalf("read wal failed: %v", err)
+	}
+	recLen := len(data) / 3
+	data[recLen+recLen-2] ^= 0xFF // last payload byte of record 1
+	if err := os.WriteFile(walPath, data, 0644); err != nil {
+		t.Fatalf("rewrite wal failed: %v", err)
+	}
+
+	reopened, err := walspool.NewFileStorageEngine(dir, 1000)
+	if err != nil {
+		t.Fatalf("reopen failed: %v", err)
+	}
+	defer reopened.Close()
+
+	batch, err := reopened.ReadBatch(10)
+	if err != nil || len(batch) != 1 || batch[0].ID != 1 {
+		t.Fatalf("expected valid prefix of 1 record, got %d records, err=%v", len(batch), err)
+	}
+	if err := reopened.Commit(batch[0].Offset); err != nil {
+		t.Fatalf("commit failed: %v", err)
+	}
+
+	batch, err = reopened.ReadBatch(10)
+	var corrupt *walspool.CorruptRecordError
+	if !errors.As(err, &corrupt) || len(batch) != 0 {
+		t.Fatalf("expected *CorruptRecordError and no records, got %d records, err=%v", len(batch), err)
+	}
+	if corrupt.Offset != 1 {
+		t.Fatalf("expected corrupt offset 1, got %d", corrupt.Offset)
+	}
+	if !errors.Is(err, walspool.ErrStorageUnavailable) || !errors.Is(err, walspool.ErrCorruptRecord) {
+		t.Fatalf("corrupt error must match both ErrStorageUnavailable and ErrCorruptRecord: %v", err)
+	}
+	if err := reopened.Commit(corrupt.Offset); err != nil {
+		t.Fatalf("commit past corrupt failed: %v", err)
+	}
+
+	batch, err = reopened.ReadBatch(10)
+	if err != nil || len(batch) != 1 || batch[0].ID != 3 {
+		t.Fatalf("expected record 3 after skipping corrupt one, got %d records, err=%v", len(batch), err)
+	}
+}

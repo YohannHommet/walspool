@@ -419,7 +419,11 @@ func (f *FileStorageEngine) ReadBatch(maxCount int) ([]Record, error) {
 
 		var rec Record
 		if err := rec.UnmarshalBinary(buf); err != nil {
-			return nil, fmt.Errorf("%w: corruption at offset %d", ErrStorageUnavailable, entry.Offset)
+			// Hand back the valid prefix first; the next call then surfaces the corrupt record alone.
+			if len(batch) > 0 {
+				return batch, nil
+			}
+			return nil, &CorruptRecordError{Offset: entry.Offset, Err: err}
 		}
 		rec.Offset = entry.Offset
 		batch = append(batch, rec)

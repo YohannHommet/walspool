@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -269,6 +270,15 @@ func (e *Engine) drainPendingBatches(ctx context.Context) (bool, error) {
 
 	batch, err := e.storage.ReadBatch(e.cfg.BatchSize)
 	if err != nil {
+		var corrupt *CorruptRecordError
+		if errors.As(err, &corrupt) {
+			// Skip exactly the poisoned record; retrying it would stall every record queued behind it.
+			slog.Error("walspool: skipping corrupt WAL record", "offset", uint64(corrupt.Offset), "error", corrupt.Err)
+			if cErr := e.storage.Commit(corrupt.Offset); cErr != nil {
+				return false, cErr
+			}
+			return true, nil
+		}
 		return false, err
 	}
 	if len(batch) == 0 {
