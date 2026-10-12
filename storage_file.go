@@ -9,6 +9,7 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"sort"
 	"sync"
 	"time"
 )
@@ -41,6 +42,10 @@ type FileStorageOptions struct {
 
 	// SyncInterval specifies the period between background fsync operations when SyncInterval is active (default: 50ms).
 	SyncInterval time.Duration
+
+	// MaxSegmentSize specifies the maximum size in bytes of a single WAL segment file before rotating.
+	// When <= 0, segment rotation is disabled and all records are appended to active.wal (default: 0).
+	MaxSegmentSize int64
 }
 
 // DefaultFileStorageOptions returns production-optimized baseline options.
@@ -54,26 +59,30 @@ func DefaultFileStorageOptions() FileStorageOptions {
 
 // offsetPos maps a logical spooler offset to its physical byte offset and byte length in the WAL.
 type offsetPos struct {
-	Offset Offset
-	Pos    int64
-	Length int
+	Offset  Offset
+	SegBase Offset // base offset of the segment file containing this record
+	Pos     int64
+	Length  int
 }
 
 // FileStorageEngine is an append-only, crash-resilient disk storage engine.
 // Writes are buffered in memory and flushed to a .wal log file according to the configured SyncPolicy;
 // checkpoints are committed atomically with directory fsync for maximum crash resilience.
 type FileStorageEngine struct {
-	mu          sync.RWMutex
-	dir         string
-	walFile     *os.File
-	writer      *bufio.Writer
-	writePos    int64
-	checkpoint  Offset
-	records     []offsetPos // in-memory index of [offset -> file byte position]
-	maxID       uint64      // highest recovered or persisted record ID
-	maxCapacity int
-	opts        FileStorageOptions
-	closed      bool
+	mu                sync.RWMutex
+	dir               string
+	walFile           *os.File
+	writer            *bufio.Writer
+	writePos          int64
+	checkpoint        Offset
+	activeSegBase     Offset      // base offset of currently active write segment
+	baseOffset        Offset      // logical offset corresponding to records[0] (for memory reclamation)
+	isLegacyActiveWAL bool        // true if legacy active.wal was discovered
+	records           []offsetPos // in-memory index of [offset -> file byte position]
+	maxID             uint64      // highest recovered or persisted record ID
+	maxCapacity       int
+	opts              FileStorageOptions
+	closed            bool
 
 	flusherStop chan struct{}
 	flusherWg   sync.WaitGroup
@@ -109,10 +118,14 @@ func NewFileStorageEngineWithOptions(dir string, maxCapacity int, opts FileStora
 		return nil, fmt.Errorf("%w: failed to create wal directory", ErrStorageUnavailable)
 	}
 
-	walPath := filepath.Join(dir, "active.wal")
-	walFile, err := os.OpenFile(walPath, os.O_CREATE|os.O_RDWR, 0644)
-	if err != nil {
-		return nil, fmt.Errorf("%w: failed to open wal file", ErrStorageUnavailable)
+	var walFile *os.File
+	var err error
+	if opts.MaxSegmentSize <= 0 {
+		walPath := filepath.Join(dir, "active.wal")
+		walFile, err = os.OpenFile(walPath, os.O_CREATE|os.O_RDWR, 0644)
+		if err != nil {
+			return nil, fmt.Errorf("%w: failed to open wal file", ErrStorageUnavailable)
+		}
 	}
 
 	engine := &FileStorageEngine{
@@ -124,11 +137,13 @@ func NewFileStorageEngineWithOptions(dir string, maxCapacity int, opts FileStora
 	}
 
 	if err := engine.recover(); err != nil {
-		_ = walFile.Close()
+		if engine.walFile != nil {
+			_ = engine.walFile.Close()
+		}
 		return nil, err
 	}
 
-	engine.writer = bufio.NewWriterSize(walFile, opts.BufferSize)
+	engine.writer = bufio.NewWriterSize(engine.walFile, opts.BufferSize)
 
 	if opts.SyncPolicy == SyncInterval {
 		engine.flusherStop = make(chan struct{})
@@ -192,24 +207,132 @@ func (f *FileStorageEngine) recover() error {
 		f.checkpoint = Offset(binary.BigEndian.Uint64(chkData[:8]))
 	}
 
-	// 2. Query real disk file size to counter POSIX lseek beyond EOF behavior.
+	if f.opts.MaxSegmentSize <= 0 {
+		return f.recoverSingle()
+	}
+	return f.recoverSegmented()
+}
+
+func (f *FileStorageEngine) recoverSingle() error {
 	stat, err := f.walFile.Stat()
 	if err != nil {
 		return fmt.Errorf("%w: failed to stat wal file during recovery", ErrStorageUnavailable)
 	}
 	fileSize := stat.Size()
 
-	if _, err := f.walFile.Seek(0, io.SeekStart); err != nil {
-		return fmt.Errorf("%w: seek error during recovery", ErrStorageUnavailable)
+	validFileEnd, err := f.recoverSegment(f.walFile, fileSize, 0)
+	if err != nil {
+		return err
+	}
+
+	totalRecovered := Offset(len(f.records))
+	if f.checkpoint > totalRecovered {
+		slog.Warn("walspool: checkpoint ahead of recovered WAL, clamping", "checkpoint", uint64(f.checkpoint), "recovered", uint64(totalRecovered))
+		f.checkpoint = totalRecovered
+	}
+
+	if _, err := f.walFile.Seek(validFileEnd, io.SeekStart); err != nil {
+		return fmt.Errorf("%w: failed to seek to end of wal", ErrStorageUnavailable)
+	}
+	f.writePos = validFileEnd
+
+	return nil
+}
+
+func (f *FileStorageEngine) recoverSegmented() error {
+	type segFileInfo struct {
+		baseOffset Offset
+		path       string
+	}
+	var segFiles []segFileInfo
+
+	matches, _ := filepath.Glob(filepath.Join(f.dir, "segment-*.wal"))
+	if len(matches) > 0 {
+		for _, m := range matches {
+			base := filepath.Base(m)
+			var baseOff uint64
+			if n, _ := fmt.Sscanf(base, "segment-%012d.wal", &baseOff); n == 1 {
+				segFiles = append(segFiles, segFileInfo{baseOffset: Offset(baseOff), path: m})
+			}
+		}
+		sort.Slice(segFiles, func(i, j int) bool {
+			return segFiles[i].baseOffset < segFiles[j].baseOffset
+		})
+	}
+
+	if len(segFiles) == 0 {
+		activePath := filepath.Join(f.dir, "active.wal")
+		if _, err := os.Stat(activePath); err == nil {
+			f.isLegacyActiveWAL = true
+			segFiles = append(segFiles, segFileInfo{baseOffset: 0, path: activePath})
+		} else {
+			initPath := f.segmentPath(0)
+			segFiles = append(segFiles, segFileInfo{baseOffset: 0, path: initPath})
+		}
+	}
+
+	if len(segFiles) > 0 {
+		f.baseOffset = segFiles[0].baseOffset
+	}
+
+	for i, segInfo := range segFiles {
+		isLast := (i == len(segFiles)-1)
+
+		file, err := os.OpenFile(segInfo.path, os.O_CREATE|os.O_RDWR, 0644)
+		if err != nil {
+			return fmt.Errorf("%w: failed to open wal segment %s", ErrStorageUnavailable, segInfo.path)
+		}
+
+		stat, err := file.Stat()
+		if err != nil {
+			_ = file.Close()
+			return fmt.Errorf("%w: failed to stat wal segment %s", ErrStorageUnavailable, segInfo.path)
+		}
+		fileSize := stat.Size()
+
+		validFileEnd, err := f.recoverSegment(file, fileSize, segInfo.baseOffset)
+		if err != nil {
+			_ = file.Close()
+			return err
+		}
+
+		if isLast {
+			f.walFile = file
+			f.activeSegBase = segInfo.baseOffset
+			f.writePos = validFileEnd
+			if _, err := f.walFile.Seek(validFileEnd, io.SeekStart); err != nil {
+				return fmt.Errorf("%w: failed to seek to end of wal", ErrStorageUnavailable)
+			}
+		} else {
+			_ = file.Close()
+		}
+	}
+
+	totalRecovered := f.baseOffset + Offset(len(f.records))
+	if f.checkpoint > totalRecovered {
+		slog.Warn("walspool: checkpoint ahead of recovered WAL, clamping", "checkpoint", uint64(f.checkpoint), "recovered", uint64(totalRecovered))
+		f.checkpoint = totalRecovered
+	}
+
+	if f.opts.MaxSegmentSize > 0 && len(f.records) > 0 {
+		f.pruneCommittedSegments()
+	}
+
+	return nil
+}
+
+func (f *FileStorageEngine) recoverSegment(file *os.File, fileSize int64, segBase Offset) (int64, error) {
+	if _, err := file.Seek(0, io.SeekStart); err != nil {
+		return 0, fmt.Errorf("%w: seek error during recovery", ErrStorageUnavailable)
 	}
 
 	validFileEnd := int64(0)
-	offsetCounter := Offset(0)
+	offsetCounter := segBase
 
 	for {
-		curPos, err := f.walFile.Seek(0, io.SeekCurrent)
+		curPos, err := file.Seek(0, io.SeekCurrent)
 		if err != nil {
-			return fmt.Errorf("%w: failed to get file pos during recovery", ErrStorageUnavailable)
+			return 0, fmt.Errorf("%w: failed to get file pos during recovery", ErrStorageUnavailable)
 		}
 
 		remaining := fileSize - curPos
@@ -219,24 +342,24 @@ func (f *FileStorageEngine) recover() error {
 
 		// Check for partial header at EOF (truncated write)
 		if remaining < headerSize {
-			if err := f.walFile.Truncate(validFileEnd); err != nil {
-				return fmt.Errorf("%w: failed to truncate partial header at EOF", ErrStorageUnavailable)
+			if err := file.Truncate(validFileEnd); err != nil {
+				return 0, fmt.Errorf("%w: failed to truncate partial header at EOF", ErrStorageUnavailable)
 			}
 			break
 		}
 
 		header := make([]byte, headerSize)
-		if _, err := io.ReadFull(f.walFile, header); err != nil {
-			if err := f.walFile.Truncate(validFileEnd); err != nil {
-				return fmt.Errorf("%w: failed to truncate after header read error", ErrStorageUnavailable)
+		if _, err := io.ReadFull(file, header); err != nil {
+			if err := file.Truncate(validFileEnd); err != nil {
+				return 0, fmt.Errorf("%w: failed to truncate after header read error", ErrStorageUnavailable)
 			}
 			break
 		}
 
 		// Validate magic bytes ('W', 'S') and wire version (0x01) sequentially
 		if header[0] != magicByte1 || header[1] != magicByte2 || header[2] != wireVersion {
-			if err := f.walFile.Truncate(validFileEnd); err != nil {
-				return fmt.Errorf("%w: failed to truncate corrupt record header at EOF", ErrStorageUnavailable)
+			if err := file.Truncate(validFileEnd); err != nil {
+				return 0, fmt.Errorf("%w: failed to truncate corrupt record header at EOF", ErrStorageUnavailable)
 			}
 			break
 		}
@@ -247,8 +370,8 @@ func (f *FileStorageEngine) recover() error {
 
 		// Reject before allocating for it — see maxRecoverableRecordSize.
 		if totalRecordLen > maxRecoverableRecordSize {
-			if err := f.walFile.Truncate(validFileEnd); err != nil {
-				return fmt.Errorf("%w: failed to truncate oversized corrupt record header", ErrStorageUnavailable)
+			if err := file.Truncate(validFileEnd); err != nil {
+				return 0, fmt.Errorf("%w: failed to truncate oversized corrupt record header", ErrStorageUnavailable)
 			}
 			break
 		}
@@ -256,17 +379,17 @@ func (f *FileStorageEngine) recover() error {
 		// Validate bounds: check real remaining bytes on disk before advancing (POSIX lseek countermeasure)
 		if int64(totalRecordLen) > remaining {
 			// Torn write: body is truncated at EOF
-			if err := f.walFile.Truncate(validFileEnd); err != nil {
-				return fmt.Errorf("%w: failed to truncate partial record body at EOF", ErrStorageUnavailable)
+			if err := file.Truncate(validFileEnd); err != nil {
+				return 0, fmt.Errorf("%w: failed to truncate partial record body at EOF", ErrStorageUnavailable)
 			}
 			break
 		}
 
 		// Read full body with io.ReadFull
 		bodyBuf := make([]byte, topicLen+payloadLen)
-		if _, err := io.ReadFull(f.walFile, bodyBuf); err != nil {
-			if err := f.walFile.Truncate(validFileEnd); err != nil {
-				return fmt.Errorf("%w: failed to truncate after body read error", ErrStorageUnavailable)
+		if _, err := io.ReadFull(file, bodyBuf); err != nil {
+			if err := file.Truncate(validFileEnd); err != nil {
+				return 0, fmt.Errorf("%w: failed to truncate after body read error", ErrStorageUnavailable)
 			}
 			break
 		}
@@ -277,34 +400,106 @@ func (f *FileStorageEngine) recover() error {
 		}
 
 		f.records = append(f.records, offsetPos{
-			Offset: offsetCounter,
-			Pos:    curPos,
-			Length: totalRecordLen,
+			Offset:  offsetCounter,
+			SegBase: segBase,
+			Pos:     curPos,
+			Length:  totalRecordLen,
 		})
 		offsetCounter++
 		validFileEnd = curPos + int64(totalRecordLen)
 	}
 
-	// Under SyncInterval the checkpoint is fsynced before the WAL tail, so after a crash it can exceed the
-	// recovered record count. Every recovered record is then committed; clamp so new appends land above it.
-	if f.checkpoint > offsetCounter {
-		slog.Warn("walspool: checkpoint ahead of recovered WAL, clamping", "checkpoint", uint64(f.checkpoint), "recovered", uint64(offsetCounter))
-		f.checkpoint = offsetCounter
-	}
-
 	// If there were any dangling bytes past the last valid record, truncate them
 	if fileSize > validFileEnd {
-		if err := f.walFile.Truncate(validFileEnd); err != nil {
-			return fmt.Errorf("%w: failed to truncate trailing data", ErrStorageUnavailable)
+		if err := file.Truncate(validFileEnd); err != nil {
+			return 0, fmt.Errorf("%w: failed to truncate trailing data", ErrStorageUnavailable)
 		}
 	}
 
-	if _, err := f.walFile.Seek(validFileEnd, io.SeekStart); err != nil {
-		return fmt.Errorf("%w: failed to seek to end of wal", ErrStorageUnavailable)
-	}
-	f.writePos = validFileEnd
+	return validFileEnd, nil
+}
 
+func (f *FileStorageEngine) segmentPath(baseOffset Offset) string {
+	if (f.opts.MaxSegmentSize <= 0 || f.isLegacyActiveWAL) && baseOffset == 0 {
+		return filepath.Join(f.dir, "active.wal")
+	}
+	return filepath.Join(f.dir, fmt.Sprintf("segment-%012d.wal", baseOffset))
+}
+
+func (f *FileStorageEngine) readEntryAt(entry offsetPos, buf []byte) error {
+	if entry.SegBase == f.activeSegBase {
+		_, err := f.walFile.ReadAt(buf, entry.Pos)
+		return err
+	}
+	path := f.segmentPath(entry.SegBase)
+	segFile, err := os.Open(path)
+	if err != nil {
+		return err
+	}
+	defer segFile.Close()
+	_, err = segFile.ReadAt(buf, entry.Pos)
+	return err
+}
+
+func (f *FileStorageEngine) rotateSegment(nextOffset Offset) error {
+	if f.writer != nil && f.writer.Buffered() > 0 {
+		if err := f.writer.Flush(); err != nil {
+			return fmt.Errorf("%w: failed to flush segment before rotation", ErrStorageUnavailable)
+		}
+	}
+	if err := f.walFile.Sync(); err != nil {
+		return fmt.Errorf("%w: failed to sync segment before rotation", ErrStorageUnavailable)
+	}
+	if err := f.walFile.Close(); err != nil {
+		return fmt.Errorf("%w: failed to close segment before rotation", ErrStorageUnavailable)
+	}
+
+	f.activeSegBase = nextOffset
+	newPath := f.segmentPath(nextOffset)
+	newFile, err := os.OpenFile(newPath, os.O_CREATE|os.O_RDWR, 0644)
+	if err != nil {
+		return fmt.Errorf("%w: failed to open new segment file", ErrStorageUnavailable)
+	}
+
+	f.walFile = newFile
+	f.writer = bufio.NewWriterSize(newFile, f.opts.BufferSize)
+	f.writePos = 0
 	return nil
+}
+
+func (f *FileStorageEngine) pruneCommittedSegments() {
+	prunedAny := false
+	for len(f.records) > 0 {
+		firstSegBase := f.records[0].SegBase
+		if firstSegBase == f.activeSegBase {
+			break
+		}
+
+		segEndIdx := 0
+		for segEndIdx < len(f.records) && f.records[segEndIdx].SegBase == firstSegBase {
+			segEndIdx++
+		}
+
+		lastRecordInSeg := f.records[segEndIdx-1]
+		if lastRecordInSeg.Offset < f.checkpoint {
+			path := f.segmentPath(firstSegBase)
+			if err := os.Remove(path); err != nil && !os.IsNotExist(err) {
+				slog.Warn("walspool: failed to remove pruned segment file", "segment", path, "error", err)
+			}
+			f.baseOffset += Offset(segEndIdx)
+			f.records = f.records[segEndIdx:]
+			prunedAny = true
+		} else {
+			break
+		}
+	}
+
+	if prunedAny {
+		if dirFile, err := os.Open(f.dir); err == nil {
+			_ = dirFile.Sync()
+			_ = dirFile.Close()
+		}
+	}
 }
 
 // rollbackTo undoes a failed append so the WAL never grows with zero padding: it truncates to
@@ -324,7 +519,7 @@ func (f *FileStorageEngine) rollbackTo(pos int64) {
 	}
 	f.writePos = target
 	keep := len(f.records)
-	for keep > 0 && f.records[keep-1].Pos+int64(f.records[keep-1].Length) > target {
+	for keep > 0 && f.records[keep-1].SegBase == f.activeSegBase && f.records[keep-1].Pos+int64(f.records[keep-1].Length) > target {
 		keep--
 	}
 	f.records = f.records[:keep]
@@ -338,17 +533,23 @@ func (f *FileStorageEngine) Append(rec Record) (Offset, error) {
 		return 0, ErrStorageUnavailable
 	}
 
-	uncommitted := len(f.records) - int(f.checkpoint)
+	uncommitted := int((f.baseOffset + Offset(len(f.records))) - f.checkpoint)
 	if uncommitted >= f.maxCapacity {
 		return 0, ErrSpoolFull
 	}
 
-	newOffset := Offset(len(f.records))
+	newOffset := f.baseOffset + Offset(len(f.records))
 	rec.Offset = newOffset
 
 	data, err := rec.MarshalBinary()
 	if err != nil {
 		return 0, err
+	}
+
+	if f.opts.MaxSegmentSize > 0 && f.writePos > 0 && f.writePos+int64(len(data)) > f.opts.MaxSegmentSize {
+		if err := f.rotateSegment(newOffset); err != nil {
+			return 0, err
+		}
 	}
 
 	pos := f.writePos
@@ -375,9 +576,10 @@ func (f *FileStorageEngine) Append(rec Record) (Offset, error) {
 
 	f.writePos += int64(len(data))
 	f.records = append(f.records, offsetPos{
-		Offset: newOffset,
-		Pos:    pos,
-		Length: len(data),
+		Offset:  newOffset,
+		SegBase: f.activeSegBase,
+		Pos:     pos,
+		Length:  len(data),
 	})
 
 	return newOffset, nil
@@ -398,7 +600,10 @@ func (f *FileStorageEngine) ReadBatch(maxCount int) ([]Record, error) {
 		}
 	}
 
-	startIdx := int(f.checkpoint)
+	startIdx := int(f.checkpoint - f.baseOffset)
+	if startIdx < 0 {
+		startIdx = 0
+	}
 	if startIdx >= len(f.records) {
 		return nil, nil
 	}
@@ -413,7 +618,7 @@ func (f *FileStorageEngine) ReadBatch(maxCount int) ([]Record, error) {
 		entry := f.records[i]
 		buf := make([]byte, entry.Length)
 
-		if _, err := f.walFile.ReadAt(buf, entry.Pos); err != nil {
+		if err := f.readEntryAt(entry, buf); err != nil {
 			return nil, fmt.Errorf("%w: read error at offset %d", ErrStorageUnavailable, entry.Offset)
 		}
 
@@ -493,6 +698,11 @@ func (f *FileStorageEngine) Commit(offset Offset) error {
 	}
 
 	f.checkpoint = newCheckpoint
+
+	if f.opts.MaxSegmentSize > 0 && len(f.records) > 0 {
+		f.pruneCommittedSegments()
+	}
+
 	return nil
 }
 
@@ -504,7 +714,8 @@ func (f *FileStorageEngine) UncommittedCount() (int, error) {
 		return 0, ErrStorageUnavailable
 	}
 
-	count := len(f.records) - int(f.checkpoint)
+	total := f.baseOffset + Offset(len(f.records))
+	count := int(total - f.checkpoint)
 	if count < 0 {
 		return 0, nil
 	}
