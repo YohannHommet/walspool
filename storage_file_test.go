@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 	"sync"
 	"testing"
 	"time"
@@ -945,4 +946,267 @@ func TestFileStorage_SegmentRotation_CrashRecovery(t *testing.T) {
 		t.Fatalf("expected offset 15, got %d", newOffset)
 	}
 }
+
+func TestFileStorage_SegmentRotation_ConcurrentAppendRead(t *testing.T) {
+	dir := t.TempDir()
+
+	opts := walspool.DefaultFileStorageOptions()
+	opts.MaxSegmentSize = 400
+	opts.SyncPolicy = walspool.SyncBatchCommit
+
+	engine, err := walspool.NewFileStorageEngineWithOptions(dir, 10000, opts)
+	if err != nil {
+		t.Fatalf("init failed: %v", err)
+	}
+	defer engine.Close()
+
+	const numWorkers = 4
+	const recordsPerWorker = 50
+	const totalRecords = numWorkers * recordsPerWorker
+
+	var wg sync.WaitGroup
+	wg.Add(numWorkers)
+
+	for w := 0; w < numWorkers; w++ {
+		go func(workerID int) {
+			defer wg.Done()
+			for i := 0; i < recordsPerWorker; i++ {
+				rec := walspool.Record{
+					ID:        uint64(workerID*recordsPerWorker + i + 1),
+					Timestamp: time.Now(),
+					Topic:     "concurrent.stream",
+					Payload:   []byte(fmt.Sprintf("worker-%d-item-%04d-payload-data", workerID, i)),
+				}
+				if _, err := engine.Append(rec); err != nil {
+					t.Errorf("worker %d append %d failed: %v", workerID, i, err)
+					return
+				}
+			}
+		}(w)
+	}
+
+	// Concurrent reader draining batches while appenders write and rotate segments
+	readDone := make(chan struct{})
+	go func() {
+		defer close(readDone)
+		readCount := 0
+		for readCount < totalRecords {
+			batch, err := engine.ReadBatch(10)
+			if err != nil {
+				t.Errorf("concurrent read error: %v", err)
+				return
+			}
+			if len(batch) > 0 {
+				lastOffset := batch[len(batch)-1].Offset
+				if err := engine.Commit(lastOffset); err != nil {
+					t.Errorf("concurrent commit error: %v", err)
+					return
+				}
+				readCount += len(batch)
+			} else {
+				time.Sleep(2 * time.Millisecond)
+			}
+		}
+	}()
+
+	wg.Wait()
+	<-readDone
+
+	uncommitted, err := engine.UncommittedCount()
+	if err != nil || uncommitted != 0 {
+		t.Fatalf("expected 0 uncommitted records, got %d (err: %v)", uncommitted, err)
+	}
+}
+
+func TestFileStorage_SegmentRotation_OversizedRecord(t *testing.T) {
+	dir := t.TempDir()
+
+	// Segment size smaller than the oversized record itself
+	opts := walspool.DefaultFileStorageOptions()
+	opts.MaxSegmentSize = 300
+	opts.SyncPolicy = walspool.SyncBatchCommit
+
+	engine, err := walspool.NewFileStorageEngineWithOptions(dir, 1000, opts)
+	if err != nil {
+		t.Fatalf("init failed: %v", err)
+	}
+	defer engine.Close()
+
+	rec1 := walspool.Record{ID: 1, Timestamp: time.Now(), Topic: "t", Payload: []byte("normal-record-1")}
+	rec2 := walspool.Record{ID: 2, Timestamp: time.Now(), Topic: "t", Payload: bytes.Repeat([]byte("X"), 2048)}
+	rec3 := walspool.Record{ID: 3, Timestamp: time.Now(), Topic: "t", Payload: []byte("normal-record-3")}
+
+	off1, err := engine.Append(rec1)
+	if err != nil || off1 != 0 {
+		t.Fatalf("append rec1 failed: off=%d, err=%v", off1, err)
+	}
+
+	off2, err := engine.Append(rec2)
+	if err != nil || off2 != 1 {
+		t.Fatalf("append rec2 (oversized) failed: off=%d, err=%v", off2, err)
+	}
+
+	off3, err := engine.Append(rec3)
+	if err != nil || off3 != 2 {
+		t.Fatalf("append rec3 failed: off=%d, err=%v", off3, err)
+	}
+
+	batch, err := engine.ReadBatch(10)
+	if err != nil || len(batch) != 3 {
+		t.Fatalf("expected 3 records, got %d (err: %v)", len(batch), err)
+	}
+	if len(batch[1].Payload) != 2048 {
+		t.Fatalf("expected 2048 bytes payload for rec2, got %d", len(batch[1].Payload))
+	}
+}
+
+func TestFileStorage_SegmentRotation_LegacyMigration(t *testing.T) {
+	dir := t.TempDir()
+
+	// Phase 1: create legacy active.wal (MaxSegmentSize = 0)
+	optsLegacy := walspool.DefaultFileStorageOptions()
+	optsLegacy.MaxSegmentSize = 0
+	optsLegacy.SyncPolicy = walspool.SyncBatchCommit
+
+	eng1, err := walspool.NewFileStorageEngineWithOptions(dir, 1000, optsLegacy)
+	if err != nil {
+		t.Fatalf("init legacy engine failed: %v", err)
+	}
+	for i := 0; i < 5; i++ {
+		rec := walspool.Record{ID: uint64(i + 1), Timestamp: time.Now(), Topic: "t", Payload: []byte("legacy-record")}
+		if _, err := eng1.Append(rec); err != nil {
+			t.Fatalf("append %d failed: %v", i, err)
+		}
+	}
+	if err := eng1.Close(); err != nil {
+		t.Fatalf("close legacy engine failed: %v", err)
+	}
+
+	// Verify active.wal exists
+	if _, err := os.Stat(filepath.Join(dir, "active.wal")); err != nil {
+		t.Fatalf("expected active.wal to exist: %v", err)
+	}
+
+	// Phase 2: reopen with MaxSegmentSize > 0 enabled
+	optsSegmented := walspool.DefaultFileStorageOptions()
+	optsSegmented.MaxSegmentSize = 200
+	optsSegmented.SyncPolicy = walspool.SyncBatchCommit
+
+	eng2, err := walspool.NewFileStorageEngineWithOptions(dir, 1000, optsSegmented)
+	if err != nil {
+		t.Fatalf("reopen with segmentation failed: %v", err)
+	}
+	defer eng2.Close()
+
+	// Append more records to force rotation into new segment files
+	for i := 5; i < 15; i++ {
+		rec := walspool.Record{ID: uint64(i + 1), Timestamp: time.Now(), Topic: "t", Payload: []byte("new-segmented-record")}
+		if _, err := eng2.Append(rec); err != nil {
+			t.Fatalf("append %d failed: %v", i, err)
+		}
+	}
+
+	// Read all 15 records back across legacy active.wal and new segments
+	batch, err := eng2.ReadBatch(20)
+	if err != nil || len(batch) != 15 {
+		t.Fatalf("expected 15 records across migrated segments, got %d (err: %v)", len(batch), err)
+	}
+	for i, r := range batch {
+		if r.Offset != walspool.Offset(i) || r.ID != uint64(i+1) {
+			t.Fatalf("record %d mismatch: offset=%d, id=%d", i, r.Offset, r.ID)
+		}
+	}
+
+	// Commit all records and verify pruning
+	if err := eng2.Commit(14); err != nil {
+		t.Fatalf("commit failed: %v", err)
+	}
+
+	uncommitted, err := eng2.UncommittedCount()
+	if err != nil || uncommitted != 0 {
+		t.Fatalf("expected 0 uncommitted records, got %d", uncommitted)
+	}
+}
+
+func TestFileStorage_SegmentRotation_CorruptMiddleSegment(t *testing.T) {
+	dir := t.TempDir()
+
+	opts := walspool.DefaultFileStorageOptions()
+	opts.MaxSegmentSize = 200
+	opts.SyncPolicy = walspool.SyncBatchCommit
+
+	eng, err := walspool.NewFileStorageEngineWithOptions(dir, 1000, opts)
+	if err != nil {
+		t.Fatalf("init failed: %v", err)
+	}
+
+	// Append 12 records across ~4 segments
+	for i := 0; i < 12; i++ {
+		rec := walspool.Record{ID: uint64(i + 1), Timestamp: time.Now(), Topic: "t", Payload: []byte("segment-corrupt-test-payload")}
+		if _, err := eng.Append(rec); err != nil {
+			t.Fatalf("append %d failed: %v", i, err)
+		}
+	}
+	if err := eng.Close(); err != nil {
+		t.Fatalf("close failed: %v", err)
+	}
+
+	// Find the 2nd segment and flip a byte in its payload
+	segments, _ := filepath.Glob(filepath.Join(dir, "segment-*.wal"))
+	if len(segments) < 3 {
+		t.Fatalf("expected at least 3 segments, got %d", len(segments))
+	}
+	sort.Strings(segments)
+	targetSeg := segments[1]
+
+	data, err := os.ReadFile(targetSeg)
+	if err != nil {
+		t.Fatalf("read segment failed: %v", err)
+	}
+	// Corrupt a byte near the middle of targetSeg
+	data[len(data)/2] ^= 0xEE
+	if err := os.WriteFile(targetSeg, data, 0644); err != nil {
+		t.Fatalf("rewrite segment failed: %v", err)
+	}
+
+	reopened, err := walspool.NewFileStorageEngineWithOptions(dir, 1000, opts)
+	if err != nil {
+		t.Fatalf("reopen failed: %v", err)
+	}
+	defer reopened.Close()
+
+	// Read valid records preceding the corrupted segment
+	batch, err := reopened.ReadBatch(10)
+	if err != nil {
+		t.Fatalf("expected valid prefix batch, got err: %v", err)
+	}
+	if len(batch) == 0 {
+		t.Fatalf("expected at least 1 valid record before corrupt segment")
+	}
+
+	// Commit up to the last valid record before the corrupt one
+	lastValidOffset := batch[len(batch)-1].Offset
+	if err := reopened.Commit(lastValidOffset); err != nil {
+		t.Fatalf("commit valid prefix failed: %v", err)
+	}
+
+	// Next ReadBatch should isolate the CorruptRecordError
+	batch, err = reopened.ReadBatch(10)
+	var corruptErr *walspool.CorruptRecordError
+	if !errors.As(err, &corruptErr) || len(batch) != 0 {
+		t.Fatalf("expected *CorruptRecordError and empty batch, got %d records, err=%v", len(batch), err)
+	}
+
+	// Commit past the corrupt record to skip it
+	if err := reopened.Commit(corruptErr.Offset); err != nil {
+		t.Fatalf("commit past corrupt record failed: %v", err)
+	}
+
+	// Next ReadBatch should recover valid records from remaining segments
+	batch, err = reopened.ReadBatch(10)
+	if err != nil || len(batch) == 0 {
+		t.Fatalf("expected records after corrupt segment to be readable, got %d records, err=%v", len(batch), err)
+	}
+}
+
 
