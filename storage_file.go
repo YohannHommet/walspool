@@ -247,21 +247,35 @@ func (f *FileStorageEngine) recoverSegmented() error {
 	var segFiles []segFileInfo
 
 	matches, _ := filepath.Glob(filepath.Join(f.dir, "segment-*.wal"))
-	if len(matches) > 0 {
-		for _, m := range matches {
-			base := filepath.Base(m)
-			var baseOff uint64
-			if n, _ := fmt.Sscanf(base, "segment-%012d.wal", &baseOff); n == 1 {
-				segFiles = append(segFiles, segFileInfo{baseOffset: Offset(baseOff), path: m})
-			}
+	for _, m := range matches {
+		base := filepath.Base(m)
+		var baseOff uint64
+		if n, _ := fmt.Sscanf(base, "segment-%012d.wal", &baseOff); n == 1 {
+			segFiles = append(segFiles, segFileInfo{baseOffset: Offset(baseOff), path: m})
 		}
-		sort.Slice(segFiles, func(i, j int) bool {
-			return segFiles[i].baseOffset < segFiles[j].baseOffset
-		})
 	}
 
+	// If legacy active.wal exists with data, include it as base 0 unless segment-000000000000.wal already exists.
+	activePath := filepath.Join(f.dir, "active.wal")
+	if fi, err := os.Stat(activePath); err == nil && fi.Size() > 0 {
+		hasZeroSeg := false
+		for _, sf := range segFiles {
+			if sf.baseOffset == 0 {
+				hasZeroSeg = true
+				break
+			}
+		}
+		if !hasZeroSeg {
+			f.isLegacyActiveWAL = true
+			segFiles = append(segFiles, segFileInfo{baseOffset: 0, path: activePath})
+		}
+	}
+
+	sort.Slice(segFiles, func(i, j int) bool {
+		return segFiles[i].baseOffset < segFiles[j].baseOffset
+	})
+
 	if len(segFiles) == 0 {
-		activePath := filepath.Join(f.dir, "active.wal")
 		if _, err := os.Stat(activePath); err == nil {
 			f.isLegacyActiveWAL = true
 			segFiles = append(segFiles, segFileInfo{baseOffset: 0, path: activePath})
@@ -426,20 +440,6 @@ func (f *FileStorageEngine) segmentPath(baseOffset Offset) string {
 	return filepath.Join(f.dir, fmt.Sprintf("segment-%012d.wal", baseOffset))
 }
 
-func (f *FileStorageEngine) readEntryAt(entry offsetPos, buf []byte) error {
-	if entry.SegBase == f.activeSegBase {
-		_, err := f.walFile.ReadAt(buf, entry.Pos)
-		return err
-	}
-	path := f.segmentPath(entry.SegBase)
-	segFile, err := os.Open(path)
-	if err != nil {
-		return err
-	}
-	defer segFile.Close()
-	_, err = segFile.ReadAt(buf, entry.Pos)
-	return err
-}
 
 func (f *FileStorageEngine) rotateSegment(nextOffset Offset) error {
 	if f.writer != nil && f.writer.Buffered() > 0 {
@@ -447,18 +447,29 @@ func (f *FileStorageEngine) rotateSegment(nextOffset Offset) error {
 			return fmt.Errorf("%w: failed to flush segment before rotation", ErrStorageUnavailable)
 		}
 	}
-	if err := f.walFile.Sync(); err != nil {
-		return fmt.Errorf("%w: failed to sync segment before rotation", ErrStorageUnavailable)
-	}
-	if err := f.walFile.Close(); err != nil {
-		return fmt.Errorf("%w: failed to close segment before rotation", ErrStorageUnavailable)
+	if f.walFile != nil {
+		if err := f.walFile.Sync(); err != nil {
+			return fmt.Errorf("%w: failed to sync segment before rotation", ErrStorageUnavailable)
+		}
+		if err := f.walFile.Close(); err != nil {
+			return fmt.Errorf("%w: failed to close segment before rotation", ErrStorageUnavailable)
+		}
 	}
 
 	f.activeSegBase = nextOffset
 	newPath := f.segmentPath(nextOffset)
 	newFile, err := os.OpenFile(newPath, os.O_CREATE|os.O_RDWR, 0644)
 	if err != nil {
+		f.walFile = nil
+		f.writer = nil
+		f.closed = true
 		return fmt.Errorf("%w: failed to open new segment file", ErrStorageUnavailable)
+	}
+
+	// Ensure directory metadata entry for new segment is durable
+	if dirFile, err := os.Open(f.dir); err == nil {
+		_ = dirFile.Sync()
+		_ = dirFile.Close()
 	}
 
 	f.walFile = newFile
@@ -486,8 +497,12 @@ func (f *FileStorageEngine) pruneCommittedSegments() {
 			if err := os.Remove(path); err != nil && !os.IsNotExist(err) {
 				slog.Warn("walspool: failed to remove pruned segment file", "segment", path, "error", err)
 			}
-			f.baseOffset += Offset(segEndIdx)
 			f.records = f.records[segEndIdx:]
+			if len(f.records) > 0 {
+				f.baseOffset = f.records[0].Offset
+			} else {
+				f.baseOffset = f.activeSegBase
+			}
 			prunedAny = true
 		} else {
 			break
@@ -614,12 +629,39 @@ func (f *FileStorageEngine) ReadBatch(maxCount int) ([]Record, error) {
 	}
 
 	batch := make([]Record, 0, endIdx-startIdx)
+	var curSegFile *os.File
+	var curSegBase Offset = ^Offset(0)
+	defer func() {
+		if curSegFile != nil {
+			_ = curSegFile.Close()
+		}
+	}()
+
 	for i := startIdx; i < endIdx; i++ {
 		entry := f.records[i]
 		buf := make([]byte, entry.Length)
 
-		if err := f.readEntryAt(entry, buf); err != nil {
-			return nil, fmt.Errorf("%w: read error at offset %d", ErrStorageUnavailable, entry.Offset)
+		if entry.SegBase == f.activeSegBase {
+			if _, err := f.walFile.ReadAt(buf, entry.Pos); err != nil {
+				return nil, fmt.Errorf("%w: read error at offset %d", ErrStorageUnavailable, entry.Offset)
+			}
+		} else {
+			if entry.SegBase != curSegBase {
+				if curSegFile != nil {
+					_ = curSegFile.Close()
+					curSegFile = nil
+				}
+				path := f.segmentPath(entry.SegBase)
+				sf, err := os.Open(path)
+				if err != nil {
+					return nil, fmt.Errorf("%w: read error opening segment at offset %d: %w", ErrStorageUnavailable, entry.Offset, err)
+				}
+				curSegFile = sf
+				curSegBase = entry.SegBase
+			}
+			if _, err := curSegFile.ReadAt(buf, entry.Pos); err != nil {
+				return nil, fmt.Errorf("%w: read error at offset %d", ErrStorageUnavailable, entry.Offset)
+			}
 		}
 
 		var rec Record
@@ -743,8 +785,12 @@ func (f *FileStorageEngine) Close() error {
 		if f.writer != nil {
 			flushErr = f.writer.Flush()
 		}
-		syncErr := f.walFile.Sync()
-		closeErr := f.walFile.Close()
+		var syncErr error
+		var closeErr error
+		if f.walFile != nil {
+			syncErr = f.walFile.Sync()
+			closeErr = f.walFile.Close()
+		}
 		f.mu.Unlock()
 
 		var errs []error
