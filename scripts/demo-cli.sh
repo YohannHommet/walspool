@@ -56,9 +56,10 @@ while true; do
     echo "5) 🔎 stream --grep 'timeout'    - Filtrer par motif regex"
     echo "6) ⏱️  stream --limit 5           - Écouter 5 logs puis s'arrêter"
     echo "7) 🔄 stream --format json | jq  - Test de composition Unix (JSON)"
+    echo "8) 🚀 Stress Test                - Injecter une charge massive (10 000+ ev/s)"
     echo "q) Quitter"
     echo "================================================================="
-    read -r -p "Choisissez une option [1-7, q] : " choice
+    read -r -p "Choisissez une option [1-8, q] : " choice
 
     case "${choice}" in
         1)
@@ -93,6 +94,15 @@ while true; do
                 echo "Lancement de walspool stream --format json (Ctrl+C pour arrêter)..."
                 ./bin/walspool stream --format json || true
             fi
+            ;;
+        8)
+            if [ ! -f "bin/loadgen" ]; then
+                echo "📦 Compilation de bin/loadgen..."
+                mkdir -p bin
+                CGO_ENABLED=0 go build -o bin/loadgen ./scripts/loadgen
+            fi
+            echo "🚀 Injection de charge massive pendant 10s vers ${ADDR}..."
+            ./bin/loadgen -url "${ADDR}/v1/enqueue" -workers 16 -duration 10s
             ;;
         q|Q)
             echo "Au revoir !"
