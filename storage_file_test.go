@@ -1463,6 +1463,3 @@ func TestFileStorage_SegmentRotation_MultiSegmentReadBatchPerformance(t *testing
 		}
 	}
 }
-
-
-

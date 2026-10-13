@@ -237,4 +237,3 @@ func BenchmarkFileStorage_Append_Segmented_Rotation(b *testing.B) {
 		}
 	}
 }
-

@@ -440,7 +440,6 @@ func (f *FileStorageEngine) segmentPath(baseOffset Offset) string {
 	return filepath.Join(f.dir, fmt.Sprintf("segment-%012d.wal", baseOffset))
 }
 
-
 func (f *FileStorageEngine) rotateSegment(nextOffset Offset) error {
 	if f.writer != nil && f.writer.Buffered() > 0 {
 		if err := f.writer.Flush(); err != nil {
