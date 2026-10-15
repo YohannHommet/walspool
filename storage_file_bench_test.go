@@ -204,3 +204,36 @@ func BenchmarkFileStorage_Append_PayloadSizes(b *testing.B) {
 		})
 	}
 }
+
+// Benchmark 6: Segmented WAL rotation (rotates every 256KB) with periodic commit & auto-prune
+func BenchmarkFileStorage_Append_Segmented_Rotation(b *testing.B) {
+	dir, cleanup := benchDir(b, "segmented_rotation")
+	defer cleanup()
+
+	opts := walspool.DefaultFileStorageOptions()
+	opts.MaxSegmentSize = 256 * 1024 // 256KB per segment
+	engine, err := walspool.NewFileStorageEngineWithOptions(dir, b.N+100000, opts)
+	if err != nil {
+		b.Fatalf("init failed: %v", err)
+	}
+	defer engine.Close()
+
+	rec := walspool.Record{
+		ID:        1,
+		Timestamp: time.Now(),
+		Topic:     "bench.segmented",
+		Payload:   []byte("benchmark-record-payload-128-bytes-long-string-padding-example"),
+	}
+
+	b.ResetTimer()
+	b.ReportAllocs()
+	for i := 0; i < b.N; i++ {
+		offset, err := engine.Append(rec)
+		if err != nil {
+			b.Fatalf("append failed at %d: %v", i, err)
+		}
+		if i%500 == 0 && i > 0 {
+			_ = engine.Commit(offset - 100)
+		}
+	}
+}
