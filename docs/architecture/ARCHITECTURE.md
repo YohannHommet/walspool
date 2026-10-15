@@ -131,7 +131,7 @@ Le composant `storage_file.go` matérialise le Write-Ahead Log physique sur disq
   * `SyncPolicy = SyncInterval` : Écritures tamponnées dans un `bufio.Writer` de 128 Ko avec vidange périodique (`FlushInterval = 50ms`). Ce mode délivre plus de **2.2 millions d'opérations/seconde** sur SSD NVMe.
   * `SyncPolicy = SyncBatchCommit` : Synchronisation fsync déclenchée à la clôture de chaque batch.
   * `SyncPolicy = SyncEveryRecord` : `fsync()` unitaire synchrone pour les scénarios financiers ultra-rigides.
-- **Rotation Multi-Segments & Auto-Pruning (PR #6, voir [ADR-001](adr/ADR-001-multi-segment-rotation.md))** :
+- **Rotation Multi-Segments & Auto-Pruning (Fusionnée via PR #6, commit `81082d5`, voir [ADR-001](adr/ADR-001-multi-segment-rotation.md))** :
   * `MaxSegmentSize int64` : Lorsque la taille du segment actif dépasse ce seuil (ex: 64 Mo), le fichier est scellé (`f.walFile.Sync()`, `Close()`) et un nouveau segment `segment-<baseOffset>.wal` est créé instantanément sans bloquer l'ingestion.
   * *Segments clôturés en lecture seule* : Tout segment antérieur est immuable et ouvert en lecture seule.
   * *Auto-Pruning déterministe* : Dès que `Commit(offset)` avance le checkpoint, tout segment dont le `MaxOffset < Checkpoint` est supprimé du disque (`os.Remove`), et l'index mémoire résiduel est élagué pour garantir une empreinte RAM et disque strictement bornée.
@@ -287,4 +287,10 @@ flowchart LR
     C --> D["Sparse Index 64 Ko\n(RAM index -99.9%)"]
     D --> E["Dispatcher Pipeliné\n(Watermark monotone & Jitter)"]
 ```
+
+### Jalons GitHub Associés
+L'implémentation est découpée en 3 jalons traçables publiquement :
+1. **[Milestone v1.2.0 — High Throughput & DX Quick Wins](https://github.com/YohannHommet/walspool/milestone/1)** : Ingestion par lots ([#7](https://github.com/YohannHommet/walspool/issues/7)), NDJSON ([#8](https://github.com/YohannHommet/walspool/issues/8)), scanner de métadonnées zéro-alloc ([#9](https://github.com/YohannHommet/walspool/issues/9)), port :9099 ([#10](https://github.com/YohannHommet/walspool/issues/10)), fix mémoire hub wrap ([#11](https://github.com/YohannHommet/walspool/issues/11)), jitter backoff timer ([#12](https://github.com/YohannHommet/walspool/issues/12)).
+2. **[Milestone v2.0.0 — Storage V2 & Hardware Sympathy](https://github.com/YohannHommet/walspool/milestone/2)** : UDS ([#13](https://github.com/YohannHommet/walspool/issues/13)), décodeur direct OTLP ([#14](https://github.com/YohannHommet/walspool/issues/14)), trame 32B alignée 64-bit ([#15](https://github.com/YohannHommet/walspool/issues/15)), CRC32C matériel Castagnoli ([#16](https://github.com/YohannHommet/walspool/issues/16)), auto-healing scan magic ([#17](https://github.com/YohannHommet/walspool/issues/17)), sparse index 64 Ko ([#18](https://github.com/YohannHommet/walspool/issues/18)), découplage verrou f.mu ([#19](https://github.com/YohannHommet/walspool/issues/19)), checkpoint circulaire RESTART ([#20](https://github.com/YohannHommet/walspool/issues/20)), ring buffer padded ([#21](https://github.com/YohannHommet/walspool/issues/21)), recherche O(log N) ([#22](https://github.com/YohannHommet/walspool/issues/22)), symbol table interning ([#23](https://github.com/YohannHommet/walspool/issues/23)).
+3. **[Milestone v2.1.0 — Adaptive Dispatch & Semantic Intelligence](https://github.com/YohannHommet/walspool/milestone/3)** : Adaptive batching RTT ([#24](https://github.com/YohannHommet/walspool/issues/24)), dispatcher pipeliné 16 in-flight ([#25](https://github.com/YohannHommet/walspool/issues/25)), filtrage sémantique client CLI Option A ([#26](https://github.com/YohannHommet/walspool/issues/26)).
 

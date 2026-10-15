@@ -1,10 +1,10 @@
 # ADR-001 : Rotation Multi-Segments & Élagage Automatique Synchronisé sur le Checkpoint
 
-* **Statut :** Accepté  
+* **Statut :** Accepté & Fusionné (PR #6 sur `main`, commit `81082d5`)  
 * **Date :** Octobre 2026  
 * **Auteur :** Yohann Hommet & Conseil d'Architecture Walspool  
 * **Composant :** Moteur de Stockage Disque (`storage_file.go`)  
-* **PR Associée :** #6 (`feature/segment-rotation`)  
+* **PR Associée :** [#6](https://github.com/YohannHommet/walspool/pull/6) (`feature/segment-rotation`)  
 
 ---
 

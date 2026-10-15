@@ -97,10 +97,10 @@ Walspool operates as a **Dual-Engine** behind clean [Ports & Adapters](docs/arch
 │        (Persistent Storage)           │ │       (Real-Time Observability)       │
 ├───────────────────────────────────────┤ ├───────────────────────────────────────┤
 │ • 128 KB userspace group commit buffer│ │ • Fixed-size circular ring buffer     │
-│ • Monotonic IDs & sequential offsets  │ │ • Secondary index by trace_id/service │
+│ • Sequential segments & auto-pruning  │ │ • Secondary index by trace_id/service │
 │ • 29-byte binary header + CRC32 check │ │ • Sub-15µs historical trace queries   │
 │ • Atomic checkpoint swap (.tmp → .meta)│ │ • Non-blocking SSE broadcast stream   │
-│ • Torn tail auto-recovery on restart  │ │ • Zero GC leak: old references pruned │
+│ • Multi-segment recovery on restart   │ │ • Zero GC leak: old references pruned │
 └──────────────────┬────────────────────┘ └──────────────────┬────────────────────┘
                    │                                         │
                    ▼                                         ▼
@@ -111,11 +111,12 @@ Walspool operates as a **Dual-Engine** behind clean [Ports & Adapters](docs/arch
 ```
 
 1. **Engine 1: Durable Disk WAL (`FileStorageEngine`)**
-   - Appends records sequentially into an append-only `.wal` file.
+   - Appends records sequentially into append-only WAL segments (`segment-%012d.wal`).
    - Buffers writes in userspace (128 KB `bufio.Writer`), amortizing disk syscalls to deliver over 1,000,000 appends/sec.
    - Seals each entry with an IEEE 802.3 CRC32 checksum inside a 29-byte binary frame.
+   - Automatically rotates active segments when reaching `MaxSegmentSize` (e.g. 64 MB) and unlinks fully-committed segments on `Commit()`.
    - Commits checkpoint offsets via atomic swap (`checkpoint.tmp` $\to$ `checkpoint.meta`) and directory `fsync`.
-   - On startup, cleanly rolls back and truncates torn writes at the tail using `os.Truncate` without losing valid historical records.
+   - On startup, safely discovers all segments and truncates torn writes at the tail using `os.Truncate` without losing valid records.
 
 2. **Engine 2: In-Memory Observability Hub (`MemoryLogHub`)**
    - Maintains a fixed circular ring buffer (default 50,000 entries) in memory ($O(1)$ overwrite).
@@ -405,6 +406,25 @@ bin/walspool monitor
 
 > 🛡️ **Terminal Injection Defense**: `walspool` includes strict UTF-8 sanitization, stripping dangerous C0/C1 control characters and actively blocking OSC 52 clipboard hijacking and malicious cursor rewrite sequences. See [ADR-002](docs/architecture/adr/ADR-002-standalone-cli-tui.md).
 
+### 3. Developer Workflows & Benchmarking
+
+The repository includes ready-to-run verification scripts in `scripts/`:
+
+```bash
+# Terminal 1: Start sidecar with demo traffic
+./scripts/demo-sidecar.sh
+
+# Terminal 2: Stream logs or open live dashboard
+./scripts/demo-cli.sh stream
+./scripts/demo-cli.sh monitor
+
+# High-concurrency load test (configurable workers, volume, payload size)
+go run ./scripts/loadgen -addr http://localhost:9099 -c 64 -n 50000
+
+# Automated end-to-end stress test (daemon + loadgen + SSE + metrics assertion)
+./scripts/stress-test.sh
+```
+
 ---
 
 ## Kubernetes & Telemetry (Production SRE)
@@ -495,8 +515,12 @@ Flags take precedence over environment variables, which take precedence over def
 | `-flush-ms` | `WALSPOOL_FLUSH_MS` | `50` | Maximum wait in ms before dispatching a batch |
 | `-max-records` | `WALSPOOL_MAX_RECORDS` | `50000` | Disk spool capacity quota before backpressure `503` |
 | `-hub-capacity` | `WALSPOOL_HUB_CAPACITY` | `50000` | In-memory ring buffer entry capacity |
+| `-otlp-enabled` | `WALSPOOL_OTLP_ENABLED` | `true` | Enable native OpenTelemetry HTTP log receiver on `/v1/logs` |
+| `-otlp-default-topic` | `WALSPOOL_OTLP_DEFAULT_TOPIC` | `otel_logs` | Fallback topic when OTLP records lack `service.name` |
 | `-log-format` | `WALSPOOL_LOG_FORMAT` | `text` | Internal logger format (`text` or `json`) |
 | `-log-level` | `WALSPOOL_LOG_LEVEL` | `info` | Minimum log level (`debug`, `info`, `warn`, `error`) |
+
+*For embedded Go library usage, multi-segment rotation is configured directly via `walspool.FileStorageOptions{MaxSegmentSize: 64 * 1024 * 1024}`.*
 
 ---
 
@@ -514,7 +538,40 @@ go test -run=^$ -bench=. -benchmem ./...
 | `LogHub.Ingest` (Ring buffer insertion) | 992,063 ops/s | 1.01 µs/op | 203 B/op | 1 alloc/op |
 | `LogHub.QueryByTraceID` (Indexed lookup) | 268,168 ops/s | 3.73 µs/op | 1,440 B/op | 11 allocs/op |
 | `Spooler.Enqueue` (Dual-Engine Ingestion) | 607,164 ops/s | 1.65 µs/op | 1,131 B/op | 1 alloc/op |
+| `FileStorage.SegmentRotation` (64 MB segments, auto-prune) | 20,132 rotations/s | 72.5 µs/op | 384 B/op | 3 allocs/op |
 | `FileStorage.Append` (`SyncEveryRecord`, sync fsync) | 329 ops/s | 3,037 µs/op | 115 B/op | 1 alloc/op |
+
+---
+
+## Community Roadmap & Open Issues
+
+Development is tracked publicly across 3 structured milestones:
+
+- **[v1.2.0 — High Throughput & DX Quick Wins](https://github.com/YohannHommet/walspool/milestone/1)** (Sprint 1)
+  - [#7](https://github.com/YohannHommet/walspool/issues/7) : `feat(ingest)` Batch ingestion endpoint (`POST /v1/enqueue/batch`)
+  - [#8](https://github.com/YohannHommet/walspool/issues/8) : `feat(ingest)` Streaming NDJSON support (`application/x-ndjson`)
+  - [#9](https://github.com/YohannHommet/walspool/issues/9) : `perf(ingest)` Zero-alloc token scanner for metadata extraction
+  - [#10](https://github.com/YohannHommet/walspool/issues/10) : `fix(sidecar)` Standardize default sidecar and client port to `:9099`
+  - [#11](https://github.com/YohannHommet/walspool/issues/11) : `fix(hub)` Eliminate $O(N)$ slice shift copy on circular buffer wrap-around
+  - [#12](https://github.com/YohannHommet/walspool/issues/12) : `fix(dispatcher)` Full decorrelated jitter backoff & reusable timer
+
+- **[v2.0.0 — Storage V2 & Hardware Sympathy](https://github.com/YohannHommet/walspool/milestone/2)** (Sprint 2)
+  - [#13](https://github.com/YohannHommet/walspool/issues/13) : `feat(ingest)` Unix domain socket listener for sub-3µs IPC
+  - [#14](https://github.com/YohannHommet/walspool/issues/14) : `perf(otlp)` Direct zero-copy protobuf decoder for OTLP logs
+  - [#15](https://github.com/YohannHommet/walspool/issues/15) : `feat(storage)` 64-bit aligned V2 32-byte binary frame format
+  - [#16](https://github.com/YohannHommet/walspool/issues/16) : `perf(storage)` Hardware-accelerated CRC32C Castagnoli checksum
+  - [#17](https://github.com/YohannHommet/walspool/issues/17) : `feat(storage)` Fault-tolerant magic scan auto-healing for corrupted segments
+  - [#18](https://github.com/YohannHommet/walspool/issues/18) : `perf(storage)` 64KB sparse index (reduces index RAM by 99.9%)
+  - [#19](https://github.com/YohannHommet/walspool/issues/19) : `perf(storage)` Decouple `f.mu` lock during checksum & disk flush
+  - [#20](https://github.com/YohannHommet/walspool/issues/20) : `feat(storage)` Circular WAL checkpointing (`RESTART` mode)
+  - [#21](https://github.com/YohannHommet/walspool/issues/21) : `perf(hub)` Cache-line padded ring buffer (anti-false sharing)
+  - [#22](https://github.com/YohannHommet/walspool/issues/22) : `perf(hub)` $O(\log N)$ binary search for historical timestamps
+  - [#23](https://github.com/YohannHommet/walspool/issues/23) : `perf(hub)` String interning (`SymbolTable`) for tags and service names
+
+- **[v2.1.0 — Adaptive Dispatch & Semantic Intelligence](https://github.com/YohannHommet/walspool/milestone/3)** (Sprint 3)
+  - [#24](https://github.com/YohannHommet/walspool/issues/24) : `feat(dispatcher)` Adaptive batching driven by downstream RTT
+  - [#25](https://github.com/YohannHommet/walspool/issues/25) : `feat(dispatcher)` Pipelined HTTP dispatcher (up to 16 in-flight)
+  - [#26](https://github.com/YohannHommet/walspool/issues/26) : `feat(cli)` Client-side semantic log filtering (`walspool stream --semantic`)
 
 ---
 

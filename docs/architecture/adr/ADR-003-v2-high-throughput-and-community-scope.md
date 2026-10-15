@@ -139,4 +139,7 @@ Pour garantir l'adoption virale de Walspool sans dénaturer son modèle économi
 
 1. **Déverrouillage Immédiat du Débit** : Le passage à l'ingestion par lots et au streaming NDJSON propulse le débit réseau mesurable de **6 500 req/s** à **plus de 350 000 événements/s** dès le Sprint 1.
 2. **Durabilité Industrielle Absolue** : Le moteur WAL V2 atteint le niveau de résilience des systèmes les plus exigeants de l'industrie (SQLite, TigerBeetle) tout en restant en Go pur sans dépendance.
-3. **Clarté Opérationnelle** : La base de code reste d'une élégance et d'une concision parfaites, fidèle aux principes des Boîtes Noires Profondes.
+3. **Clarté Opérationnelle & Traçabilité** : L'ensemble des 20 fonctionnalités retenues (incluant l'Option A de filtrage sémantique client) est découpé en tickets GitHub publics :
+   - [Jalon v1.2.0](https://github.com/YohannHommet/walspool/milestone/1) : Issues [#7](https://github.com/YohannHommet/walspool/issues/7), [#8](https://github.com/YohannHommet/walspool/issues/8), [#9](https://github.com/YohannHommet/walspool/issues/9), [#10](https://github.com/YohannHommet/walspool/issues/10), [#11](https://github.com/YohannHommet/walspool/issues/11), [#12](https://github.com/YohannHommet/walspool/issues/12).
+   - [Jalon v2.0.0](https://github.com/YohannHommet/walspool/milestone/2) : Issues [#13](https://github.com/YohannHommet/walspool/issues/13) à [#23](https://github.com/YohannHommet/walspool/issues/23).
+   - [Jalon v2.1.0](https://github.com/YohannHommet/walspool/milestone/3) : Issues [#24](https://github.com/YohannHommet/walspool/issues/24), [#25](https://github.com/YohannHommet/walspool/issues/25), [#26](https://github.com/YohannHommet/walspool/issues/26).

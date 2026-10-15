@@ -4,7 +4,7 @@
 > **Auteur & Mainteneur Unique :** Yohann Hommet ([@YohannHommet](https://github.com/YohannHommet))  
 > **Tag Prévu :** `v1.1.0`  
 > **Licence :** Functional Source License Version 1.1 avec réversion MIT à 2 ans (`FSL-1.1-MIT`)  
-> **Branche de Travail :** `feature/cli-stream-monitor` & `feature/segment-rotation` (PR #6)  
+> **Branche de Travail :** `feature/cli-stream-monitor` (PR #6 `feature/segment-rotation` fusionnée sur `main` - commit `81082d5`)  
 
 ---
 
@@ -41,7 +41,7 @@ Walspool intègre désormais son propre outil en ligne de commande, compilé en 
 
 ---
 
-### 2. Moteur de Rotation Multi-Segments & Auto-Élagage (PR #6)
+### 2. Moteur de Rotation Multi-Segments & Auto-Élagage (PR #6, fusionnée sur `main`)
 Le composant `storage_file.go` gère désormais le découpage déterministe du journal physique sur disque :
 
 * **Seuil de Taille de Segment (`MaxSegmentSize`)** :
@@ -104,7 +104,7 @@ go build -o bin/walspool-sidecar ./cmd/sidecar
 ### Lancer l'Observabilité en Direct
 ```bash
 # Dans un premier terminal : démarrer le sidecar
-bin/walspool-sidecar -listen :9099 -spool-dir /tmp/spool
+bin/walspool-sidecar -addr :9099 -data-dir /tmp/spool
 
 # Dans un second terminal : ouvrir le dashboard interactif
 bin/walspool monitor
@@ -115,9 +115,8 @@ bin/walspool stream --service checkout --level error
 
 ---
 
-## 🗺️ Aperçu de la Version V2 (Roadmap)
-La prochaine itération introduira :
-1. L'endpoint d'ingestion par lots `POST /v1/enqueue/batch` et le streaming continu NDJSON (`application/x-ndjson`).
-2. La trame binaire V2 32 octets alignée 64 bits avec double CRC32C matériel (Castagnoli SSE4.2 / ARMv8) et auto-healing sans troncature.
-3. Le Sparse Index 64 Ko divisant la mémoire d'index par 1 000.
-4. Les raccourcis magiques `walspool dev` et `walspool demo`.
+## 🗺️ Feuille de Route V2 (Jalons & Tickets Ouverts)
+Le cycle de développement post-v1.1.0 est piloté par 3 jalons publics :
+1. **[v1.2.0 — High Throughput & DX Quick Wins](https://github.com/YohannHommet/walspool/milestone/1)** : Ingestion par lots (`/v1/enqueue/batch` - [#7](https://github.com/YohannHommet/walspool/issues/7)), NDJSON (`application/x-ndjson` - [#8](https://github.com/YohannHommet/walspool/issues/8)), scanner de métadonnées zéro-alloc ([#9](https://github.com/YohannHommet/walspool/issues/9)), port unifié :9099 ([#10](https://github.com/YohannHommet/walspool/issues/10)), fix mémoire hub wrap ([#11](https://github.com/YohannHommet/walspool/issues/11)), jitter backoff timer ([#12](https://github.com/YohannHommet/walspool/issues/12)).
+2. **[v2.0.0 — Storage V2 & Hardware Sympathy](https://github.com/YohannHommet/walspool/milestone/2)** : UDS listener ([#13](https://github.com/YohannHommet/walspool/issues/13)), décodeur direct Protobuf OTLP ([#14](https://github.com/YohannHommet/walspool/issues/14)), trame 32B alignée 64-bit ([#15](https://github.com/YohannHommet/walspool/issues/15)), double CRC32C Castagnoli matériel ([#16](https://github.com/YohannHommet/walspool/issues/16)), auto-healing sans troncature ([#17](https://github.com/YohannHommet/walspool/issues/17)), sparse index 64 Ko ([#18](https://github.com/YohannHommet/walspool/issues/18)), découplage verrou f.mu ([#19](https://github.com/YohannHommet/walspool/issues/19)), checkpoint circulaire RESTART ([#20](https://github.com/YohannHommet/walspool/issues/20)), ring buffer padded ([#21](https://github.com/YohannHommet/walspool/issues/21)), recherche $O(\log N)$ ([#22](https://github.com/YohannHommet/walspool/issues/22)), symbol table interning ([#23](https://github.com/YohannHommet/walspool/issues/23)).
+3. **[v2.1.0 — Adaptive Dispatch & Semantic Intelligence](https://github.com/YohannHommet/walspool/milestone/3)** : Adaptive batching RTT ([#24](https://github.com/YohannHommet/walspool/issues/24)), dispatcher pipeliné ([#25](https://github.com/YohannHommet/walspool/issues/25)), filtrage sémantique client CLI ([#26](https://github.com/YohannHommet/walspool/issues/26)).
