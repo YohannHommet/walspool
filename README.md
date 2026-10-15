@@ -34,7 +34,7 @@
 | Capability | **Community Edition** *(This Repo)* | **Walspool Pro** *(990 €/yr)* | **Walspool Enterprise** *(2,490 €/yr)* | **Walspool Transactional** *(1,490 €/yr)* |
 |---|:---:|:---:|:---:|:---:|
 | **License** | **Free (FSL-1.1-MIT)** | Commercial Perpetual | Commercial Perpetual | Commercial Perpetual |
-| **Ingestion Protocols** | **OpenTelemetry OTLP (`POST /v1/logs`), Custom HTTP** | OTLP, HTTP, CLI | OTLP, HTTP, gRPC mTLS | **Go SDK sub-15µs (UDS)** |
+| **Ingestion Protocols** | **OpenTelemetry OTLP (`POST /v1/logs`), Custom HTTP, CLI (`stream`/`monitor`)** | OTLP, HTTP, CLI | OTLP, HTTP, gRPC mTLS | **Go SDK sub-15µs (UDS)** |
 | **Storage Engine** | **Local NVMe WAL (CRC32)** | Local NVMe WAL (CRC32) | **Raft Multi-Node HA** | **PostgreSQL Outbox (Zero-Bloat)** |
 | **Drain Destinations** | **HTTP Webhook / Console** | **ClickHouse, S3 Parquet** | Snowflake, Kafka SASL | Kafka, SQS, Webhooks |
 | **Compliance & Security** | CRC32 Integrity Check | Alerting (Slack/Discord) | **KMS AES-256, PCI-DSS PII Masking** | Exactly-Once Idempotency |
@@ -365,6 +365,48 @@ curl http://localhost:9099/readyz
 
 ---
 
+## Standalone Observability CLI: `walspool`
+
+Walspool ships with a standalone developer and SRE command-line tool (`cmd/walspool/`) written in 100% pure Go standard library with **zero third-party dependencies**.
+
+### Build the CLI
+
+```bash
+go build -o bin/walspool ./cmd/walspool
+```
+
+### 1. `walspool stream` (Live Unix Tail & Filtering)
+
+Connects to the sidecar's SSE stream and tails logs in real-time. Automatically colorizes output when connected to an interactive TTY, and strips ANSI codes when piped to downstream tools (`grep`, `jq`, `head`):
+
+```bash
+# Stream all logs from default daemon (http://localhost:9099)
+bin/walspool stream
+
+# Filter by service and severity level
+bin/walspool stream --service checkout --level error
+
+# Filter by distributed trace ID
+bin/walspool stream --trace 4bf92f3577b34da6a3ce929d0e0e4736
+
+# Pipe JSON to jq or head (gracefully handles SIGPIPE / EPIPE)
+bin/walspool stream --format json | jq -r '.payload'
+```
+
+### 2. `walspool monitor` (Interactive 60 fps SRE Dashboard)
+
+Launches an interactive, zero-flicker terminal dashboard using our custom raw-ANSI double-buffering engine. Displays real-time ingestion throughput, disk write rates, uncommitted spool backlog, activity sparklines (` ▂▃▅▆▇`), and live scrolling logs:
+
+```bash
+bin/walspool monitor
+```
+
+*Press `q` or `Ctrl+C` to cleanly exit and restore your terminal.*
+
+> 🛡️ **Terminal Injection Defense**: `walspool` includes strict UTF-8 sanitization, stripping dangerous C0/C1 control characters and actively blocking OSC 52 clipboard hijacking and malicious cursor rewrite sequences. See [ADR-002](docs/architecture/adr/ADR-002-standalone-cli-tui.md).
+
+---
+
 ## Kubernetes & Telemetry (Production SRE)
 
 ### Security & Non-Root Execution
@@ -478,9 +520,11 @@ go test -run=^$ -bench=. -benchmem ./...
 
 ## Documentation & Releases
 
-- **[Architecture Deep-Dive](docs/architecture/ARCHITECTURE.md)**: Detailed Ports & Adapters specifications, O(1) in-memory ring buffer, group commit invariants.
+- **[Architecture Deep-Dive](docs/architecture/ARCHITECTURE.md)**: Detailed Ports & Adapters specifications, O(1) in-memory ring buffer, multi-segment rotation, and CLI engine.
+- **[Architecture Decision Records (ADR)](docs/architecture/adr/)**: Architectural governance and decisions ([ADR-001 Multi-Segment](docs/architecture/adr/ADR-001-multi-segment-rotation.md), [ADR-002 Standalone CLI](docs/architecture/adr/ADR-002-standalone-cli-tui.md), [ADR-003 V2 Blueprint](docs/architecture/adr/ADR-003-v2-high-throughput-and-community-scope.md)).
 - **[Observability & Resilience Report](docs/architecture/OBSERVABILITY_REPORT.md)**: Real-time SSE streaming, zero-allocation scanner, trace correlation.
-- **[v1.0.0 Release Notes](docs/release/RELEASE_NOTES_v1.0.0.md)**: Complete changelog, binary distributions, and upgrade instructions.
+- **[v1.1.0 Release Notes (Draft)](docs/release/RELEASE_NOTES_v1.1.0_DRAFT.md)**: Latest release notes including CLI and multi-segment WAL rotation.
+- **[v1.0.0 Release Notes](docs/release/RELEASE_NOTES_v1.0.0.md)**: v1.0.0 GA changelog, binary distributions, and initial architecture.
 
 ---
 

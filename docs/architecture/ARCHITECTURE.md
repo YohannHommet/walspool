@@ -20,7 +20,8 @@ flowchart TB
     subgraph PrimaryAdapters["🔌 Adaptateurs Primaires (Driving / Inbound)"]
         OTelClient["Client OpenTelemetry (SDK OTel)"] -->|POST /v1/logs (OTLP)| HTTPServer["Sidecar HTTP Router"]
         HTTPClient["Client HTTP Legacy"] -->|POST /enqueue| HTTPServer
-        PlatformUI["Frontend Observabilité / Backoffice"] -->|GET /v1/logs/stream| SSEServer["Broadcaster SSE"]
+        WalspoolCLI["CLI walspool (stream / monitor)"] -->|GET /v1/logs/stream (SSE)| SSEServer["Broadcaster SSE"]
+        PlatformUI["Frontend Observabilité / Backoffice"] -->|GET /v1/logs/stream| SSEServer
         CLI["Script d'admin / Probe K8s"] -->|GET /metrics, /readyz| Telemetry["Metrics & Health Handler"]
     end
 
@@ -130,6 +131,11 @@ Le composant `storage_file.go` matérialise le Write-Ahead Log physique sur disq
   * `SyncPolicy = SyncInterval` : Écritures tamponnées dans un `bufio.Writer` de 128 Ko avec vidange périodique (`FlushInterval = 50ms`). Ce mode délivre plus de **2.2 millions d'opérations/seconde** sur SSD NVMe.
   * `SyncPolicy = SyncBatchCommit` : Synchronisation fsync déclenchée à la clôture de chaque batch.
   * `SyncPolicy = SyncEveryRecord` : `fsync()` unitaire synchrone pour les scénarios financiers ultra-rigides.
+- **Rotation Multi-Segments & Auto-Pruning (PR #6, voir [ADR-001](adr/ADR-001-multi-segment-rotation.md))** :
+  * `MaxSegmentSize int64` : Lorsque la taille du segment actif dépasse ce seuil (ex: 64 Mo), le fichier est scellé (`f.walFile.Sync()`, `Close()`) et un nouveau segment `segment-<baseOffset>.wal` est créé instantanément sans bloquer l'ingestion.
+  * *Segments clôturés en lecture seule* : Tout segment antérieur est immuable et ouvert en lecture seule.
+  * *Auto-Pruning déterministe* : Dès que `Commit(offset)` avance le checkpoint, tout segment dont le `MaxOffset < Checkpoint` est supprimé du disque (`os.Remove`), et l'index mémoire résiduel est élagué pour garantir une empreinte RAM et disque strictement bornée.
+  * *Crash Recovery Multi-Segments (`recoverSegmented`)* : Découverte et validation ordonnée de tous les segments au redémarrage, avec réparation chirurgicale de la queue du segment actif en cas d'écriture tronquée (*torn write*).
 - **Récupération sur Panne (Crash Recovery) avec Troncature Atomique** :
   * Lors du redémarrage, `recover()` relit séquentiellement chaque frame.
   * Si une écriture a été interrompue brutalement (coupure d'alimentation, panique système), le moteur détecte l'incohérence CRC32 ou la troncature de frame en fin de fichier et invoque immédiatement `walFile.Truncate(validFileEnd)` pour éliminer les octets corrompus et restaurer un état valide.
@@ -164,6 +170,21 @@ Le composant `engine.go` implémente le contrat `Spooler`.
 - **Flush Conscient du Contexte** :
   * L'appel `Flush(ctx context.Context)` transmet une requête `flushRequest` au dispatcher contenant le `ctx`.
   * Si le Sink renvoie temporairement une erreur 429 ou 408, le dispatcher rejoue avec backoff jusqu'à expiration du contexte ou succès, garantissant une vidange fiable sans échec prématuré.
+
+### 3.4. Moteur CLI Autonome (`cmd/walspool/`)
+Le binaire CLI `walspool` (voir [ADR-002](adr/ADR-002-standalone-cli-tui.md)) matérialise l'adaptateur d'observabilité interactif en pur Go, sans aucune dépendance tierce :
+
+- **Composabilité Unix (`walspool stream`)** :
+  * Consomme le flux SSE du sidecar et supporte les filtres côté serveur et regex client.
+  * Détecte automatiquement l'environnement d'exécution via `isatty` : active les couleurs ANSI pour les terminaux interactifs ou bascule en mode texte/JSON pur pour le piping vers `grep`, `jq` ou `head` (avec respect strict de `SIGPIPE`).
+- **Dashboard Interactif Temps Réel (`walspool monitor`)** :
+  * Moteur de rendu propriétaire en **double-buffering** : calcule le différentiel d'écran et émet les mises à jour en un seul flush atomique, éliminant tout clignotement (*flicker-free*) à 60 fps.
+  * Affiche en direct les métriques du spooler (taux ev/s, débit Ko/s, volume non committé, sparklines Unicode ` ▂▃▅▆▇`).
+- **Bouclier de Sécurité Terminal (`security.go`)** :
+  * Validation stricte UTF-8 et neutralisation des codes de contrôle dangereux (C0/C1).
+  * Blocage impératif des séquences de manipulation de titre ou de détournement de presse-papier système (OSC 52 `\x1b]52;...`).
+- **Portabilité Native POSIX & Windows** :
+  * Gestion directe des dimensions de terminal via `ioctl(TIOCGWINSZ)` sous Linux/macOS et `GetConsoleScreenBufferInfo` sous Windows (avec activation du *Virtual Terminal Processing*).
 
 ---
 
@@ -245,3 +266,25 @@ Le sidecar expose 8 endpoints HTTP/SSE unifiés :
 | `GET /healthz` | Sonde de vivacité Kubernetes (Liveness Probe - `200 OK`). |
 | `GET /readyz` | Sonde d'aptitude Kubernetes (Readiness Probe - `200 OK` si opérationnel, `503` en shutdown ou panne). |
 | `POST /flush` | Déclenchement manuel de vidange des enregistrements en attente. |
+
+---
+
+## 7. Trajectoire d'Ingénierie V2 & Registre des Décisions (ADRs)
+
+Walspool évolue selon une gouvernance d'ingénierie stricte consignée dans son registre des décisions d'architecture :
+
+- **[Registre ADR](adr/README.md)** : Index complet des décisions d'architecture du projet.
+  * **[ADR-001 : Multi-Segment Log Rotation and Auto-Pruning](adr/ADR-001-multi-segment-rotation.md)** : Gestion bornée de l'espace disque sans blocage des écritures.
+  * **[ADR-002 : Standalone CLI with Zero-Dependency ANSI Double-Buffering & Security Sanitization](adr/ADR-002-standalone-cli-tui.md)** : Outil CLI d'observabilité live, composabilité Unix et bouclier anti-injections terminal.
+  * **[ADR-003 : V2 Target Architecture Blueprint, Ingestion Bottleneck Resolution & Community Scope](adr/ADR-003-v2-high-throughput-and-community-scope.md)** : Résolution de la Loi de Little sur l'ingestion unitaire, passage au format V2 32 octets aligné 64 bits avec double CRC32C Castagnoli matériel, Sparse Index 64 Ko, streaming NDJSON et arbitrage Community vs Commercial.
+
+### Les 5 Piliers du Cœur Cible V2
+
+```mermaid
+flowchart LR
+    A["Ingestion Haute Cadence\n(Lots & NDJSON Streaming)"] --> B["Trame V2 32B Alignée 64-bit\n(Double CRC32C Castagnoli)"]
+    B --> C["Auto-Healing Scan\n(Zéro perte de queue)"]
+    C --> D["Sparse Index 64 Ko\n(RAM index -99.9%)"]
+    D --> E["Dispatcher Pipeliné\n(Watermark monotone & Jitter)"]
+```
+
