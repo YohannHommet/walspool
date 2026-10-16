@@ -1,4 +1,4 @@
-# 🏗️ Architecture Logicielle de Walspool
+# Architecture Logicielle de Walspool
 
 > **Auteur & Mainteneur :** Yohann Hommet ([@YohannHommet](https://github.com/YohannHommet))  
 > **Projet :** [`github.com/YohannHommet/walspool`](https://github.com/YohannHommet/walspool)  
@@ -17,7 +17,7 @@ Walspool sépare hermétiquement les **contrats métier** de ses **adaptateurs d
 
 ```mermaid
 flowchart TB
-    subgraph PrimaryAdapters["🔌 Adaptateurs Primaires (Driving / Inbound)"]
+    subgraph PrimaryAdapters["Adaptateurs Primaires (Driving / Inbound)"]
         OTelClient["Client OpenTelemetry (SDK OTel)"] -->|POST /v1/logs (OTLP)| HTTPServer["Sidecar HTTP Router"]
         HTTPClient["Client HTTP Legacy"] -->|POST /enqueue| HTTPServer
         WalspoolCLI["CLI walspool (stream / monitor)"] -->|GET /v1/logs/stream (SSE)| SSEServer["Broadcaster SSE"]
@@ -25,23 +25,23 @@ flowchart TB
         CLI["Script d'admin / Probe K8s"] -->|GET /metrics, /readyz| Telemetry["Metrics & Health Handler"]
     end
 
-    subgraph DrivingPorts["🎯 Ports Primaires (Contrats d'Entrée)"]
+    subgraph DrivingPorts["Ports Primaires (Contrats d'Entrée)"]
         SpoolerPort["interface Spooler<br/>• Enqueue(ctx, topic, payload)<br/>• Flush(ctx)<br/>• Close()"]
         ObserverPort["interface IngestionObserver<br/>• OnIngested(Record)"]
     end
 
-    subgraph CoreEngine["⚙️ Cœur Applicatif (Dual-Engine)"]
+    subgraph CoreEngine["Cœur Applicatif (Dual-Engine)"]
         CoordEngine["walspool.Engine<br/>Coordinateur, Backpressure, Retries"]
         MemHub["walspool.MemoryLogHub<br/>Ring Buffer O(1), Index Inversés"]
     end
 
-    subgraph DrivenPorts["🚪 Ports Secondaires (Contrats de Sortie)"]
+    subgraph DrivenPorts["Ports Secondaires (Contrats de Sortie)"]
         StoragePort["interface StorageEngine<br/>• Append(Record)<br/>• ReadBatch(n)<br/>• Commit(offset)<br/>• UncommittedCount()"]
         SinkPort["interface Sink<br/>• Deliver(ctx, []Record)"]
         ClockPort["interface Clock<br/>• Now(), After(d)"]
     end
 
-    subgraph SecondaryAdapters["💾 Adaptateurs Secondaires (Driven / Infrastructure)"]
+    subgraph SecondaryAdapters["Adaptateurs Secondaires (Driven / Infrastructure)"]
         FileStorage["FileStorageEngine<br/>(Group Commit, 128KB Buffer, CRC32)"]
         MemStorage["MemoryStorageEngine<br/>(Tests & Spool éphémère)"]
         HTTPSink["HTTPSink<br/>(Export lots HTTP / Webhooks / SIEM)"]
@@ -68,14 +68,14 @@ flowchart TB
 
 Walspool opère simultanément deux moteurs complémentaires sur chaque enregistrement entrant :
 
-| Caractéristique | Moteur Disque (FileStorageEngine) | Moteur Mémoire (MemoryLogHub) |
-| :--- | :--- | :--- |
-| **Objectif** | Durabilité absolue, garantie zéro perte | Observabilité temps réel, latence sub-milliseconde |
-| **Persistance** | Fichier append-only séquentiel (`wal.log`) | Ring buffer circulaire volatil (ex: 50 000 logs) |
-| **Éviction** | Checkpoint et commit après livraison aval | Éviction circulaire $O(1)$ du log le plus ancien |
-| **Intégrité** | Somme de contrôle IEEE CRC32 scellant chaque frame | Copie défensive de payload et normalisation JSON |
-| **Indexation** | Séquentielle par `Offset` (uint64) | Index inversés par `trace_id` et par `service` |
-| **Débit Certifié** | **2 242 513 ops/sec** (Group Commit 128 Ko) | **1 680 921 ops/sec** (1 alloc/op) |
+| Caractéristique    | Moteur Disque (FileStorageEngine)                  | Moteur Mémoire (MemoryLogHub)                      |
+| :----------------- | :------------------------------------------------- | :------------------------------------------------- |
+| **Objectif**       | Durabilité absolue, garantie zéro perte            | Observabilité temps réel, latence sub-milliseconde |
+| **Persistance**    | Fichier append-only séquentiel (`wal.log`)         | Ring buffer circulaire volatil (ex: 50 000 logs)   |
+| **Éviction**       | Checkpoint et commit après livraison aval          | Éviction circulaire $O(1)$ du log le plus ancien   |
+| **Intégrité**      | Somme de contrôle IEEE CRC32 scellant chaque frame | Copie défensive de payload et normalisation JSON   |
+| **Indexation**     | Séquentielle par `Offset` (uint64)                 | Index inversés par `trace_id` et par `service`     |
+| **Débit Certifié** | **2 242 513 ops/sec** (Group Commit 128 Ko)        | **1 680 921 ops/sec** (1 alloc/op)                 |
 
 ### Flux d'Ingestion Unifié (`POST /v1/enqueue`)
 
@@ -96,7 +96,7 @@ sequenceDiagram
     Engine->>Disk: Append(Record)
     Note over Disk: Tampon 128KB + CRC32<br/>Group Commit périodique
     Disk-->>Engine: Offset (succès)
-    
+
     par Notification Intercepteur
         Engine->>Hub: OnIngested(Record)
         Note over Hub: Extraction JSON trace_id/service<br/>Insertion Ring Buffer O(1)<br/>Diffusion SSE hors-verrou
@@ -124,67 +124,71 @@ sequenceDiagram
 ## 3. Détail des Composants Internes
 
 ### 3.1. Moteur de Stockage Fichier (`FileStorageEngine`)
+
 Le composant `storage_file.go` matérialise le Write-Ahead Log physique sur disque.
 
 - **Encapsulation Stricte** : La table d'offsets physique `offsetPos` est un détail d'implémentation strictement privé. L'interface externe `StorageEngine` ne manipule que des types de domaine (`Offset`, `Record`).
 - **Group Commit & Buffering** :
-  * `SyncPolicy = SyncInterval` : Écritures tamponnées dans un `bufio.Writer` de 128 Ko avec vidange périodique (`FlushInterval = 50ms`). Ce mode délivre plus de **2.2 millions d'opérations/seconde** sur SSD NVMe.
-  * `SyncPolicy = SyncBatchCommit` : Synchronisation fsync déclenchée à la clôture de chaque batch.
-  * `SyncPolicy = SyncEveryRecord` : `fsync()` unitaire synchrone pour les scénarios financiers ultra-rigides.
+  - `SyncPolicy = SyncInterval` : Écritures tamponnées dans un `bufio.Writer` de 128 Ko avec vidange périodique (`FlushInterval = 50ms`). Ce mode délivre plus de **2.2 millions d'opérations/seconde** sur SSD NVMe.
+  - `SyncPolicy = SyncBatchCommit` : Synchronisation fsync déclenchée à la clôture de chaque batch.
+  - `SyncPolicy = SyncEveryRecord` : `fsync()` unitaire synchrone pour les scénarios financiers ultra-rigides.
 - **Rotation Multi-Segments & Auto-Pruning (Fusionnée via PR #6, commit `81082d5`, voir [ADR-001](adr/ADR-001-multi-segment-rotation.md))** :
-  * `MaxSegmentSize int64` : Lorsque la taille du segment actif dépasse ce seuil (ex: 64 Mo), le fichier est scellé (`f.walFile.Sync()`, `Close()`) et un nouveau segment `segment-<baseOffset>.wal` est créé instantanément sans bloquer l'ingestion.
-  * *Segments clôturés en lecture seule* : Tout segment antérieur est immuable et ouvert en lecture seule.
-  * *Auto-Pruning déterministe* : Dès que `Commit(offset)` avance le checkpoint, tout segment dont le `MaxOffset < Checkpoint` est supprimé du disque (`os.Remove`), et l'index mémoire résiduel est élagué pour garantir une empreinte RAM et disque strictement bornée.
-  * *Crash Recovery Multi-Segments (`recoverSegmented`)* : Découverte et validation ordonnée de tous les segments au redémarrage, avec réparation chirurgicale de la queue du segment actif en cas d'écriture tronquée (*torn write*).
+  - `MaxSegmentSize int64` : Lorsque la taille du segment actif dépasse ce seuil (ex: 64 Mo), le fichier est scellé (`f.walFile.Sync()`, `Close()`) et un nouveau segment `segment-<baseOffset>.wal` est créé instantanément sans bloquer l'ingestion.
+  - _Segments clôturés en lecture seule_ : Tout segment antérieur est immuable et ouvert en lecture seule.
+  - _Auto-Pruning déterministe_ : Dès que `Commit(offset)` avance le checkpoint, tout segment dont le `MaxOffset < Checkpoint` est supprimé du disque (`os.Remove`), et l'index mémoire résiduel est élagué pour garantir une empreinte RAM et disque strictement bornée.
+  - _Crash Recovery Multi-Segments (`recoverSegmented`)_ : Découverte et validation ordonnée de tous les segments au redémarrage, avec réparation chirurgicale de la queue du segment actif en cas d'écriture tronquée (_torn write_).
 - **Récupération sur Panne (Crash Recovery) avec Troncature Atomique** :
-  * Lors du redémarrage, `recover()` relit séquentiellement chaque frame.
-  * Si une écriture a été interrompue brutalement (coupure d'alimentation, panique système), le moteur détecte l'incohérence CRC32 ou la troncature de frame en fin de fichier et invoque immédiatement `walFile.Truncate(validFileEnd)` pour éliminer les octets corrompus et restaurer un état valide.
-  * Les métadonnées de checkpoint (`checkpoint.meta`) utilisent un renommage atomique POSIX précédé d'un `fsync` sur le fichier temporaire et sur le répertoire parent.
+  - Lors du redémarrage, `recover()` relit séquentiellement chaque frame.
+  - Si une écriture a été interrompue brutalement (coupure d'alimentation, panique système), le moteur détecte l'incohérence CRC32 ou la troncature de frame en fin de fichier et invoque immédiatement `walFile.Truncate(validFileEnd)` pour éliminer les octets corrompus et restaurer un état valide.
+  - Les métadonnées de checkpoint (`checkpoint.meta`) utilisent un renommage atomique POSIX précédé d'un `fsync` sur le fichier temporaire et sur le répertoire parent.
 
 ### 3.2. Index Mémoire Circulaire & Streaming (`MemoryLogHub`)
+
 Le composant `hub.go` garantit la disponibilité immédiate des journaux pour l'observabilité.
 
 - **Ring Buffer $O(1)$ Bounded** :
-  * Tableau circulaire de taille fixe ($N$ éléments, par défaut 50 000) adressé par modulo bitwise ou index de séquence.
-  * Lorsque la capacité est atteinte, le pointeur de queue avance et écrase l'enregistrement le plus ancien en $O(1)$ temps et mémoire sans aucune allocation mémoire sur le tas.
+  - Tableau circulaire de taille fixe ($N$ éléments, par défaut 50 000) adressé par modulo bitwise ou index de séquence.
+  - Lorsque la capacité est atteinte, le pointeur de queue avance et écrase l'enregistrement le plus ancien en $O(1)$ temps et mémoire sans aucune allocation mémoire sur le tas.
 - **Index Inversés Découplés** :
-  * `byTraceID map[string][]uint64` : Indexation instantanée des pointeurs d'enregistrement par identifiant de trace distribuée.
-  * `byService map[string][]uint64` : Indexation insensible à la casse (`strings.ToLower`) par nom de microservice.
-  * Les clés nettoyées par l'écrasement circulaire sont évincées automatiquement pour prévenir toute fuite mémoire.
+  - `byTraceID map[string][]uint64` : Indexation instantanée des pointeurs d'enregistrement par identifiant de trace distribuée.
+  - `byService map[string][]uint64` : Indexation insensible à la casse (`strings.ToLower`) par nom de microservice.
+  - Les clés nettoyées par l'écrasement circulaire sont évincées automatiquement pour prévenir toute fuite mémoire.
 - **Streaming SSE Découplé Hors Verrou** :
-  * Pour éviter qu'un client HTTP lent ne ralentisse l'ingestion générale, la diffusion SSE s'effectue en deux phases :
-    1. *Sous verrou de lecture/écriture* : Insertion dans le ring buffer, copie instantanée de la slice des abonnés actifs.
-    2. *Hors verrou* : Émission non-bloquante (`select ... default`) vers le channel tamponné de chaque abonné. Si un abonné sature son buffer, l'événement est abandonné pour ce client et le compteur `walspool_dropped_events_total` est incrémenté atomiquement.
+  - Pour éviter qu'un client HTTP lent ne ralentisse l'ingestion générale, la diffusion SSE s'effectue en deux phases :
+    1. _Sous verrou de lecture/écriture_ : Insertion dans le ring buffer, copie instantanée de la slice des abonnés actifs.
+    2. _Hors verrou_ : Émission non-bloquante (`select ... default`) vers le channel tamponné de chaque abonné. Si un abonné sature son buffer, l'événement est abandonné pour ce client et le compteur `walspool_dropped_events_total` est incrémenté atomiquement.
 - **Requêtes Optimisées en $O(k)$ Bounded** :
-  * La méthode `Query(q LogQuery)` itère à rebours (du plus récent au plus ancien) bornée strictement par `q.Limit`, assurant une réponse en **moins de 20 microsecondes** avec allocation mémoire minimale.
+  - La méthode `Query(q LogQuery)` itère à rebours (du plus récent au plus ancien) bornée strictement par `q.Limit`, assurant une réponse en **moins de 20 microsecondes** avec allocation mémoire minimale.
 
 ### 3.3. Coordinateur & Dispatcher d'Arrière-Plan (`Engine`)
+
 Le composant `engine.go` implémente le contrat `Spooler`.
 
 - **Contrat IngestionObserver** :
-  * Dès qu'un enregistrement est sérialisé avec succès sur le disque via `storage.Append(rec)`, l'événement est notifié à tous les observateurs enregistrés via `WithObserver(obs)`.
+  - Dès qu'un enregistrement est sérialisé avec succès sur le disque via `storage.Append(rec)`, l'événement est notifié à tous les observateurs enregistrés via `WithObserver(obs)`.
 - **Worker de Vidange (Dispatcher)** :
-  * Tourne dans une goroutine dédiée.
-  * Extrait les lots (`ReadBatch`) jusqu'à concurrence de `cfg.BatchSize` et les transmet au `Sink`.
-  * En cas d'erreur transitoire (`IsTransient(err)`), il applique un backoff exponentiel (`cfg.InitialBackoff` jusqu'à `cfg.MaxBackoff`).
+  - Tourne dans une goroutine dédiée.
+  - Extrait les lots (`ReadBatch`) jusqu'à concurrence de `cfg.BatchSize` et les transmet au `Sink`.
+  - En cas d'erreur transitoire (`IsTransient(err)`), il applique un backoff exponentiel (`cfg.InitialBackoff` jusqu'à `cfg.MaxBackoff`).
 - **Flush Conscient du Contexte** :
-  * L'appel `Flush(ctx context.Context)` transmet une requête `flushRequest` au dispatcher contenant le `ctx`.
-  * Si le Sink renvoie temporairement une erreur 429 ou 408, le dispatcher rejoue avec backoff jusqu'à expiration du contexte ou succès, garantissant une vidange fiable sans échec prématuré.
+  - L'appel `Flush(ctx context.Context)` transmet une requête `flushRequest` au dispatcher contenant le `ctx`.
+  - Si le Sink renvoie temporairement une erreur 429 ou 408, le dispatcher rejoue avec backoff jusqu'à expiration du contexte ou succès, garantissant une vidange fiable sans échec prématuré.
 
 ### 3.4. Moteur CLI Autonome (`cmd/walspool/`)
+
 Le binaire CLI `walspool` (voir [ADR-002](adr/ADR-002-standalone-cli-tui.md)) matérialise l'adaptateur d'observabilité interactif en pur Go, sans aucune dépendance tierce :
 
 - **Composabilité Unix (`walspool stream`)** :
-  * Consomme le flux SSE du sidecar et supporte les filtres côté serveur et regex client.
-  * Détecte automatiquement l'environnement d'exécution via `isatty` : active les couleurs ANSI pour les terminaux interactifs ou bascule en mode texte/JSON pur pour le piping vers `grep`, `jq` ou `head` (avec respect strict de `SIGPIPE`).
+  - Consomme le flux SSE du sidecar et supporte les filtres côté serveur et regex client.
+  - Détecte automatiquement l'environnement d'exécution via `isatty` : active les couleurs ANSI pour les terminaux interactifs ou bascule en mode texte/JSON pur pour le piping vers `grep`, `jq` ou `head` (avec respect strict de `SIGPIPE`).
 - **Dashboard Interactif Temps Réel (`walspool monitor`)** :
-  * Moteur de rendu propriétaire en **double-buffering** : calcule le différentiel d'écran et émet les mises à jour en un seul flush atomique, éliminant tout clignotement (*flicker-free*) à 60 fps.
-  * Affiche en direct les métriques du spooler (taux ev/s, débit Ko/s, volume non committé, sparklines Unicode ` ▂▃▅▆▇`).
+  - Moteur de rendu propriétaire en **double-buffering** : calcule le différentiel d'écran et émet les mises à jour en un seul flush atomique, éliminant tout clignotement (_flicker-free_) à 60 fps.
+  - Affiche en direct les métriques du spooler (taux ev/s, débit Ko/s, volume non committé, sparklines Unicode ` ▂▃▅▆▇`).
 - **Bouclier de Sécurité Terminal (`security.go`)** :
-  * Validation stricte UTF-8 et neutralisation des codes de contrôle dangereux (C0/C1).
-  * Blocage impératif des séquences de manipulation de titre ou de détournement de presse-papier système (OSC 52 `\x1b]52;...`).
+  - Validation stricte UTF-8 et neutralisation des codes de contrôle dangereux (C0/C1).
+  - Blocage impératif des séquences de manipulation de titre ou de détournement de presse-papier système (OSC 52 `\x1b]52;...`).
 - **Portabilité Native POSIX & Windows** :
-  * Gestion directe des dimensions de terminal via `ioctl(TIOCGWINSZ)` sous Linux/macOS et `GetConsoleScreenBufferInfo` sous Windows (avec activation du *Virtual Terminal Processing*).
+  - Gestion directe des dimensions de terminal via `ioctl(TIOCGWINSZ)` sous Linux/macOS et `GetConsoleScreenBufferInfo` sous Windows (avec activation du _Virtual Terminal Processing_).
 
 ---
 
@@ -232,21 +236,21 @@ sequenceDiagram
 
     OS->>Server: Signal d'extinction reçu
     Note over Server: server.MarkShuttingDown()<br/>GET /readyz répond 503 Service Unavailable
-    
+
     Server->>Hub: Phase 1: hub.Close()
     Note over Hub: Fermeture des canaux abonnés SSE<br/>Déblocage immédiat des clients connectés
-    
+
     Server->>Server: Phase 2: httpServer.Shutdown(ctx)
     Note over Server: Refus de nouvelles connexions<br/>Fin des requêtes HTTP en vol
-    
+
     Server->>Engine: Phase 3: spool.Flush(ctx)
     Note over Engine: Vidange forcée de tous les lots<br/>en vol vers le Sink aval
-    
+
     Server->>Engine: Phase 4: spool.Close()
     Note over Engine: Arrêt du dispatcher d'arrière-plan
     Engine->>Storage: storage.Close()
     Note over Storage: Flush final du bufio.Writer<br/>fsync() sur wal.log et checkpoint.meta
-    
+
     Server-->>OS: Processus terminé proprement (code 0)
 ```
 
@@ -256,16 +260,16 @@ sequenceDiagram
 
 Le sidecar expose 8 endpoints HTTP/SSE unifiés :
 
-| Méthode & Chemin | Description & Objectif |
-| :--- | :--- |
-| `POST /v1/logs` | **Récepteur OpenTelemetry (OTLP/HTTP)** natif (`application/x-protobuf` et `application/json`). Persistance WAL sub-15µs et indexation immédiate. Voir [Guide OpenTelemetry](../OPENTELEMETRY.md). |
-| `POST /enqueue` / `POST /v1/enqueue` | Ingestion synchrone WAL + Hub ($< 50\mu\text{s}$) avec code `202 Accepted` pour payloads JSON personnalisés. |
-| `GET /v1/logs` | Requête historique sur le Ring Buffer avec filtres `trace_id`, `service`, `level`, `limit`. |
-| `GET /v1/logs/stream` | Flux Server-Sent Events (SSE) temps réel avec keepalive toutes les 10s. |
-| `GET /metrics` | Métriques standardisées au format OpenMetrics / Prometheus. |
-| `GET /healthz` | Sonde de vivacité Kubernetes (Liveness Probe - `200 OK`). |
-| `GET /readyz` | Sonde d'aptitude Kubernetes (Readiness Probe - `200 OK` si opérationnel, `503` en shutdown ou panne). |
-| `POST /flush` | Déclenchement manuel de vidange des enregistrements en attente. |
+| Méthode & Chemin                     | Description & Objectif                                                                                                                                                                             |
+| :----------------------------------- | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `POST /v1/logs`                      | **Récepteur OpenTelemetry (OTLP/HTTP)** natif (`application/x-protobuf` et `application/json`). Persistance WAL sub-15µs et indexation immédiate. Voir [Guide OpenTelemetry](../OPENTELEMETRY.md). |
+| `POST /enqueue` / `POST /v1/enqueue` | Ingestion synchrone WAL + Hub ($< 50\mu\text{s}$) avec code `202 Accepted` pour payloads JSON personnalisés.                                                                                       |
+| `GET /v1/logs`                       | Requête historique sur le Ring Buffer avec filtres `trace_id`, `service`, `level`, `limit`.                                                                                                        |
+| `GET /v1/logs/stream`                | Flux Server-Sent Events (SSE) temps réel avec keepalive toutes les 10s.                                                                                                                            |
+| `GET /metrics`                       | Métriques standardisées au format OpenMetrics / Prometheus.                                                                                                                                        |
+| `GET /healthz`                       | Sonde de vivacité Kubernetes (Liveness Probe - `200 OK`).                                                                                                                                          |
+| `GET /readyz`                        | Sonde d'aptitude Kubernetes (Readiness Probe - `200 OK` si opérationnel, `503` en shutdown ou panne).                                                                                              |
+| `POST /flush`                        | Déclenchement manuel de vidange des enregistrements en attente.                                                                                                                                    |
 
 ---
 
@@ -274,9 +278,9 @@ Le sidecar expose 8 endpoints HTTP/SSE unifiés :
 Walspool évolue selon une gouvernance d'ingénierie stricte consignée dans son registre des décisions d'architecture :
 
 - **[Registre ADR](adr/README.md)** : Index complet des décisions d'architecture du projet.
-  * **[ADR-001 : Multi-Segment Log Rotation and Auto-Pruning](adr/ADR-001-multi-segment-rotation.md)** : Gestion bornée de l'espace disque sans blocage des écritures.
-  * **[ADR-002 : Standalone CLI with Zero-Dependency ANSI Double-Buffering & Security Sanitization](adr/ADR-002-standalone-cli-tui.md)** : Outil CLI d'observabilité live, composabilité Unix et bouclier anti-injections terminal.
-  * **[ADR-003 : V2 Target Architecture Blueprint, Ingestion Bottleneck Resolution & Community Scope](adr/ADR-003-v2-high-throughput-and-community-scope.md)** : Résolution de la Loi de Little sur l'ingestion unitaire, passage au format V2 32 octets aligné 64 bits avec double CRC32C Castagnoli matériel, Sparse Index 64 Ko, streaming NDJSON et arbitrage Community vs Commercial.
+  - **[ADR-001 : Multi-Segment Log Rotation and Auto-Pruning](adr/ADR-001-multi-segment-rotation.md)** : Gestion bornée de l'espace disque sans blocage des écritures.
+  - **[ADR-002 : Standalone CLI with Zero-Dependency ANSI Double-Buffering & Security Sanitization](adr/ADR-002-standalone-cli-tui.md)** : Outil CLI d'observabilité live, composabilité Unix et bouclier anti-injections terminal.
+  - **[ADR-003 : V2 Target Architecture Blueprint, Ingestion Bottleneck Resolution & Community Scope](adr/ADR-003-v2-high-throughput-and-community-scope.md)** : Résolution de la Loi de Little sur l'ingestion unitaire, passage au format V2 32 octets aligné 64 bits avec double CRC32C Castagnoli matériel, Sparse Index 64 Ko, streaming NDJSON et arbitrage Community vs Commercial.
 
 ### Les 5 Piliers du Cœur Cible V2
 
@@ -289,8 +293,9 @@ flowchart LR
 ```
 
 ### Jalons GitHub Associés
+
 L'implémentation est découpée en 3 jalons traçables publiquement :
+
 1. **[Milestone v1.2.0 — High Throughput & DX Quick Wins](https://github.com/YohannHommet/walspool/milestone/1)** : Ingestion par lots ([#7](https://github.com/YohannHommet/walspool/issues/7)), NDJSON ([#8](https://github.com/YohannHommet/walspool/issues/8)), scanner de métadonnées zéro-alloc ([#9](https://github.com/YohannHommet/walspool/issues/9)), port :9099 ([#10](https://github.com/YohannHommet/walspool/issues/10)), fix mémoire hub wrap ([#11](https://github.com/YohannHommet/walspool/issues/11)), jitter backoff timer ([#12](https://github.com/YohannHommet/walspool/issues/12)).
 2. **[Milestone v2.0.0 — Storage V2 & Hardware Sympathy](https://github.com/YohannHommet/walspool/milestone/2)** : UDS ([#13](https://github.com/YohannHommet/walspool/issues/13)), décodeur direct OTLP ([#14](https://github.com/YohannHommet/walspool/issues/14)), trame 32B alignée 64-bit ([#15](https://github.com/YohannHommet/walspool/issues/15)), CRC32C matériel Castagnoli ([#16](https://github.com/YohannHommet/walspool/issues/16)), auto-healing scan magic ([#17](https://github.com/YohannHommet/walspool/issues/17)), sparse index 64 Ko ([#18](https://github.com/YohannHommet/walspool/issues/18)), découplage verrou f.mu ([#19](https://github.com/YohannHommet/walspool/issues/19)), checkpoint circulaire RESTART ([#20](https://github.com/YohannHommet/walspool/issues/20)), ring buffer padded ([#21](https://github.com/YohannHommet/walspool/issues/21)), recherche O(log N) ([#22](https://github.com/YohannHommet/walspool/issues/22)), symbol table interning ([#23](https://github.com/YohannHommet/walspool/issues/23)).
 3. **[Milestone v2.1.0 — Adaptive Dispatch & Semantic Intelligence](https://github.com/YohannHommet/walspool/milestone/3)** : Adaptive batching RTT ([#24](https://github.com/YohannHommet/walspool/issues/24)), dispatcher pipeliné 16 in-flight ([#25](https://github.com/YohannHommet/walspool/issues/25)), filtrage sémantique client CLI Option A ([#26](https://github.com/YohannHommet/walspool/issues/26)).
-
