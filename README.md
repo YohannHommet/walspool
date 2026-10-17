@@ -2,12 +2,12 @@
   <img src="assets/logo.png" alt="walspool logo" width="180" style="border-radius: 24px; box-shadow: 0 12px 35px rgba(204,255,0,0.25);"/>
 </p>
 
-<h1 align="center">Walspool Community Edition</h1>
+<h1 align="center">Walspool</h1>
 
 <p align="center">
-  <strong>The Zero-Allocation WAL Shock Absorber for Observability & Event Streaming</strong><br>
-  Dual-Engine Write-Ahead Log (WAL) Spooler & OpenTelemetry Ingestion Hub in Pure Go.<br>
-  <em>Engineered by <a href="https://meowlabs.tech">Meow Labs</a></em>
+  <strong>Durable local buffer for outbound webhooks, telemetry, and API events.</strong><br>
+  Embedded Write-Ahead Log (WAL) library & zero-dependency sidecar daemon in pure Go.<br>
+  <em>Maintained by <a href="https://github.com/YohannHommet">Yohann Hommet</a> · Supported by <a href="https://meowlabs.tech">Meow Labs</a></em>
 </p>
 
 <p align="center">
@@ -26,21 +26,8 @@
 </p>
 
 > [!NOTE]
-> **Walspool Community Edition** is free and source-available under the [Functional Source License (FSL-1.1-MIT)](LICENSE) (which automatically converts to Apache 2.0 after two years).  
-> For production environments requiring High-Availability Raft consensus, hardware KMS encryption, or native zero-bloat PostgreSQL outbox streaming, discover our commercial tiers at **[meowlabs.tech](https://meowlabs.tech)**.
-
-### Product Editions Matrix
-
-| Capability | **Community Edition** *(This Repo)* | **Walspool Pro** *(990 €/yr)* | **Walspool Enterprise** *(2,490 €/yr)* | **Walspool Transactional** *(1,490 €/yr)* |
-|---|:---:|:---:|:---:|:---:|
-| **License** | **Free (FSL-1.1-MIT)** | Commercial Perpetual | Commercial Perpetual | Commercial Perpetual |
-| **Ingestion Protocols** | **OpenTelemetry OTLP (`POST /v1/logs`), Custom HTTP, CLI (`stream`/`monitor`)** | OTLP, HTTP, CLI | OTLP, HTTP, gRPC mTLS | **Go SDK sub-15µs (UDS)** |
-| **Storage Engine** | **Local NVMe WAL (CRC32)** | Local NVMe WAL (CRC32) | **Raft Multi-Node HA** | **PostgreSQL Outbox (Zero-Bloat)** |
-| **Drain Destinations** | **HTTP Webhook / Console** | **ClickHouse, S3 Parquet** | Snowflake, Kafka SASL | Kafka, SQS, Webhooks |
-| **Compliance & Security** | CRC32 Integrity Check | Alerting (Slack/Discord) | **KMS AES-256, PCI-DSS PII Masking** | Exactly-Once Idempotency |
-| **Deployment** | Single Binary / Docker | Docker / Helm Chart | **Kubernetes Enterprise Operator** | Docker / Embedded Library |
-| **Commercial Support** | Community GitHub Issues | Priority Email (48h SLA) | Dedicated SLA (24h) | Integration Architecture Support |
-| **Get Started** | *`docker run` / `go get`* | **[meowlabs.tech](https://meowlabs.tech)** | **[meowlabs.tech](https://meowlabs.tech)** | **[meowlabs.tech](https://meowlabs.tech)** |
+> **Walspool** is free and source-available under the [Functional Source License (FSL-1.1-MIT)](LICENSE) (which automatically converts to the permissive MIT License after two years).  
+> For specialized high-throughput streaming architecture or custom enterprise integrations, contact the engineering team at **[meowlabs.tech](https://meowlabs.tech)**.
 
 An embedded write-ahead log (WAL) spooler and real-time streaming hub written in pure Go with zero third-party dependencies.
 
@@ -50,15 +37,24 @@ Use it as a zero-dependency Go library inside your application, or run it as a l
 
 ---
 
-## The Problem We Kept Running Into
+## Why Walspool
 
-Most backend services need to send events out-of-band: audit logs, telemetry batches, or partner webhooks. Teams usually pick between three unsatisfactory options:
+Most backend services need to send events out-of-band: audit logs, telemetry batches, or partner webhooks. Teams usually choose between three unsatisfactory options:
 
 1. **Synchronous HTTP calls:** You POST events directly to downstream collectors or external APIs. When that service experiences high latency or drops connections, your API worker pool stalls, requests back up, and your users see HTTP 504 timeouts.
 2. **In-memory channels or queues:** You drop payloads into a buffered Go channel or a Python `asyncio.Queue` to keep handlers fast. But whenever Kubernetes evicts the pod, a deployment rolls out, or an OOM killer strikes, **every uncommitted event in memory vanishes**. For compliance and billing logs, that loss is unacceptable.
 3. **Heavy distributed brokers:** Deploying Kafka, RabbitMQ, or AWS SQS means operating clusters, managing partition rebalancing, and paying dedicated infrastructure bills just to safely buffer events exiting a single service.
 
-Walspool sits in the sweet spot: **the durability of a write-ahead log, the simplicity of an embedded engine, and the instant visibility of a live tail—with zero operational dependencies.**
+Walspool sits in the sweet spot: **the durability of a write-ahead log, the simplicity of an embedded engine, and the instant visibility of a live tail, with zero operational dependencies.**
+
+### Engineering Trade-offs in Outbound Buffering
+
+| Architecture Pattern | Client Latency | Crash Durability (SIGKILL / OOM) | Operational Cost | Downstream Outage Behavior |
+|---|---|---|---|---|
+| **Direct Synchronous HTTP** | 400ms - 5,000ms | N/A (blocked in flight) | Zero infra (high worker count) | Worker exhaustion, 504 timeouts |
+| **In-Memory Queue (Channels, Celery, Bull)** | < 10 µs | Total loss on pod restart | Low (until memory leaks) | Memory ballooning, OOMKill |
+| **Distributed Broker (Kafka, RabbitMQ)** | 5ms - 25ms (TCP hop + quorum) | High (replicated log) | Heavy ($400-1,200/mo, ZooKeeper, JVM) | Queued in cluster (complex consumers) |
+| **Walspool (Embedded WAL & Sidecar)** | **< 0.5 µs (NVMe group commit)** | **100% NVMe durable with CRC32** | **Zero infra (< 15 MB RAM, 0 deps)** | **Bounded spooling, decorrelated retry** |
 
 ---
 
@@ -75,7 +71,7 @@ Walspool sits in the sweet spot: **the durability of a write-ahead log, the simp
 - **Cross-node publish/subscribe:** Walspool is an embedded/local spooler. If you need 50 consumer groups distributed across multiple data centers, use **Kafka, Redpanda, or NATS JetStream**.
 - **Distributed transactional consensus:** If you need two-phase commit (2PC) or Raft-coordinated state machines across a cluster, Walspool is not a database.
 - **Ephemeral disks without volumes:** If your Kubernetes pods run on ephemeral root filesystems wiped on termination without persistent volume claims (`PVC`), a disk-based WAL cannot recover state across pod recreations.
-- **Multi-terabyte cold analytics:** Walspool's in-memory ring buffer is designed for real-time observability (the last 50,000–500,000 records). For long-term historical storage, configure Walspool's sink to deliver into S3, ClickHouse, or Snowflake.
+- **Multi-terabyte cold analytics:** Walspool's in-memory ring buffer is designed for real-time observability (the last 50,000-500,000 records). For long-term historical storage, configure Walspool's sink to deliver into S3, ClickHouse, or Snowflake.
 
 ---
 
@@ -162,8 +158,10 @@ func (s StdoutSink) Deliver(ctx context.Context, batch []walspool.Record) error 
 func main() {
 	ctx := context.Background()
 
-	// 2. Initialize persistent storage (Engine 1)
-	storage, err := walspool.NewFileStorageEngine("./data/spool", 50000)
+	// 2. Initialize persistent storage with 64MB multi-segment rotation (Engine 1)
+	storage, err := walspool.NewFileStorageEngineWithOptions("./data/spool", 50000, walspool.FileStorageOptions{
+		MaxSegmentSize: 64 * 1024 * 1024,
+	})
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -547,7 +545,7 @@ go test -run=^$ -bench=. -benchmem ./...
 
 Development is tracked publicly across 3 structured milestones:
 
-- **[v1.2.0 — High Throughput & DX Quick Wins](https://github.com/YohannHommet/walspool/milestone/1)** (Sprint 1)
+- **[v1.2.0: High Throughput & DX Quick Wins](https://github.com/YohannHommet/walspool/milestone/1)** (Sprint 1)
   - [#7](https://github.com/YohannHommet/walspool/issues/7) : `feat(ingest)` Batch ingestion endpoint (`POST /v1/enqueue/batch`)
   - [#8](https://github.com/YohannHommet/walspool/issues/8) : `feat(ingest)` Streaming NDJSON support (`application/x-ndjson`)
   - [#9](https://github.com/YohannHommet/walspool/issues/9) : `perf(ingest)` Zero-alloc token scanner for metadata extraction
@@ -555,7 +553,7 @@ Development is tracked publicly across 3 structured milestones:
   - [#11](https://github.com/YohannHommet/walspool/issues/11) : `fix(hub)` Eliminate $O(N)$ slice shift copy on circular buffer wrap-around
   - [#12](https://github.com/YohannHommet/walspool/issues/12) : `fix(dispatcher)` Full decorrelated jitter backoff & reusable timer
 
-- **[v2.0.0 — Storage V2 & Hardware Sympathy](https://github.com/YohannHommet/walspool/milestone/2)** (Sprint 2)
+- **[v2.0.0: Storage V2 & Hardware Sympathy](https://github.com/YohannHommet/walspool/milestone/2)** (Sprint 2)
   - [#13](https://github.com/YohannHommet/walspool/issues/13) : `feat(ingest)` Unix domain socket listener for sub-3µs IPC
   - [#14](https://github.com/YohannHommet/walspool/issues/14) : `perf(otlp)` Direct zero-copy protobuf decoder for OTLP logs
   - [#15](https://github.com/YohannHommet/walspool/issues/15) : `feat(storage)` 64-bit aligned V2 32-byte binary frame format
@@ -568,7 +566,7 @@ Development is tracked publicly across 3 structured milestones:
   - [#22](https://github.com/YohannHommet/walspool/issues/22) : `perf(hub)` $O(\log N)$ binary search for historical timestamps
   - [#23](https://github.com/YohannHommet/walspool/issues/23) : `perf(hub)` String interning (`SymbolTable`) for tags and service names
 
-- **[v2.1.0 — Adaptive Dispatch & Semantic Intelligence](https://github.com/YohannHommet/walspool/milestone/3)** (Sprint 3)
+- **[v2.1.0: Adaptive Dispatch & Semantic Intelligence](https://github.com/YohannHommet/walspool/milestone/3)** (Sprint 3)
   - [#24](https://github.com/YohannHommet/walspool/issues/24) : `feat(dispatcher)` Adaptive batching driven by downstream RTT
   - [#25](https://github.com/YohannHommet/walspool/issues/25) : `feat(dispatcher)` Pipelined HTTP dispatcher (up to 16 in-flight)
   - [#26](https://github.com/YohannHommet/walspool/issues/26) : `feat(cli)` Client-side semantic log filtering (`walspool stream --semantic`)

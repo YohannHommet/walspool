@@ -692,7 +692,7 @@ $ walspool monitor
 <span class="text-[#CCFF00] font-semibold">import "github.com/YohannHommet/walspool"</span>
 
 <span class="text-slate-400">// 2. Initialize persistent storage with 64MB multi-segment rotation</span>
-storage, _ := walspool.NewFileStorageEngineWithOptions("./data/spool", walspool.FileStorageOptions{
+storage, _ := walspool.NewFileStorageEngineWithOptions("./data/spool", 50000, walspool.FileStorageOptions{
     MaxSegmentSize: 64 * 1024 * 1024,
 })
 hub := walspool.NewMemoryLogHub(50000)
