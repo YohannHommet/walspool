@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>walspool — Dual-Engine WAL Shock Absorber & Real-Time Observability</title>
-  <meta name="description" content="Dual-Engine Write-Ahead Log spooler and real-time observability hub in pure Go. 1,000,000+ ops/s sequential WAL, multi-segment rotation, sub-15µs trace queries, standalone CLI monitor, and native OpenTelemetry OTLP ingestion.">
+  <title>walspool: Embedded WAL and Local Sidecar for APIs and Telemetry</title>
+  <meta name="description" content="Embedded Write-Ahead Log buffer and local sidecar daemon in pure Go. Sub-microsecond NVMe append, crash-safe CRC32 validation, native OpenTelemetry OTLP ingestion, and live 60 fps terminal monitoring with zero external dependencies.">
   
   <!-- Favicon & PWA Icons -->
   <link rel="icon" type="image/x-icon" href="assets/favicon.ico">
@@ -19,12 +19,12 @@
   <link rel="canonical" href="https://yohannhommet.github.io/walspool/">
   <meta property="og:type" content="website">
   <meta property="og:url" content="https://yohannhommet.github.io/walspool/">
-  <meta property="og:title" content="walspool — Dual-Engine WAL Shock Absorber & Real-Time Observability">
-  <meta property="og:description" content="Zero-allocation Write-Ahead Log spooler and real-time observability hub in pure Go. 1,000,000+ ops/s sequential WAL, multi-segment rotation, sub-15µs trace queries, and standalone CLI.">
+  <meta property="og:title" content="walspool: Embedded WAL and Local Sidecar for APIs and Telemetry">
+  <meta property="og:description" content="Embedded Write-Ahead Log buffer and local sidecar daemon in pure Go. Sub-microsecond NVMe append, crash-safe CRC32 validation, native OpenTelemetry OTLP ingestion, and standalone CLI suite.">
   <meta property="og:image" content="https://raw.githubusercontent.com/YohannHommet/walspool/main/assets/logo.png">
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:creator" content="@YohannHommet">
-  <meta name="twitter:title" content="walspool — Dual-Engine WAL Shock Absorber & Real-Time Observability">
+  <meta name="twitter:title" content="walspool: Embedded WAL and Local Sidecar for APIs and Telemetry">
   <meta name="twitter:image" content="https://raw.githubusercontent.com/YohannHommet/walspool/main/assets/logo.png">
   
   <!-- Fonts -->
@@ -116,9 +116,9 @@
       <span class="w-1.5 h-1.5 rounded-full bg-[#CCFF00] animate-pulse"></span>
       v1.1.0 Stable
     </span>
-    <span class="text-slate-300">Multi-Segment Rotation (PR #6 Merged) · Standalone CLI · OTLP Sub-15µs · Pure Go Standard Library</span>
+    <span class="text-slate-300">Pure Go standard library (0 dependencies) - Multi-segment WAL rotation (PR #6) - Standalone CLI suite</span>
     <a href="https://github.com/YohannHommet/walspool" target="_blank" rel="noopener" class="text-[#CCFF00] hover:text-[#D4FF33] font-medium underline underline-offset-4 flex items-center gap-1">
-      GitHub Repo →
+      GitHub Repo &rarr;
     </a>
   </div>
 
@@ -135,7 +135,7 @@
 
       <!-- Focused Navigation -->
       <nav class="hidden lg:flex items-center gap-6 text-sm font-medium text-slate-300">
-        <a href="#why-walspool" class="hover:text-[#CCFF00] transition">Why Walspool</a>
+        <a href="#why-walspool" class="hover:text-[#CCFF00] transition">Evaluation</a>
         <a href="#simulator" class="hover:text-[#CCFF00] transition">Live Sandbox</a>
         <a href="#architecture" class="hover:text-[#CCFF00] transition">Architecture</a>
         <a href="#cli" class="hover:text-[#CCFF00] transition">CLI & TUI</a>
@@ -158,22 +158,20 @@
   <!-- HERO SECTION -->
   <section class="relative pt-16 pb-20 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto text-center spotlight">
     
-    <!-- Announcement Badge -->
+    <!-- Technical Positioning Badge -->
     <div class="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-[#CCFF00]/40 bg-[#101217] text-[#D4FF33] text-xs font-mono mb-8 shadow-sm">
-      <span class="w-2 h-2 rounded-full bg-[#CCFF00] animate-ping"></span>
-      <span>Walspool Community v1.1 · 100% Free & Open Source Local Shock Absorber</span>
+      <span class="w-2 h-2 rounded-full bg-[#CCFF00]"></span>
+      <span>Go Embedded Library & Standalone Sidecar Daemon</span>
     </div>
 
     <!-- Title -->
-    <h1 class="text-4xl sm:text-6xl lg:text-7xl font-extrabold tracking-tight text-white max-w-5xl mx-auto leading-[1.08] mb-6">
-      Stop downstream API latency<br>
-      <span class="text-transparent bg-clip-text bg-gradient-to-r from-[#CCFF00] via-lime-300 to-sky-400">from taking down your users.</span>
+    <h1 class="text-4xl sm:text-6xl font-extrabold tracking-tight text-white max-w-4xl mx-auto leading-tight mb-6">
+      Durable local buffer for outbound webhooks, telemetry, and API events.
     </h1>
 
     <!-- Subtitle -->
     <p class="text-base sm:text-lg text-slate-300 max-w-3xl mx-auto mb-10 leading-relaxed font-normal">
-      When Stripe, Datadog, or your analytics partner slows down or throws 503s, your user requests shouldn't stall with 504 Gateway Timeouts.
-      <strong class="text-white font-semibold">walspool</strong> buffers your outbound events, webhooks, and telemetry directly to local NVMe in <span class="text-[#CCFF00] font-mono font-medium">&lt; 0.5 µs</span>, retries asynchronously with zero data loss, and provides real-time 60fps terminal observability. Pure Go standard library, zero external brokers.
+      Walspool commits outbound requests to a sequential disk log on local NVMe in sub-microsecond time, then reliably delivers them to downstream endpoints with exponential backoff. Available as an embedded Go library or a zero-dependency sidecar daemon.
     </p>
 
     <!-- CTAs -->
@@ -193,19 +191,19 @@
     <div class="grid grid-cols-2 md:grid-cols-4 gap-4 max-w-5xl mx-auto border-t border-b border-obsidian-border py-8 text-left bg-[#101217]/60 rounded-2xl px-6">
       <div class="border-l-2 border-[#CCFF00] pl-4">
         <div class="text-3xl font-extrabold font-mono text-white">&lt; 0.5 µs</div>
-        <div class="text-xs text-slate-400 mt-1 font-medium">Local NVMe Write Latency (Group Commit WAL)</div>
+        <div class="text-xs text-slate-400 mt-1 font-medium">Local NVMe Write Latency (128KB Group Commit)</div>
       </div>
       <div class="border-l-2 border-sky-400 pl-4">
-        <div class="text-3xl font-extrabold font-mono text-white">&lt; 15 µs</div>
-        <div class="text-xs text-slate-400 mt-1 font-medium">Trace ID Historical Query (LogHub O(k))</div>
+        <div class="text-3xl font-extrabold font-mono text-white">&lt; 15 MB</div>
+        <div class="text-xs text-slate-400 mt-1 font-medium">Resident Memory Footprint (Daemon Mode)</div>
       </div>
       <div class="border-l-2 border-amber-400 pl-4">
-        <div class="text-3xl font-extrabold font-mono text-white">0 Dropped</div>
-        <div class="text-xs text-slate-400 mt-1 font-medium">Events on SIGKILL / OOM (CRC32 Auto-Heal)</div>
+        <div class="text-3xl font-extrabold font-mono text-white">CRC32</div>
+        <div class="text-xs text-slate-400 mt-1 font-medium">Frame Integrity & Automatic Tail Repair</div>
       </div>
       <div class="border-l-2 border-[#CCFF00] pl-4">
-        <div class="text-3xl font-extrabold font-mono text-white">0 Brokers</div>
-        <div class="text-xs text-slate-400 mt-1 font-medium">Pure Go Standard Library (No Kafka, No Redis)</div>
+        <div class="text-3xl font-extrabold font-mono text-white">0 Deps</div>
+        <div class="text-xs text-slate-400 mt-1 font-medium">Pure Go Standard Library (No CGO, No Brokers)</div>
       </div>
     </div>
   </section>
@@ -213,126 +211,104 @@
   <!-- WHY WALSPOOL: BEFORE VS AFTER & THE 3 PRODUCTION NIGHTMARES -->
   <section id="why-walspool" class="max-w-6xl mx-auto px-4 sm:px-6 mb-28">
     <div class="text-center mb-14">
-      <div class="text-xs uppercase font-mono tracking-widest text-[#CCFF00] font-bold mb-2">The Architecture Difference</div>
-      <h2 class="text-3xl sm:text-4xl font-extrabold text-white">Why Your Microservices Need a Shock Absorber</h2>
-      <p class="text-slate-300 text-sm max-w-2xl mx-auto mt-3 font-normal">
-        Your user-facing APIs should never be held hostage by the latency, network flakiness, or downtime of downstream services.
+      <div class="text-xs uppercase font-mono tracking-widest text-[#CCFF00] font-bold mb-2">Technical Evaluation</div>
+      <h2 class="text-3xl sm:text-4xl font-extrabold text-white">Engineering Trade-offs in Outbound Buffering</h2>
+      <p class="text-slate-300 text-sm max-w-3xl mx-auto mt-3 font-normal">
+        Most backend architectures default to synchronous HTTP calls or in-memory queues until high volume, downstream latency spikes, or container evictions cause incidents.
       </p>
     </div>
 
-    <!-- BEFORE vs AFTER COMPARISON -->
-    <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-14 items-stretch">
-      
-      <!-- WITHOUT WALSPOOL -->
-      <div class="p-7 sm:p-8 rounded-2xl hairline-card border-rose-500/30 flex flex-col justify-between relative overflow-hidden bg-gradient-to-b from-rose-950/20 to-[#0C0E14]">
-        <div>
-          <div class="flex items-center justify-between mb-5">
-            <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded bg-rose-950/60 text-rose-400 text-xs font-mono font-bold border border-rose-500/40">
-              WITHOUT WALSPOOL · SYNCHRONOUS I/O
-            </span>
-            <span class="text-xs font-mono text-rose-400 font-bold">Cascading Failure</span>
-          </div>
-
-          <h3 class="text-xl font-bold text-white mb-3">The Latency Domino Effect</h3>
-          <p class="text-slate-300 text-xs leading-relaxed mb-6">
-            When an upstream user action triggers external API calls or in-memory queuing without local persistence:
-          </p>
-
-          <div class="space-y-3 font-mono text-xs mb-6">
-            <div class="p-3 rounded-xl bg-[#050608] border border-obsidian-border flex items-start gap-3">
-              <span class="text-rose-400 font-bold">1.</span>
-              <div><strong class="text-white">User checkout request:</strong> Reaches your API web workers.</div>
-            </div>
-            <div class="p-3 rounded-xl bg-[#050608] border border-rose-500/20 flex items-start gap-3">
-              <span class="text-rose-400 font-bold">2.</span>
-              <div><strong class="text-rose-300">Synchronous HTTP call:</strong> Application attempts to POST audit log or webhook to external vendor.</div>
-            </div>
-            <div class="p-3 rounded-xl bg-[#050608] border border-rose-500/30 flex items-start gap-3">
-              <span class="text-rose-400 font-bold">3.</span>
-              <div><strong class="text-rose-400">External latency spike (450ms - 5s):</strong> Downstream slows down or throws 503s. HTTP workers stall waiting for sockets.</div>
-            </div>
-          </div>
-        </div>
-
-        <div class="p-4 rounded-xl bg-rose-950/40 border border-rose-500/40 text-rose-200 font-mono text-xs">
-          <div class="font-bold text-rose-300 mb-1 flex items-center gap-2">
-            <span>💥</span> End Result: Outage for your users
-          </div>
-          Connection pools saturate, memory spikes, and real customers get <strong>504 Gateway Timeout</strong>. Or pod gets OOM-killed and all uncommitted RAM events are permanently erased.
-        </div>
-      </div>
-
-      <!-- WITH WALSPOOL -->
-      <div class="p-7 sm:p-8 rounded-2xl hairline-card border-[#CCFF00]/40 flex flex-col justify-between relative overflow-hidden bg-gradient-to-b from-[#182200]/20 to-[#0C0E14]">
-        <div>
-          <div class="flex items-center justify-between mb-5">
-            <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded bg-[#182200] text-[#CCFF00] text-xs font-mono font-bold border border-[#CCFF00]/40">
-              WITH WALSPOOL · LOCAL SHOCK ABSORBER
-            </span>
-            <span class="text-xs font-mono text-[#CCFF00] font-bold">&lt; 0.5 µs Local Isolation</span>
-          </div>
-
-          <h3 class="text-xl font-bold text-white mb-3">Instant Response, Guaranteed Delivery</h3>
-          <p class="text-slate-300 text-xs leading-relaxed mb-6">
-            Decouple request execution from downstream availability with a sub-microsecond local NVMe buffer:
-          </p>
-
-          <div class="space-y-3 font-mono text-xs mb-6">
-            <div class="p-3 rounded-xl bg-[#050608] border border-obsidian-border flex items-start gap-3">
-              <span class="text-[#CCFF00] font-bold">1.</span>
-              <div><strong class="text-white">User checkout request:</strong> Reaches your API web workers.</div>
-            </div>
-            <div class="p-3 rounded-xl bg-[#050608] border border-[#CCFF00]/20 flex items-start gap-3">
-              <span class="text-[#CCFF00] font-bold">2.</span>
-              <div><strong class="text-white">Local Spool Append (<span class="text-[#CCFF00]">0.47 µs</span>):</strong> Application POSTs event to localhost:9099 or calls embedded Go spool.</div>
-            </div>
-            <div class="p-3 rounded-xl bg-[#050608] border border-[#CCFF00]/30 flex items-start gap-3">
-              <span class="text-[#CCFF00] font-bold">3.</span>
-              <div><strong class="text-white">Immediate 200 OK returned:</strong> User transaction finishes in &lt; 1 millisecond. Zero waiting on remote networks.</div>
-            </div>
-          </div>
-        </div>
-
-        <div class="p-4 rounded-xl bg-[#182200]/40 border border-[#CCFF00]/40 text-slate-200 font-mono text-xs">
-          <div class="font-bold text-[#D4FF33] mb-1 flex items-center gap-2">
-            <span>🛡️</span> End Result: 100% Resilience & Zero User Latency
-          </div>
-          Walspool durably commits to NVMe disk with CRC32. Its asynchronous dispatcher drains batches to downstream partners at their own pace with exponential retry. Zero dropped events.
-        </div>
-      </div>
-
+    <!-- COMPARISON TABLE (DESKTOP & SCROLLABLE MOBILE) -->
+    <div class="overflow-x-auto rounded-2xl border border-obsidian-border bg-[#0C0E14] shadow-2xl mb-12">
+      <table class="w-full text-left text-xs font-mono">
+        <thead class="bg-[#101217] text-slate-300 border-b border-obsidian-border">
+          <tr>
+            <th class="py-4 px-5 font-bold">Architecture Pattern</th>
+            <th class="py-4 px-5">Client Latency</th>
+            <th class="py-4 px-5">Crash Durability (SIGKILL / OOM)</th>
+            <th class="py-4 px-5">Operational Cost</th>
+            <th class="py-4 px-5">Downstream Outage Behavior</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-obsidian-border text-slate-300">
+          <tr>
+            <td class="py-4 px-5 font-bold text-slate-200">
+              <div class="flex items-center gap-2">
+                <span class="w-2 h-2 rounded-full bg-rose-500"></span>
+                <span>Direct Synchronous HTTP</span>
+              </div>
+            </td>
+            <td class="py-4 px-5 text-rose-400 font-semibold">400ms - 5,000ms</td>
+            <td class="py-4 px-5 text-slate-400">N/A (blocked in flight)</td>
+            <td class="py-4 px-5 text-slate-400">Zero infra (high worker count)</td>
+            <td class="py-4 px-5 text-rose-400">Worker exhaustion, 504 timeouts</td>
+          </tr>
+          <tr>
+            <td class="py-4 px-5 font-bold text-slate-200">
+              <div class="flex items-center gap-2">
+                <span class="w-2 h-2 rounded-full bg-amber-500"></span>
+                <span>In-Memory Queue (Channels, Celery, Bull)</span>
+              </div>
+            </td>
+            <td class="py-4 px-5 text-emerald-400 font-semibold">&lt; 10 µs</td>
+            <td class="py-4 px-5 text-rose-400 font-semibold">Total loss on pod restart</td>
+            <td class="py-4 px-5 text-slate-400">Low (until memory leaks)</td>
+            <td class="py-4 px-5 text-amber-400">Memory ballooning, OOMKill</td>
+          </tr>
+          <tr>
+            <td class="py-4 px-5 font-bold text-slate-200">
+              <div class="flex items-center gap-2">
+                <span class="w-2 h-2 rounded-full bg-sky-500"></span>
+                <span>Distributed Broker (Kafka, RabbitMQ)</span>
+              </div>
+            </td>
+            <td class="py-4 px-5 text-sky-400 font-semibold">5ms - 25ms (TCP hop + quorum)</td>
+            <td class="py-4 px-5 text-[#CCFF00]">High (replicated log)</td>
+            <td class="py-4 px-5 text-rose-400 font-semibold">Heavy ($400-1,200/mo, ZooKeeper, JVM)</td>
+            <td class="py-4 px-5 text-slate-300">Queued in cluster (complex consumers)</td>
+          </tr>
+          <tr class="bg-[#182200]/30 border-t-2 border-b-2 border-[#CCFF00]/40">
+            <td class="py-4 px-5 font-bold text-white">
+              <div class="flex items-center gap-2">
+                <span class="w-2 h-2 rounded-full bg-[#CCFF00]"></span>
+                <span class="text-[#CCFF00]">Walspool (Embedded WAL & Sidecar)</span>
+              </div>
+            </td>
+            <td class="py-4 px-5 text-[#CCFF00] font-bold">&lt; 0.5 µs (NVMe group commit)</td>
+            <td class="py-4 px-5 text-[#CCFF00] font-bold">100% NVMe durable with CRC32</td>
+            <td class="py-4 px-5 text-[#CCFF00] font-bold">Zero infra (&lt; 15 MB RAM, 0 deps)</td>
+            <td class="py-4 px-5 text-[#CCFF00] font-bold">Bounded spooling, decorrelated retry</td>
+          </tr>
+        </tbody>
+      </table>
     </div>
 
-    <!-- 3 PRODUCTION NIGHTMARES CARDS -->
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+    <!-- 2-COLUMN ASYMMETRIC TECHNICAL DEEP DIVE -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 items-stretch">
       
-      <div class="p-6 rounded-2xl hairline-card border-obsidian-border space-y-3">
-        <div class="w-10 h-10 rounded-xl bg-[#161821] border border-obsidian-border flex items-center justify-center text-xl mb-4">
-          🛑
+      <div class="p-7 rounded-2xl hairline-card border-obsidian-border space-y-4 bg-[#0A0C10]">
+        <div class="text-xs font-mono font-bold text-amber-400 uppercase tracking-wider flex items-center gap-2">
+          <span>Crash Safety & Recovery</span>
         </div>
-        <h4 class="text-base font-bold text-white">The Third-Party 504 Cascade</h4>
+        <h3 class="text-xl font-bold text-white">Why In-Memory Buffers Drop Production Data</h3>
         <p class="text-slate-300 text-xs leading-relaxed">
-          Why should an outage at a payment webhook, CRM, or log aggregator degrade your core application? Walspool isolates your critical request thread so external flakiness never leaks to your users.
+          Standard language queues (Go channels, Python Queue, Node EventEmitter) hold uncommitted items in RAM. In Kubernetes and container environments, pods are regularly evicted, rescheduled, or terminated by the kernel on memory pressure.
+        </p>
+        <p class="text-slate-300 text-xs leading-relaxed">
+          Walspool writes synchronously or group-commits every record to an append-only disk segment with an IEEE CRC32 checksum in its 29-byte binary header. Upon process crash or sudden reboot, Walspool scans segment boundaries, detects any incomplete tail writes, cleanly truncates corrupted bytes, and resumes draining without human intervention.
         </p>
       </div>
 
-      <div class="p-6 rounded-2xl hairline-card border-obsidian-border space-y-3">
-        <div class="w-10 h-10 rounded-xl bg-[#161821] border border-obsidian-border flex items-center justify-center text-xl mb-4">
-          🕳️
+      <div class="p-7 rounded-2xl hairline-card border-obsidian-border space-y-4 bg-[#0A0C10]">
+        <div class="text-xs font-mono font-bold text-[#CCFF00] uppercase tracking-wider flex items-center gap-2">
+          <span>Operational Simplicity</span>
         </div>
-        <h4 class="text-base font-bold text-white">The In-Memory Trap (SIGKILL & OOM)</h4>
+        <h3 class="text-xl font-bold text-white">Why Teams Avoid Cluster Sprawl for Pod Buffers</h3>
         <p class="text-slate-300 text-xs leading-relaxed">
-          Buffering events in Go channels or Node arrays is fast until Kubernetes kills your container for OOM. Uncommitted events in memory vanish forever. Walspool writes sequentially to disk first: crash recovery is automatic.
+          Deploying a centralized Kafka or RabbitMQ cluster just to buffer logs or webhook retries introduces network hops, auth complexity (SASL/mTLS), partition management, and recurring cloud bills.
         </p>
-      </div>
-
-      <div class="p-6 rounded-2xl hairline-card border-obsidian-border space-y-3">
-        <div class="w-10 h-10 rounded-xl bg-[#161821] border border-obsidian-border flex items-center justify-center text-xl mb-4">
-          💸
-        </div>
-        <h4 class="text-base font-bold text-white">The Kafka Infrastructure Overkill</h4>
         <p class="text-slate-300 text-xs leading-relaxed">
-          Running a multi-broker Kafka cluster with ZooKeeper or KRaft just to buffer local telemetry costs hundreds of dollars a month and gigabytes of RAM. Walspool runs as a single lightweight Go binary (&lt;15MB RAM).
+          Walspool runs directly alongside your service: either as an imported Go package in the same binary process or as a lightweight companion container. It has zero external dependencies, no dynamic CGO bindings, and requires zero cluster maintenance.
         </p>
       </div>
 
@@ -602,7 +578,7 @@ $ walspool monitor
               <span class="w-2 h-2 rounded-full bg-[#CCFF00]"></span>
               walspool Disk WAL (128KB Group Commit)
             </span>
-            <span class="text-[#CCFF00] font-bold">0.47 µs (2,130,000 ops/s) — Sub-Microsecond</span>
+            <span class="text-[#CCFF00] font-bold">0.47 µs (2,130,000 ops/s) - Sub-Microsecond</span>
           </div>
           <div class="w-full h-6 rounded-lg bg-obsidian-950 overflow-hidden p-0.5 border border-obsidian-border">
             <div class="h-full rounded bg-gradient-to-r from-lime-400 to-[#CCFF00]" style="width: 2%;"></div>
