@@ -1,10 +1,9 @@
-# Walspool v1.1.0 — Preliminary Release Notes (Draft)
+# Walspool v1.1.0 — Official Release Notes
 
-> **Date de Sortie Cible :** Q4 2026  
+> **Date :** 18 Octobre 2026  
 > **Auteur & Mainteneur Unique :** Yohann Hommet ([@YohannHommet](https://github.com/YohannHommet))  
-> **Tag Prévu :** `v1.1.0`  
+> **Tag :** [`v1.1.0`](https://github.com/YohannHommet/walspool/releases/tag/v1.1.0)  
 > **Licence :** Functional Source License Version 1.1 avec réversion MIT à 2 ans (`FSL-1.1-MIT`)  
-> **Branche de Travail :** `feature/cli-stream-monitor` (PR #6 `feature/segment-rotation` fusionnée sur `main` - commit `81082d5`)  
 
 ---
 
@@ -41,7 +40,7 @@ Walspool intègre désormais son propre outil en ligne de commande, compilé en 
 
 ---
 
-### 2. Moteur de Rotation Multi-Segments & Auto-Élagage (PR #6, fusionnée sur `main`)
+### 2. Moteur de Rotation Multi-Segments & Auto-Élagage (PR #6)
 Le composant `storage_file.go` gère désormais le découpage déterministe du journal physique sur disque :
 
 * **Seuil de Taille de Segment (`MaxSegmentSize`)** :

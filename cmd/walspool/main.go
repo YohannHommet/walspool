@@ -9,7 +9,7 @@ import (
 
 // Build metadata injected via -ldflags during release builds.
 var (
-	Version   = "1.0.0"
+	Version   = "1.1.0"
 	GitCommit = "HEAD"
 	BuildDate = "unknown"
 )

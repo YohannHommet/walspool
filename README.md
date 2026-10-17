@@ -578,7 +578,7 @@ Development is tracked publicly across 3 structured milestones:
 - **[Architecture Deep-Dive](docs/architecture/ARCHITECTURE.md)**: Detailed Ports & Adapters specifications, O(1) in-memory ring buffer, multi-segment rotation, and CLI engine.
 - **[Architecture Decision Records (ADR)](docs/architecture/adr/)**: Architectural governance and decisions ([ADR-001 Multi-Segment](docs/architecture/adr/ADR-001-multi-segment-rotation.md), [ADR-002 Standalone CLI](docs/architecture/adr/ADR-002-standalone-cli-tui.md), [ADR-003 V2 Blueprint](docs/architecture/adr/ADR-003-v2-high-throughput-and-community-scope.md)).
 - **[Observability & Resilience Report](docs/architecture/OBSERVABILITY_REPORT.md)**: Real-time SSE streaming, zero-allocation scanner, trace correlation.
-- **[v1.1.0 Release Notes (Draft)](docs/release/RELEASE_NOTES_v1.1.0_DRAFT.md)**: Latest release notes including CLI and multi-segment WAL rotation.
+- **[v1.1.0 Release Notes](docs/release/RELEASE_NOTES_v1.1.0.md)**: Latest release notes including CLI and multi-segment WAL rotation.
 - **[v1.0.0 Release Notes](docs/release/RELEASE_NOTES_v1.0.0.md)**: v1.0.0 GA changelog, binary distributions, and initial architecture.
 
 ---
