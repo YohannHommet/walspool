@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en" class="dark scroll-smooth bg-[#08090C]">
+<html lang="en" class="dark motion-safe:scroll-smooth bg-[#08090C]">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -27,10 +27,10 @@
   <meta name="twitter:title" content="walspool: Embedded WAL and Local Sidecar for APIs and Telemetry">
   <meta name="twitter:image" content="https://raw.githubusercontent.com/YohannHommet/walspool/main/assets/logo.png">
   
-  <!-- Fonts -->
+  <!-- Fonts: Geist Sans + JetBrains Mono -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
   
   <!-- Tailwind CSS CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
@@ -40,7 +40,7 @@
       theme: {
         extend: {
           fontFamily: {
-            sans: ['"Inter"', '-apple-system', 'BlinkMacSystemFont', 'sans-serif'],
+            sans: ['"Geist"', '-apple-system', 'BlinkMacSystemFont', 'sans-serif'],
             mono: ['"JetBrains Mono"', 'monospace'],
           },
           colors: {
@@ -49,6 +49,14 @@
               400: '#D4FF33',
               500: '#CCFF00',
               600: '#A3E635',
+            },
+            surface: {
+              base: '#08090C',
+              sunken: '#0B0D12',
+              card: '#101218',
+              elevated: '#161922',
+              border: 'rgba(255, 255, 255, 0.08)',
+              borderHover: 'rgba(255, 255, 255, 0.16)',
             },
             obsidian: {
               950: '#050608',
@@ -67,87 +75,90 @@
   <style>
     html, body {
       background-color: #08090C !important;
-      color: #F1F5F9 !important;
-      font-family: 'Inter', sans-serif;
+      color: #E2E8F0 !important;
+      font-family: 'Geist', sans-serif;
       margin: 0;
       padding: 0;
       min-height: 100vh;
     }
 
-    /* Technical Dot Matrix Grid */
+    /* Neutral Technical Dot Matrix Grid */
     .bg-grid {
-      background-image: radial-gradient(rgba(204, 255, 0, 0.05) 1px, transparent 1px);
+      background-image: radial-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px);
       background-size: 24px 24px;
     }
 
-    /* Ambient Spotlight */
+    /* Ambient Subtle Monochrome Spotlight */
     .spotlight {
-      background: radial-gradient(circle at 50% -10%, rgba(204, 255, 0, 0.14) 0%, rgba(56, 189, 248, 0.08) 30%, rgba(8, 9, 12, 0) 70%);
+      background: radial-gradient(circle at 50% 0%, rgba(255, 255, 255, 0.04) 0%, rgba(8, 9, 12, 0) 70%);
     }
 
-    /* Hairline Technical Cards */
+    /* Hairline Technical Cards with Inner Bevel */
     .hairline-card {
-      background: rgba(16, 18, 23, 0.85);
-      border: 1px solid rgba(35, 38, 50, 0.9);
-      backdrop-filter: blur(14px);
+      background: #101218;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.04);
+      transition: border-color 150ms ease-out, box-shadow 150ms ease-out;
     }
     .hairline-card:hover {
-      border-color: rgba(204, 255, 0, 0.35);
-      box-shadow: 0 0 35px -5px rgba(204, 255, 0, 0.12);
+      border-color: rgba(255, 255, 255, 0.16);
+      box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.08), 0 8px 30px rgba(0, 0, 0, 0.35);
     }
 
     /* Custom Terminal Scrollbar */
     ::-webkit-scrollbar { width: 6px; height: 6px; }
-    ::-webkit-scrollbar-track { background: #050608; }
-    ::-webkit-scrollbar-thumb { background: #232632; border-radius: 3px; }
-    ::-webkit-scrollbar-thumb:hover { background: #CCFF00; }
+    ::-webkit-scrollbar-track { background: #08090C; }
+    ::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.12); border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.25); }
 
-    /* Interactive Accordion Chevron */
-    details[open] summary svg.chevron {
-      transform: rotate(180deg);
+    /* Reduced Motion */
+    @media (prefers-reduced-motion: reduce) {
+      *, ::before, ::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+        scroll-behavior: auto !important;
+      }
     }
   </style>
 </head>
 <body class="bg-[#08090C] text-slate-100 min-h-screen bg-grid antialiased selection:bg-[#CCFF00] selection:text-slate-950">
 
   <!-- TOP STATUS BANNER -->
-  <div class="bg-[#0A0C10] border-b border-obsidian-border text-xs text-center py-2 px-4 text-slate-300 font-mono flex items-center justify-center gap-3 flex-wrap">
-    <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-[#182200] border border-[#CCFF00]/40 text-[#D4FF33] text-[11px] font-semibold">
-      <span class="w-1.5 h-1.5 rounded-full bg-[#CCFF00] animate-pulse"></span>
+  <div class="bg-[#0B0D12] border-b border-white/[0.08] text-xs text-center py-2 px-4 text-slate-300 font-mono flex items-center justify-center gap-3 flex-wrap">
+    <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-white/[0.04] border border-white/[0.12] text-slate-200 text-[11px] font-semibold">
+      <span class="w-1.5 h-1.5 rounded-full bg-[#CCFF00] motion-safe:animate-pulse"></span>
       v1.1.0 Stable
     </span>
-    <span class="text-slate-300">Pure Go standard library (0 dependencies) - Multi-segment WAL rotation (PR #6) - Standalone CLI suite</span>
-    <a href="https://github.com/YohannHommet/walspool" target="_blank" rel="noopener" class="text-[#CCFF00] hover:text-[#D4FF33] font-medium underline underline-offset-4 flex items-center gap-1">
+    <span class="text-slate-300">Pure Go standard library (0 dependencies) - Multi-segment WAL rotation - Standalone CLI suite</span>
+    <a href="https://github.com/YohannHommet/walspool" target="_blank" rel="noopener noreferrer" class="text-[#CCFF00] hover:text-[#D4FF33] font-medium underline underline-offset-4 flex items-center gap-1">
       GitHub Repo &rarr;
     </a>
   </div>
 
   <!-- NAVIGATION -->
-  <header class="sticky top-0 z-40 backdrop-blur-md bg-[#08090C]/90 border-b border-obsidian-border">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-      <a href="#" class="flex items-center gap-3 group">
-        <img src="assets/logo.png" alt="walspool logo" class="w-8 h-8 rounded-lg object-contain shadow-md shadow-[#CCFF00]/20 border border-[#CCFF00]/30 group-hover:border-[#CCFF00] transition" />
-        <div class="flex items-baseline gap-2">
-          <span class="font-bold text-xl tracking-tight text-white font-mono">walspool</span>
-          <span class="text-[10px] uppercase font-mono tracking-widest px-1.5 py-0.5 rounded bg-[#182200] text-[#CCFF00] border border-[#CCFF00]/30 font-semibold">v1.1</span>
-        </div>
+  <header class="sticky top-0 z-40 backdrop-blur-md bg-[#08090C]/90 border-b border-white/[0.08]">
+    <div class="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
+      <a href="#" class="flex items-center gap-3 group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#CCFF00] rounded-lg">
+        <img src="assets/logo.png" alt="walspool logo" class="w-8 h-8 rounded-lg object-contain border border-white/[0.12] group-hover:border-[#CCFF00] transition" />
+        <span class="font-bold text-xl tracking-tight text-white font-mono">walspool</span>
       </a>
 
       <!-- Focused Navigation -->
-      <nav class="hidden lg:flex items-center gap-6 text-sm font-medium text-slate-300">
-        <a href="#why-walspool" class="hover:text-[#CCFF00] transition">Evaluation</a>
-        <a href="#simulator" class="hover:text-[#CCFF00] transition">Live Sandbox</a>
-        <a href="#architecture" class="hover:text-[#CCFF00] transition">Architecture</a>
-        <a href="#cli" class="hover:text-[#CCFF00] transition">CLI & TUI</a>
-        <a href="#benchmarks" class="hover:text-[#CCFF00] transition">Benchmarks</a>
-        <a href="#roadmap" class="hover:text-[#CCFF00] transition">Roadmap</a>
-        <a href="#quickstart" class="hover:text-[#CCFF00] transition">Quickstart</a>
-        <a href="#community" class="hover:text-[#CCFF00] transition">Community</a>
+      <nav aria-label="Main Navigation" class="hidden lg:flex items-center gap-6 text-sm font-medium text-slate-300">
+        <a href="#why-walspool" class="hover:text-[#CCFF00] transition focus-visible:outline-none focus-visible:text-[#CCFF00]">Evaluation</a>
+        <a href="#simulator" class="hover:text-[#CCFF00] transition focus-visible:outline-none focus-visible:text-[#CCFF00]">Live Sandbox</a>
+        <a href="#architecture" class="hover:text-[#CCFF00] transition focus-visible:outline-none focus-visible:text-[#CCFF00]">Architecture</a>
+        <a href="#cli" class="hover:text-[#CCFF00] transition focus-visible:outline-none focus-visible:text-[#CCFF00]">CLI &amp; TUI</a>
+        <a href="#benchmarks" class="hover:text-[#CCFF00] transition focus-visible:outline-none focus-visible:text-[#CCFF00]">Benchmarks</a>
+        <a href="#roadmap" class="hover:text-[#CCFF00] transition focus-visible:outline-none focus-visible:text-[#CCFF00]">Roadmap</a>
+        <a href="#quickstart" class="hover:text-[#CCFF00] transition focus-visible:outline-none focus-visible:text-[#CCFF00]">Quickstart</a>
+        <a href="#community" class="hover:text-[#CCFF00] transition focus-visible:outline-none focus-visible:text-[#CCFF00]">Community</a>
       </nav>
 
       <!-- Primary Action: GitHub Star -->
       <div class="flex items-center gap-3">
-        <a href="https://github.com/YohannHommet/walspool" target="_blank" rel="noopener" class="px-3.5 py-2 text-xs font-semibold rounded-lg bg-[#161821] hover:bg-[#202330] border border-obsidian-border text-slate-200 transition font-mono flex items-center gap-2">
+        <a href="https://github.com/YohannHommet/walspool" target="_blank" rel="noopener noreferrer" class="px-3.5 py-2 text-xs font-semibold rounded-lg bg-[#161922] hover:bg-[#202430] border border-white/[0.1] text-slate-200 transition font-mono flex items-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#CCFF00]">
           <svg class="w-4 h-4 text-[#CCFF00]" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
           <span>Star on GitHub</span>
         </a>
@@ -156,16 +167,15 @@
   </header>
 
   <!-- HERO SECTION -->
-  <section class="relative pt-16 pb-20 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto text-center spotlight">
+  <section class="relative pt-16 pb-20 px-4 sm:px-6 max-w-6xl mx-auto text-center spotlight">
     
     <!-- Technical Positioning Badge -->
-    <div class="inline-flex items-center gap-2 px-4 py-1.5 rounded-full border border-[#CCFF00]/40 bg-[#101217] text-[#D4FF33] text-xs font-mono mb-8 shadow-sm">
-      <span class="w-2 h-2 rounded-full bg-[#CCFF00]"></span>
-      <span>Go Embedded Library & Standalone Sidecar Daemon</span>
+    <div class="inline-flex items-center px-3.5 py-1.5 rounded-full border border-white/[0.12] bg-[#101218] text-[#D4FF33] text-xs font-mono mb-8">
+      Go Embedded Library &amp; Standalone Sidecar Daemon
     </div>
 
     <!-- Title -->
-    <h1 class="text-4xl sm:text-6xl font-extrabold tracking-tight text-white max-w-4xl mx-auto leading-tight mb-6">
+    <h1 class="text-4xl sm:text-6xl font-semibold tracking-[-0.035em] text-white max-w-4xl mx-auto leading-tight mb-6">
       Durable local buffer for outbound webhooks, telemetry, and API events.
     </h1>
 
@@ -176,52 +186,53 @@
 
     <!-- CTAs -->
     <div class="flex flex-col sm:flex-row items-center justify-center gap-4 mb-16">
-      <a href="#quickstart" class="w-full sm:w-auto px-7 py-3.5 rounded-xl bg-[#CCFF00] hover:bg-lime-300 text-slate-950 font-bold text-sm transition shadow-lg shadow-lime-500/20 flex items-center justify-center gap-2 font-mono">
-        <span>Get Started in 30s</span>
+      <a href="#quickstart" class="w-full sm:w-auto px-7 py-3.5 rounded-xl bg-[#CCFF00] hover:bg-lime-300 text-slate-950 font-bold text-sm transition shadow-lg shadow-lime-500/10 flex items-center justify-center gap-2 font-mono focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white">
+        <span>Quickstart Guide</span>
         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
       </a>
 
-      <div class="w-full sm:w-auto flex items-center justify-between px-5 py-3.5 rounded-xl bg-[#101217] border border-obsidian-border text-slate-200 font-mono text-xs cursor-pointer hover:border-[#CCFF00]/50 transition group" onclick="copyInstallCmd()">
-        <span class="text-slate-400 group-hover:text-slate-200">$ go install github.com/YohannHommet/walspool/cmd/walspool@latest</span>
-        <span id="copy-badge" class="ml-4 text-[#CCFF00] text-xs font-bold uppercase tracking-wider">Copy</span>
-      </div>
+      <!-- Accessible Copy Button -->
+      <button type="button" aria-label="Copy install command to clipboard" onclick="copyInstallCmd()" class="w-full sm:w-auto flex items-center justify-between px-5 py-3.5 rounded-xl bg-[#101218] border border-white/[0.08] text-slate-200 font-mono text-xs hover:border-white/[0.2] transition group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#CCFF00] min-w-0">
+        <span class="text-slate-400 group-hover:text-slate-200 truncate">$ go install github.com/YohannHommet/walspool/cmd/walspool@latest</span>
+        <span id="copy-badge" class="ml-4 text-[#CCFF00] text-xs font-bold uppercase tracking-wider shrink-0">Copy</span>
+      </button>
     </div>
 
     <!-- CERTIFIED METRICS STRIP -->
-    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 max-w-5xl mx-auto border-t border-b border-obsidian-border py-8 text-left bg-[#101217]/60 rounded-2xl px-6">
-      <div class="border-l-2 border-[#CCFF00] pl-4">
-        <div class="text-3xl font-extrabold font-mono text-white">&lt; 0.5 µs</div>
-        <div class="text-xs text-slate-400 mt-1 font-medium">Local NVMe Write Latency (128KB Group Commit)</div>
+    <div class="grid grid-cols-2 md:grid-cols-4 max-w-6xl mx-auto border border-white/[0.08] rounded-xl bg-[#101218] divide-y md:divide-y-0 md:divide-x divide-white/[0.08] text-left">
+      <div class="p-5">
+        <div class="text-2xl sm:text-3xl font-semibold font-mono tracking-tight text-white tabular-nums">&lt; 0.5 µs</div>
+        <div class="text-xs text-slate-400 mt-1">NVMe Write Latency (128KB Group Commit)</div>
       </div>
-      <div class="border-l-2 border-sky-400 pl-4">
-        <div class="text-3xl font-extrabold font-mono text-white">&lt; 15 MB</div>
-        <div class="text-xs text-slate-400 mt-1 font-medium">Resident Memory Footprint (Daemon Mode)</div>
+      <div class="p-5">
+        <div class="text-2xl sm:text-3xl font-semibold font-mono tracking-tight text-white tabular-nums">&lt; 15 MB</div>
+        <div class="text-xs text-slate-400 mt-1">Resident Memory Footprint (Daemon)</div>
       </div>
-      <div class="border-l-2 border-amber-400 pl-4">
-        <div class="text-3xl font-extrabold font-mono text-white">CRC32</div>
-        <div class="text-xs text-slate-400 mt-1 font-medium">Frame Integrity & Automatic Tail Repair</div>
+      <div class="p-5">
+        <div class="text-2xl sm:text-3xl font-semibold font-mono tracking-tight text-white">CRC32</div>
+        <div class="text-xs text-slate-400 mt-1">IEEE Frame Verification &amp; Tail Repair</div>
       </div>
-      <div class="border-l-2 border-[#CCFF00] pl-4">
-        <div class="text-3xl font-extrabold font-mono text-white">0 Deps</div>
-        <div class="text-xs text-slate-400 mt-1 font-medium">Pure Go Standard Library (No CGO, No Brokers)</div>
+      <div class="p-5">
+        <div class="text-2xl sm:text-3xl font-semibold font-mono tracking-tight text-white tabular-nums">0 Deps</div>
+        <div class="text-xs text-slate-400 mt-1">Pure Go Standard Library (No CGO)</div>
       </div>
     </div>
   </section>
 
-  <!-- WHY WALSPOOL: BEFORE VS AFTER & THE 3 PRODUCTION NIGHTMARES -->
-  <section id="why-walspool" class="max-w-6xl mx-auto px-4 sm:px-6 mb-28">
+  <!-- WHY WALSPOOL: TECHNICAL EVALUATION -->
+  <section id="why-walspool" class="max-w-6xl mx-auto px-4 sm:px-6 mb-20">
     <div class="text-center mb-14">
       <div class="text-xs uppercase font-mono tracking-widest text-[#CCFF00] font-bold mb-2">Technical Evaluation</div>
-      <h2 class="text-3xl sm:text-4xl font-extrabold text-white">Engineering Trade-offs in Outbound Buffering</h2>
+      <h2 class="text-2xl sm:text-3xl font-semibold tracking-tight text-white">Engineering Trade-offs in Outbound Buffering</h2>
       <p class="text-slate-300 text-sm max-w-3xl mx-auto mt-3 font-normal">
         Most backend architectures default to synchronous HTTP calls or in-memory queues until high volume, downstream latency spikes, or container evictions cause incidents.
       </p>
     </div>
 
     <!-- COMPARISON TABLE (DESKTOP & SCROLLABLE MOBILE) -->
-    <div class="overflow-x-auto rounded-2xl border border-obsidian-border bg-[#0C0E14] shadow-2xl mb-12">
+    <div class="overflow-x-auto rounded-xl border border-white/[0.08] bg-[#0C0E14] shadow-2xl mb-12" tabindex="0" role="region" aria-label="Architecture Comparison Table">
       <table class="w-full text-left text-xs font-mono">
-        <thead class="bg-[#101217] text-slate-300 border-b border-obsidian-border">
+        <thead class="bg-[#101218] text-slate-300 border-b border-white/[0.08]">
           <tr>
             <th class="py-4 px-5 font-bold">Architecture Pattern</th>
             <th class="py-4 px-5">Client Latency</th>
@@ -230,54 +241,45 @@
             <th class="py-4 px-5">Downstream Outage Behavior</th>
           </tr>
         </thead>
-        <tbody class="divide-y divide-obsidian-border text-slate-300">
+        <tbody class="divide-y divide-white/[0.08] text-slate-300">
           <tr>
             <td class="py-4 px-5 font-bold text-slate-200">
-              <div class="flex items-center gap-2">
-                <span class="w-2 h-2 rounded-full bg-rose-500"></span>
-                <span>Direct Synchronous HTTP</span>
-              </div>
+              Direct Synchronous HTTP
             </td>
-            <td class="py-4 px-5 text-rose-400 font-semibold">400ms - 5,000ms</td>
+            <td class="py-4 px-5 text-rose-400 font-semibold tabular-nums">400ms - 5,000ms</td>
             <td class="py-4 px-5 text-slate-400">N/A (blocked in flight)</td>
             <td class="py-4 px-5 text-slate-400">Zero infra (high worker count)</td>
             <td class="py-4 px-5 text-rose-400">Worker exhaustion, 504 timeouts</td>
           </tr>
           <tr>
             <td class="py-4 px-5 font-bold text-slate-200">
-              <div class="flex items-center gap-2">
-                <span class="w-2 h-2 rounded-full bg-amber-500"></span>
-                <span>In-Memory Queue (Channels, Celery, Bull)</span>
-              </div>
+              In-Memory Queue (Channels, Celery, Bull)
             </td>
-            <td class="py-4 px-5 text-emerald-400 font-semibold">&lt; 10 µs</td>
+            <td class="py-4 px-5 text-emerald-400 font-semibold tabular-nums">&lt; 10 µs</td>
             <td class="py-4 px-5 text-rose-400 font-semibold">Total loss on pod restart</td>
             <td class="py-4 px-5 text-slate-400">Low (until memory leaks)</td>
             <td class="py-4 px-5 text-amber-400">Memory ballooning, OOMKill</td>
           </tr>
           <tr>
             <td class="py-4 px-5 font-bold text-slate-200">
-              <div class="flex items-center gap-2">
-                <span class="w-2 h-2 rounded-full bg-sky-500"></span>
-                <span>Distributed Broker (Kafka, RabbitMQ)</span>
-              </div>
+              Distributed Broker (Kafka, RabbitMQ)
             </td>
-            <td class="py-4 px-5 text-sky-400 font-semibold">5ms - 25ms (TCP hop + quorum)</td>
-            <td class="py-4 px-5 text-[#CCFF00]">High (replicated log)</td>
+            <td class="py-4 px-5 text-sky-400 font-semibold tabular-nums">5ms - 25ms (TCP hop + quorum)</td>
+            <td class="py-4 px-5 text-slate-200">High (replicated log)</td>
             <td class="py-4 px-5 text-rose-400 font-semibold">Heavy ($400-1,200/mo, ZooKeeper, JVM)</td>
             <td class="py-4 px-5 text-slate-300">Queued in cluster (complex consumers)</td>
           </tr>
-          <tr class="bg-[#182200]/30 border-t-2 border-b-2 border-[#CCFF00]/40">
-            <td class="py-4 px-5 font-bold text-white">
+          <tr class="bg-white/[0.03] border-t border-b border-white/[0.12]">
+            <td class="py-4 px-5 font-semibold text-white">
               <div class="flex items-center gap-2">
-                <span class="w-2 h-2 rounded-full bg-[#CCFF00]"></span>
-                <span class="text-[#CCFF00]">Walspool (Embedded WAL & Sidecar)</span>
+                <span class="w-1.5 h-1.5 rounded-full bg-[#CCFF00]"></span>
+                <span>Walspool (Embedded WAL &amp; Sidecar)</span>
               </div>
             </td>
-            <td class="py-4 px-5 text-[#CCFF00] font-bold">&lt; 0.5 µs (NVMe group commit)</td>
-            <td class="py-4 px-5 text-[#CCFF00] font-bold">100% NVMe durable with CRC32</td>
-            <td class="py-4 px-5 text-[#CCFF00] font-bold">Zero infra (&lt; 15 MB RAM, 0 deps)</td>
-            <td class="py-4 px-5 text-[#CCFF00] font-bold">Bounded spooling, decorrelated retry</td>
+            <td class="py-4 px-5 text-white font-mono tabular-nums">&lt; 0.5 µs <span class="text-xs text-slate-400 font-normal">(NVMe group commit)</span></td>
+            <td class="py-4 px-5 text-white font-mono">100% durable <span class="text-xs text-slate-400 font-normal">(CRC32)</span></td>
+            <td class="py-4 px-5 text-white font-mono">&lt; 15 MB RAM <span class="text-xs text-slate-400 font-normal">(0 deps)</span></td>
+            <td class="py-4 px-5 text-white font-mono">Bounded spooling &amp; retry</td>
           </tr>
         </tbody>
       </table>
@@ -286,28 +288,28 @@
     <!-- 2-COLUMN ASYMMETRIC TECHNICAL DEEP DIVE -->
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 items-stretch">
       
-      <div class="p-7 rounded-2xl hairline-card border-obsidian-border space-y-4 bg-[#0A0C10]">
+      <div class="p-7 rounded-2xl hairline-card space-y-4">
         <div class="text-xs font-mono font-bold text-amber-400 uppercase tracking-wider flex items-center gap-2">
-          <span>Crash Safety & Recovery</span>
+          <span>Crash Safety &amp; Recovery</span>
         </div>
         <h3 class="text-xl font-bold text-white">Why In-Memory Buffers Drop Production Data</h3>
-        <p class="text-slate-300 text-xs leading-relaxed">
+        <p class="text-slate-400 text-sm leading-relaxed">
           Standard language queues (Go channels, Python Queue, Node EventEmitter) hold uncommitted items in RAM. In Kubernetes and container environments, pods are regularly evicted, rescheduled, or terminated by the kernel on memory pressure.
         </p>
-        <p class="text-slate-300 text-xs leading-relaxed">
+        <p class="text-slate-400 text-sm leading-relaxed">
           Walspool writes synchronously or group-commits every record to an append-only disk segment with an IEEE CRC32 checksum in its 29-byte binary header. Upon process crash or sudden reboot, Walspool scans segment boundaries, detects any incomplete tail writes, cleanly truncates corrupted bytes, and resumes draining without human intervention.
         </p>
       </div>
 
-      <div class="p-7 rounded-2xl hairline-card border-obsidian-border space-y-4 bg-[#0A0C10]">
+      <div class="p-7 rounded-2xl hairline-card space-y-4">
         <div class="text-xs font-mono font-bold text-[#CCFF00] uppercase tracking-wider flex items-center gap-2">
           <span>Operational Simplicity</span>
         </div>
         <h3 class="text-xl font-bold text-white">Why Teams Avoid Cluster Sprawl for Pod Buffers</h3>
-        <p class="text-slate-300 text-xs leading-relaxed">
+        <p class="text-slate-400 text-sm leading-relaxed">
           Deploying a centralized Kafka or RabbitMQ cluster just to buffer logs or webhook retries introduces network hops, auth complexity (SASL/mTLS), partition management, and recurring cloud bills.
         </p>
-        <p class="text-slate-300 text-xs leading-relaxed">
+        <p class="text-slate-400 text-sm leading-relaxed">
           Walspool runs directly alongside your service: either as an imported Go package in the same binary process or as a lightweight companion container. It has zero external dependencies, no dynamic CGO bindings, and requires zero cluster maintenance.
         </p>
       </div>
@@ -316,10 +318,10 @@
   </section>
 
   <!-- LIVE DUAL-ENGINE TERMINAL PLAYGROUND -->
-  <section id="simulator" class="max-w-5xl mx-auto px-4 sm:px-6 mb-28">
+  <section id="simulator" class="max-w-6xl mx-auto px-4 sm:px-6 mb-20">
     <div class="text-center mb-10">
-      <div class="text-xs uppercase font-mono tracking-widest text-[#CCFF00] font-bold mb-2">Interactive Proof of Concept</div>
-      <h2 class="text-3xl font-extrabold text-white">Experience the Shock Absorber Live</h2>
+      <div class="text-xs uppercase font-mono tracking-widest text-[#CCFF00] font-bold mb-2">Interactive Sandbox</div>
+      <h2 class="text-2xl sm:text-3xl font-semibold tracking-tight text-white">Shock Absorber Live Sandbox</h2>
       <p class="text-slate-300 text-sm max-w-2xl mx-auto mt-2 font-normal">
         Test sub-microsecond local ingestion, simulate downstream outages (503) with automatic exponential retry, and test SIGKILL crash resilience with zero data loss.
       </p>
@@ -328,162 +330,160 @@
     <div class="rounded-2xl hairline-card overflow-hidden shadow-2xl">
       
       <!-- Terminal Window Bar -->
-      <div class="bg-[#0C0E14] px-4 py-3 border-b border-obsidian-border flex items-center justify-between">
+      <div class="bg-[#0C0E14] px-4 py-3 border-b border-white/[0.08] flex items-center justify-between">
         <div class="flex items-center gap-2">
           <div class="w-3 h-3 rounded-full bg-rose-500/80"></div>
           <div class="w-3 h-3 rounded-full bg-amber-500/80"></div>
           <div class="w-3 h-3 rounded-full bg-[#CCFF00]/80"></div>
-          <span class="ml-2 text-xs font-mono text-slate-300 font-medium">walspool terminal interactive sandbox</span>
+          <span class="hidden sm:inline ml-2 text-xs font-mono text-slate-400 font-medium">walspool terminal interactive sandbox</span>
         </div>
         
         <!-- Mode Switcher -->
-        <div class="flex items-center gap-1 bg-[#161821] p-1 rounded-lg border border-obsidian-border text-xs font-mono">
-          <button id="sim-tab-monitor" onclick="switchSimMode('monitor')" class="px-3 py-1 rounded bg-[#CCFF00]/20 text-[#D4FF33] font-bold">walspool monitor</button>
-          <button id="sim-tab-stream" onclick="switchSimMode('stream')" class="px-3 py-1 rounded text-slate-400 hover:text-white">walspool stream</button>
+        <div class="flex items-center gap-1 bg-[#161922] p-1 rounded-lg border border-white/[0.08] text-xs font-mono" role="group" aria-label="Terminal display mode">
+          <button id="sim-tab-monitor" onclick="switchSimMode('monitor')" class="px-3 py-1 rounded bg-[#CCFF00]/20 text-[#D4FF33] font-bold focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#CCFF00]">walspool monitor</button>
+          <button id="sim-tab-stream" onclick="switchSimMode('stream')" class="px-3 py-1 rounded text-slate-400 hover:text-white focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#CCFF00]">walspool stream</button>
         </div>
       </div>
 
       <!-- Controls -->
-      <div class="p-4 bg-[#0A0C10] border-b border-obsidian-border flex flex-wrap items-center gap-2.5">
-        <button onclick="simEnqueueBatch()" class="px-3.5 py-2 rounded-lg bg-[#CCFF00] hover:bg-lime-300 text-slate-950 font-mono text-xs font-bold flex items-center gap-1.5 transition shadow-sm">
+      <div class="p-4 bg-[#0A0C10] border-b border-white/[0.08] flex flex-wrap items-center gap-2.5">
+        <button onclick="simEnqueueBatch()" class="px-3.5 py-2 rounded-lg bg-[#CCFF00] hover:bg-lime-300 text-slate-950 font-mono text-xs font-bold flex items-center gap-1.5 transition shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#CCFF00] focus-visible:ring-offset-2 focus-visible:ring-offset-[#0A0C10]">
           <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
-          ⚡ Enqueue Event (&lt; 0.5µs)
+          Enqueue Event (&lt; 0.5µs)
         </button>
 
-        <button onclick="simQueryTrace()" class="px-3.5 py-2 rounded-lg bg-[#161821] hover:bg-[#202330] border border-obsidian-border text-slate-200 font-mono text-xs font-semibold flex items-center gap-1.5 transition">
+        <button onclick="simQueryTrace()" class="px-3.5 py-2 rounded-lg bg-[#161922] hover:bg-[#202430] border border-white/[0.08] text-slate-200 font-mono text-xs font-semibold flex items-center gap-1.5 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400 focus-visible:ring-offset-2 focus-visible:ring-offset-[#0A0C10]">
           <svg class="w-4 h-4 text-sky-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
-          🔍 Query Trace ID (&lt; 15µs)
+          Query Trace ID (&lt; 15µs)
         </button>
 
-        <button onclick="simNetworkDrop()" id="btn-network" class="px-3.5 py-2 rounded-lg bg-[#161821] hover:bg-[#202330] border border-obsidian-border text-amber-400 font-mono text-xs font-semibold flex items-center gap-1.5 transition">
+        <button onclick="simNetworkDrop()" id="btn-network" aria-pressed="false" class="px-3.5 py-2 rounded-lg bg-[#161922] hover:bg-[#202430] border border-white/[0.08] text-amber-400 font-mono text-xs font-semibold flex items-center gap-1.5 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400 focus-visible:ring-offset-2 focus-visible:ring-offset-[#0A0C10]">
           <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 5.636a9 9 0 010 12.728m0 0l-2.829-2.829m2.829 2.829L21 21M15.536 8.464a5 5 0 010 7.072m0 0l-2.829-2.829m-4.243 4.243a9 9 0 01-12.728 0m0 0l2.829-2.829m-2.829 2.829L3 21"/></svg>
-          ⚠️ Downstream 503 Outage
+          Simulate 503 Outage
         </button>
 
-        <button onclick="simCrashAndRecover()" class="px-3.5 py-2 rounded-lg bg-[#161821] hover:bg-rose-950/40 border border-obsidian-border text-rose-400 font-mono text-xs font-semibold flex items-center gap-1.5 transition">
+        <button onclick="simCrashAndRecover()" class="px-3.5 py-2 rounded-lg bg-[#161922] hover:bg-rose-950/40 border border-white/[0.08] text-rose-400 font-mono text-xs font-semibold flex items-center gap-1.5 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-400 focus-visible:ring-offset-2 focus-visible:ring-offset-[#0A0C10]">
           <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
-          💥 SIGKILL Crash & Recover
+          SIGKILL Recovery
         </button>
 
-        <button onclick="clearConsole()" class="ml-auto text-xs text-slate-400 hover:text-white font-mono transition">
+        <button onclick="clearConsole()" class="ml-auto px-3 py-1.5 rounded text-xs text-slate-400 hover:text-white font-mono transition focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-white">
           Clear
         </button>
       </div>
 
       <!-- Live Gauges Bar -->
-      <div class="grid grid-cols-2 md:grid-cols-4 gap-2 p-3 bg-[#0A0C10] border-b border-obsidian-border text-xs font-mono text-slate-300">
-        <div class="px-3 py-1.5 bg-[#101217] rounded border border-obsidian-border">
-          <span class="text-slate-400">Total Ingested:</span> <span id="gauge-ingested" class="text-[#CCFF00] font-bold">1,420</span>
+      <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-2 p-3 bg-[#0A0C10] border-b border-white/[0.08] text-xs font-mono text-slate-300">
+        <div class="px-3 py-1.5 bg-[#101218] rounded border border-white/[0.08] min-w-0">
+          <span class="text-slate-400">Total Ingested:</span> <span id="gauge-ingested" class="text-[#CCFF00] font-bold tabular-nums">1,420</span>
         </div>
-        <div class="px-3 py-1.5 bg-[#101217] rounded border border-obsidian-border">
-          <span class="text-slate-400">Active Segment:</span> <span id="gauge-segment" class="text-amber-400 font-bold">seg-00000000000000001000.wal</span>
+        <div class="px-3 py-1.5 bg-[#101218] rounded border border-white/[0.08] min-w-0">
+          <span class="text-slate-400">Active Segment:</span> <span id="gauge-segment" class="text-amber-400 font-bold truncate block" title="seg-00000000000000001000.wal">seg-00000000000000001000.wal</span>
         </div>
-        <div class="px-3 py-1.5 bg-[#101217] rounded border border-obsidian-border">
-          <span class="text-slate-400">Ring Buffer:</span> <span id="gauge-ring" class="text-sky-400 font-bold">1,420 / 50,000</span>
+        <div class="px-3 py-1.5 bg-[#101218] rounded border border-white/[0.08] min-w-0">
+          <span class="text-slate-400">Ring Buffer:</span> <span id="gauge-ring" class="text-sky-400 font-bold tabular-nums">1,420 / 50,000</span>
         </div>
-        <div class="px-3 py-1.5 bg-[#101217] rounded border border-obsidian-border">
+        <div class="px-3 py-1.5 bg-[#101218] rounded border border-white/[0.08] min-w-0">
           <span class="text-slate-400">Drain Status:</span> <span id="gauge-status" class="text-[#CCFF00] font-bold">HEALTHY</span>
         </div>
       </div>
 
       <!-- Screen Output -->
-      <div id="terminal-out" class="p-5 font-mono text-xs text-slate-200 h-80 overflow-y-auto space-y-1 bg-[#050608]">
+      <div id="terminal-out" role="log" aria-live="polite" aria-atomic="false" aria-label="Walspool terminal simulator output" tabindex="0" class="p-5 font-mono text-xs text-slate-200 h-80 overflow-y-auto overflow-x-auto whitespace-pre space-y-1 bg-[#050608] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#CCFF00]/40">
         <!-- Initial content populated by JS -->
       </div>
     </div>
   </section>
 
-  <!-- DUAL-ENGINE ARCHITECTURE V1.1 (PR #6) -->
-  <section id="architecture" class="max-w-6xl mx-auto px-4 sm:px-6 mb-28">
+  <!-- DUAL-ENGINE ARCHITECTURE -->
+  <section id="architecture" class="max-w-6xl mx-auto px-4 sm:px-6 mb-20">
     <div class="text-center mb-14">
       <div class="text-xs uppercase font-mono tracking-widest text-[#CCFF00] font-bold mb-2">Architectural Blueprint</div>
-      <h2 class="text-3xl sm:text-4xl font-extrabold text-white">Dual-Engine Core & Multi-Segment Storage</h2>
+      <h2 class="text-2xl sm:text-3xl font-semibold tracking-tight text-white">Dual-Engine Core &amp; Multi-Segment Storage</h2>
       <p class="text-slate-300 text-sm max-w-2xl mx-auto mt-3 font-normal">
-        Two specialized engines work in tandem behind strict Ports & Adapters boundaries: durable multi-segment NVMe storage and an ultra-fast in-memory streaming hub.
+        Two specialized engines work in tandem behind strict Ports &amp; Adapters boundaries: durable multi-segment NVMe storage and an ultra-fast in-memory streaming hub.
       </p>
     </div>
 
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 items-stretch">
       
       <!-- ENGINE 1 CARD -->
-      <div class="p-8 rounded-2xl hairline-card border-amber-500/40 flex flex-col justify-between relative overflow-hidden">
+      <div class="p-8 rounded-2xl hairline-card flex flex-col justify-between relative overflow-hidden">
         <div>
           <div class="flex items-center justify-between mb-4">
             <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded bg-amber-950/60 text-amber-400 text-xs font-mono font-bold border border-amber-500/40">
-              ENGINE 1 · MULTI-SEGMENT WAL
+              STORAGE ENGINE (WAL)
             </span>
-            <span class="text-xs font-mono text-slate-400">1,000,000+ ops/s</span>
+            <span class="text-xs font-mono text-slate-400 tabular-nums">1,000,000+ ops/s</span>
           </div>
-          <h3 class="text-2xl font-extrabold text-white mb-3">Multi-Segment Rotation & Auto-Pruning</h3>
-          <p class="text-slate-300 text-sm leading-relaxed mb-6">
+          <h3 class="text-xl font-bold text-white mb-3">Multi-Segment Rotation &amp; Auto-Pruning</h3>
+          <p class="text-slate-400 text-sm leading-relaxed mb-6">
             Merged in PR #6. Sequential write-ahead logging with bounded disk quotas. Automatically rotates active WAL files into immutable segments and prunes fully acknowledged data upon checkpoint advance.
           </p>
 
           <div class="space-y-3 font-mono text-xs mb-6">
             <div class="flex items-start gap-2.5 text-slate-200">
-              <span class="text-[#CCFF00] font-bold">✓</span>
+              <span class="text-[#CCFF00] font-bold">▪</span>
               <div><strong class="text-white">Deterministic Segment Rotation:</strong> Sealed at configurable size (`MaxSegmentSize = 64MB`) without blocking ingestion.</div>
             </div>
             <div class="flex items-start gap-2.5 text-slate-200">
-              <span class="text-[#CCFF00] font-bold">✓</span>
+              <span class="text-[#CCFF00] font-bold">▪</span>
               <div><strong class="text-white">Checkpoint Auto-Pruning:</strong> Unlinks fully committed segments on `Commit(offset)`, preserving NVMe storage.</div>
             </div>
             <div class="flex items-start gap-2.5 text-slate-200">
-              <span class="text-[#CCFF00] font-bold">✓</span>
+              <span class="text-[#CCFF00] font-bold">▪</span>
               <div><strong class="text-white">Segmented Crash Recovery:</strong> Discovers all segments in sequence and repairs torn tail writes with `os.Truncate`.</div>
             </div>
             <div class="flex items-start gap-2.5 text-slate-200">
-              <span class="text-[#CCFF00] font-bold">✓</span>
+              <span class="text-[#CCFF00] font-bold">▪</span>
               <div><strong class="text-white">IEEE CRC32 Protection:</strong> 29-byte binary header verifies integrity on every record boundary.</div>
             </div>
           </div>
         </div>
 
-        <div class="bg-[#050608] p-3.5 rounded-xl border border-obsidian-border font-mono text-[11px] text-slate-300">
+        <div class="bg-[#050608] p-3.5 rounded-xl border border-white/[0.08] font-mono text-[11px] text-slate-300">
           <span class="text-slate-400">// Frame structure (record.go):</span><br>
           <span class="text-amber-400 font-semibold">[WS:2B][Ver:1B][CRC32:4B][ID:8B][Nano:8B][TopicLen:2B][PayloadLen:4B]</span>
         </div>
       </div>
 
       <!-- ENGINE 2 CARD -->
-      <div class="p-8 rounded-2xl hairline-card border-[#CCFF00]/40 flex flex-col justify-between relative overflow-hidden">
+      <div class="p-8 rounded-2xl hairline-card flex flex-col justify-between relative overflow-hidden">
         <div>
           <div class="flex items-center justify-between mb-4">
             <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded bg-[#182200] text-[#CCFF00] text-xs font-mono font-bold border border-[#CCFF00]/40">
-              ENGINE 2 · MEMORY HUB OBSERVABILITY
+              OBSERVABILITY HUB (RING BUFFER)
             </span>
-            <span class="text-xs font-mono text-[#CCFF00] font-bold">< 15 µs Queries</span>
+            <span class="text-xs font-mono text-[#CCFF00] font-bold tabular-nums">&lt; 15 µs Queries</span>
           </div>
-          <h3 class="text-2xl font-extrabold text-white mb-3">In-Memory Streaming LogHub</h3>
-          <p class="text-slate-300 text-sm leading-relaxed mb-6">
+          <h3 class="text-xl font-bold text-white mb-3">In-Memory Streaming LogHub</h3>
+          <p class="text-slate-400 text-sm leading-relaxed mb-6">
             A high-speed in-memory indexing buffer that eliminates external logging infrastructure for live telemetry, distributed tracing, and real-time debugging streams.
           </p>
 
           <div class="space-y-3 font-mono text-xs mb-6">
             <div class="flex items-start gap-2.5 text-slate-200">
-              <span class="text-[#CCFF00] font-bold">✓</span>
+              <span class="text-[#CCFF00] font-bold">▪</span>
               <div><strong class="text-white">O(1) Circular Ring Buffer:</strong> Fixed memory ceiling (50,000 logs) with zero dynamic allocation overhead.</div>
             </div>
             <div class="flex items-start gap-2.5 text-slate-200">
-              <span class="text-[#CCFF00] font-bold">✓</span>
+              <span class="text-[#CCFF00] font-bold">▪</span>
               <div><strong class="text-white">Dual Secondary Indices:</strong> Instant lookup by `trace_id` and `service` in under 15 microseconds.</div>
             </div>
             <div class="flex items-start gap-2.5 text-slate-200">
-              <span class="text-[#CCFF00] font-bold">✓</span>
-              <div><strong class="text-white">Non-Blocking SSE Streaming:</strong> Broadcasts live events to browsers and CLI tools at > 1M req/s.</div>
+              <span class="text-[#CCFF00] font-bold">▪</span>
+              <div><strong class="text-white">Non-Blocking SSE Streaming:</strong> Broadcasts live events to browsers and CLI tools at &gt; 1M req/s.</div>
             </div>
             <div class="flex items-start gap-2.5 text-slate-200">
-              <span class="text-[#CCFF00] font-bold">✓</span>
+              <span class="text-[#CCFF00] font-bold">▪</span>
               <div><strong class="text-white">Zero-Leak Eviction:</strong> Index references are automatically pruned as oldest records are overwritten.</div>
             </div>
           </div>
         </div>
 
-        <div class="bg-[#050608] p-3.5 rounded-xl border border-obsidian-border font-mono text-[11px] text-slate-300 flex justify-between items-center">
+        <div class="bg-[#050608] p-3.5 rounded-xl border border-white/[0.08] font-mono text-[11px] text-slate-300 flex justify-between items-center">
           <span class="text-slate-400">Wiring: <code class="text-[#CCFF00]">walspool.WithObserver(hub)</code></span>
-          <span class="text-[#CCFF00] font-semibold flex items-center gap-1.5">
-            <span class="w-2 h-2 rounded-full bg-[#CCFF00] animate-ping"></span> Live Broadcast
-          </span>
+          <span class="text-slate-300 font-mono text-[11px] px-2 py-0.5 rounded bg-white/[0.06] border border-white/[0.1]">SSE Stream</span>
         </div>
       </div>
 
@@ -491,29 +491,29 @@
   </section>
 
   <!-- STANDALONE CLI & TUI DASHBOARD SHOWCASE -->
-  <section id="cli" class="max-w-6xl mx-auto px-4 sm:px-6 mb-28">
+  <section id="cli" class="max-w-6xl mx-auto px-4 sm:px-6 mb-20">
     <div class="text-center mb-14">
       <div class="text-xs uppercase font-mono tracking-widest text-[#CCFF00] font-bold mb-2">Developer Experience (DX)</div>
-      <h2 class="text-3xl sm:text-4xl font-extrabold text-white">Native CLI & 60 fps Terminal Dashboard</h2>
+      <h2 class="text-2xl sm:text-3xl font-semibold tracking-tight text-white">Native CLI &amp; 60 fps Terminal Dashboard</h2>
       <p class="text-slate-300 text-sm max-w-2xl mx-auto mt-3 font-normal">
-        Shipped as a standalone Go binary (`cmd/walspool/`) with zero external dependencies. Seamless Unix composability and raw-ANSI double-buffered rendering.
+        Shipped as a standalone Go binary (`cmd/walspool/`) with zero external dependencies. Native Unix pipe composability and raw-ANSI double-buffered rendering.
       </p>
     </div>
 
     <div class="grid grid-cols-1 md:grid-cols-2 gap-8 items-start">
       
       <!-- CLI Stream -->
-      <div class="p-7 rounded-2xl hairline-card border-obsidian-border space-y-4">
+      <div class="p-7 rounded-2xl hairline-card space-y-4">
         <div class="flex items-center justify-between">
           <span class="text-xs font-mono font-bold text-[#CCFF00] px-2.5 py-1 rounded bg-[#182200] border border-[#CCFF00]/30">UNIX COMPOSABILITY</span>
           <span class="text-xs font-mono text-slate-400">`walspool stream`</span>
         </div>
-        <h3 class="text-xl font-bold text-white">Live Event Tailing & Filtering</h3>
-        <p class="text-slate-300 text-sm leading-relaxed">
-          Connects to the sidecar's SSE stream. Automatically detects TTY: displays vibrant ANSI colors for human inspection, and outputs pure line-delimited text/JSON when piped to Unix tools.
+        <h3 class="text-xl font-bold text-white">Live Event Tailing &amp; Filtering</h3>
+        <p class="text-slate-400 text-sm leading-relaxed">
+          Connects to the sidecar's SSE stream. Detects TTY for ANSI colors, and outputs plain line-delimited JSON when piped to Unix tools.
         </p>
 
-        <pre class="bg-[#050608] p-4 rounded-xl border border-obsidian-border text-xs font-mono text-slate-200 overflow-x-auto"><code><span class="text-slate-400"># Stream errors from checkout service</span>
+        <pre class="bg-[#050608] p-4 rounded-xl border border-white/[0.08] text-xs font-mono text-slate-200 overflow-x-auto" tabindex="0" role="region" aria-label="CLI Stream Command Examples"><code><span class="text-slate-400"># Stream errors from checkout service</span>
 $ walspool stream --service checkout --level error
 
 <span class="text-slate-400"># Filter by distributed trace ID</span>
@@ -523,23 +523,23 @@ $ walspool stream --trace 4bf92f3577b34da6a3ce929d0e0e4736
 $ walspool stream --format json | jq '.payload'</code></pre>
 
         <div class="pt-2 text-xs font-mono text-slate-400 flex items-center gap-2">
-          <span class="text-[#CCFF00]">🛡️</span>
-          <span>Security-hardened: strips C0/C1 control codes and blocks OSC 52 clipboard exploits.</span>
+          <span class="text-slate-300 font-bold">[Security]</span>
+          <span>Strips C0/C1 control codes and blocks OSC 52 clipboard exploits.</span>
         </div>
       </div>
 
       <!-- CLI Monitor -->
-      <div class="p-7 rounded-2xl hairline-card border-obsidian-border space-y-4">
+      <div class="p-7 rounded-2xl hairline-card space-y-4">
         <div class="flex items-center justify-between">
           <span class="text-xs font-mono font-bold text-sky-400 px-2.5 py-1 rounded bg-sky-950/60 border border-sky-500/40">FLICKER-FREE 60 FPS</span>
           <span class="text-xs font-mono text-slate-400">`walspool monitor`</span>
         </div>
         <h3 class="text-xl font-bold text-white">Interactive SRE Dashboard</h3>
-        <p class="text-slate-300 text-sm leading-relaxed">
+        <p class="text-slate-400 text-sm leading-relaxed">
           Custom raw-ANSI double-buffering engine. Computes diffs and flushes terminal frames in a single syscall, providing a smooth 60fps console dashboard without screen flicker.
         </p>
 
-        <pre class="bg-[#050608] p-4 rounded-xl border border-obsidian-border text-xs font-mono text-slate-200 overflow-x-auto"><code><span class="text-slate-400"># Launch live dashboard (press 'q' to restore terminal)</span>
+        <pre class="bg-[#050608] p-4 rounded-xl border border-white/[0.08] text-xs font-mono text-slate-200 overflow-x-auto" tabindex="0" role="region" aria-label="CLI Monitor Command Example"><code><span class="text-slate-400"># Launch live dashboard (press 'q' to restore terminal)</span>
 $ walspool monitor
 
 <span class="text-[#CCFF00]">┌─ WALSPOOL REAL-TIME MONITOR v1.1.0 ──────────────┐</span>
@@ -548,7 +548,7 @@ $ walspool monitor
 <span class="text-[#CCFF00]">└──────────────────────────────────────────────────┘</span></code></pre>
 
         <div class="pt-2 text-xs font-mono text-slate-400 flex items-center gap-2">
-          <span class="text-sky-400">⚡</span>
+          <span class="text-slate-300 font-bold">[Terminal]</span>
           <span>Zero external TUI dependencies. Supports Linux, macOS, and Windows Virtual Terminal.</span>
         </div>
       </div>
@@ -557,72 +557,44 @@ $ walspool monitor
   </section>
 
   <!-- BENCHMARKS & CERTIFIED METRICS -->
-  <section id="benchmarks" class="max-w-5xl mx-auto px-4 sm:px-6 mb-28">
+  <section id="benchmarks" class="max-w-6xl mx-auto px-4 sm:px-6 mb-20">
     <div class="p-8 sm:p-10 rounded-2xl hairline-card shadow-2xl">
-      <div class="flex flex-col md:flex-row md:items-end justify-between mb-8 gap-4">
-        <div>
-          <div class="text-xs uppercase font-mono tracking-widest text-[#CCFF00] font-bold mb-2">Empirical Performance</div>
-          <h2 class="text-2xl sm:text-3xl font-extrabold text-white">Certified Benchmark Verification</h2>
-          <p class="text-slate-300 text-sm font-normal mt-1">Measured on Intel Ultra 9 185H / Linux 6.8 with NVMe SSD (pure Go standard library benchmark)</p>
-        </div>
-        <div class="text-xs font-mono text-slate-400">
-          Reproducible via `scripts/loadgen/`
-        </div>
+      <div class="mb-8">
+        <div class="text-xs uppercase font-mono tracking-widest text-[#CCFF00] font-bold mb-2">Empirical Performance</div>
+        <h2 class="text-2xl sm:text-3xl font-semibold tracking-tight text-white">Certified Benchmark Verification</h2>
+        <p class="text-slate-300 text-sm font-normal mt-1">
+          Measured on Intel Ultra 9 185H / Linux 6.8 with NVMe SSD (pure Go standard library benchmark) - Reproducible via <code class="text-slate-200">scripts/loadgen/</code>
+        </p>
       </div>
 
-      <!-- Latency Bar Comparison -->
-      <div class="space-y-5 font-mono text-xs mb-10">
-        <div>
-          <div class="flex justify-between text-slate-200 mb-1.5">
-            <span class="font-bold text-white flex items-center gap-2">
-              <span class="w-2 h-2 rounded-full bg-[#CCFF00]"></span>
-              walspool Disk WAL (128KB Group Commit)
-            </span>
-            <span class="text-[#CCFF00] font-bold">0.47 µs (2,130,000 ops/s) - Sub-Microsecond</span>
-          </div>
-          <div class="w-full h-6 rounded-lg bg-obsidian-950 overflow-hidden p-0.5 border border-obsidian-border">
-            <div class="h-full rounded bg-gradient-to-r from-lime-400 to-[#CCFF00]" style="width: 2%;"></div>
-          </div>
+      <!-- Latency Metric Cards (Zero Fake Progress Bars) -->
+      <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 font-mono text-xs mb-8">
+        <div class="p-3.5 rounded-xl bg-[#0B0D12] border border-white/[0.08]">
+          <div class="text-slate-400 text-[11px]">walspool WAL (NVMe)</div>
+          <div class="text-base font-bold text-[#CCFF00] mt-1 tabular-nums">0.47 µs</div>
+          <div class="text-[10px] text-slate-400 mt-0.5">128KB Group Commit</div>
         </div>
-
-        <div>
-          <div class="flex justify-between text-slate-200 mb-1.5">
-            <span class="font-bold text-white flex items-center gap-2">
-              <span class="w-2 h-2 rounded-full bg-sky-400"></span>
-              walspool Trace ID Query (LogHub)
-            </span>
-            <span class="text-sky-400 font-bold">3.73 µs (268,168 ops/s)</span>
-          </div>
-          <div class="w-full h-6 rounded-lg bg-obsidian-950 overflow-hidden p-0.5 border border-obsidian-border">
-            <div class="h-full rounded bg-sky-500" style="width: 5%;"></div>
-          </div>
+        <div class="p-3.5 rounded-xl bg-[#0B0D12] border border-white/[0.08]">
+          <div class="text-slate-400 text-[11px]">walspool Query (Hub)</div>
+          <div class="text-base font-bold text-sky-400 mt-1 tabular-nums">3.73 µs</div>
+          <div class="text-[10px] text-slate-400 mt-0.5">Secondary Trace Index</div>
         </div>
-
-        <div>
-          <div class="flex justify-between text-slate-300 mb-1.5">
-            <span>Redis / Celery (Local Network Hop)</span>
-            <span class="text-slate-400">2,500 µs (2.5 ms)</span>
-          </div>
-          <div class="w-full h-6 rounded-lg bg-obsidian-950 overflow-hidden p-0.5 border border-obsidian-border">
-            <div class="h-full rounded bg-slate-600" style="width: 30%;"></div>
-          </div>
+        <div class="p-3.5 rounded-xl bg-[#0B0D12] border border-white/[0.08]">
+          <div class="text-slate-400 text-[11px]">Redis (Local Loopback)</div>
+          <div class="text-base font-bold text-slate-300 mt-1 tabular-nums">2,500 µs</div>
+          <div class="text-[10px] text-slate-400 mt-0.5">2.5 ms TCP Hop</div>
         </div>
-
-        <div>
-          <div class="flex justify-between text-slate-300 mb-1.5">
-            <span>AWS SQS / Managed Kafka (TCP Ack)</span>
-            <span class="text-slate-400">12,000 µs (12.0 ms)</span>
-          </div>
-          <div class="w-full h-6 rounded-lg bg-obsidian-950 overflow-hidden p-0.5 border border-obsidian-border">
-            <div class="h-full rounded bg-slate-700" style="width: 60%;"></div>
-          </div>
+        <div class="p-3.5 rounded-xl bg-[#0B0D12] border border-white/[0.08]">
+          <div class="text-slate-400 text-[11px]">AWS SQS / Kafka ACK</div>
+          <div class="text-base font-bold text-slate-300 mt-1 tabular-nums">12,000 µs</div>
+          <div class="text-[10px] text-slate-400 mt-0.5">12.0 ms Remote Cluster</div>
         </div>
       </div>
 
       <!-- Certified Table -->
-      <div class="overflow-x-auto rounded-xl border border-obsidian-border bg-[#050608]">
+      <div class="overflow-x-auto rounded-xl border border-white/[0.08] bg-[#050608]" tabindex="0" role="region" aria-label="Certified Benchmark Table">
         <table class="w-full text-left text-xs font-mono">
-          <thead class="bg-[#0C0E14] text-slate-300 border-b border-obsidian-border">
+          <thead class="bg-[#0C0E14] text-slate-300 border-b border-white/[0.08]">
             <tr>
               <th class="py-3 px-4 font-bold">Benchmark Operation</th>
               <th class="py-3 px-4 text-right">Throughput</th>
@@ -631,34 +603,34 @@ $ walspool monitor
               <th class="py-3 px-4 text-right">Allocations</th>
             </tr>
           </thead>
-          <tbody class="divide-y divide-obsidian-border text-slate-200">
+          <tbody class="divide-y divide-white/[0.08] text-slate-200">
             <tr>
               <td class="py-3 px-4 font-bold text-white">LogHub.Ingest (Ring buffer)</td>
-              <td class="py-3 px-4 text-right text-[#CCFF00] font-bold">3,120,151 ops/s</td>
-              <td class="py-3 px-4 text-right text-[#CCFF00]">401.3 ns/op</td>
-              <td class="py-3 px-4 text-right text-slate-400">203 B/op</td>
-              <td class="py-3 px-4 text-right text-[#CCFF00] font-bold">1 alloc/op</td>
+              <td class="py-3 px-4 text-right text-[#CCFF00] font-bold tabular-nums">3,120,151 ops/s</td>
+              <td class="py-3 px-4 text-right text-[#CCFF00] tabular-nums">401.3 ns/op</td>
+              <td class="py-3 px-4 text-right text-slate-400 tabular-nums">203 B/op</td>
+              <td class="py-3 px-4 text-right text-[#CCFF00] font-bold tabular-nums">1 alloc/op</td>
             </tr>
             <tr>
               <td class="py-3 px-4 font-bold text-white">FileStorage.Append (128KB Group Commit)</td>
-              <td class="py-3 px-4 text-right text-[#CCFF00] font-bold">2,194,890 ops/s</td>
-              <td class="py-3 px-4 text-right text-[#CCFF00]">467.2 ns/op</td>
-              <td class="py-3 px-4 text-right text-slate-400">259 B/op</td>
-              <td class="py-3 px-4 text-right text-[#CCFF00] font-bold">1 alloc/op</td>
+              <td class="py-3 px-4 text-right text-[#CCFF00] font-bold tabular-nums">2,194,890 ops/s</td>
+              <td class="py-3 px-4 text-right text-[#CCFF00] tabular-nums">467.2 ns/op</td>
+              <td class="py-3 px-4 text-right text-slate-400 tabular-nums">259 B/op</td>
+              <td class="py-3 px-4 text-right text-[#CCFF00] font-bold tabular-nums">1 alloc/op</td>
             </tr>
             <tr>
               <td class="py-3 px-4 font-bold text-white">FileStorage.SegmentRotation (64MB)</td>
-              <td class="py-3 px-4 text-right text-amber-400 font-bold">20,132 rot/s</td>
-              <td class="py-3 px-4 text-right text-amber-400">72.5 µs/op</td>
-              <td class="py-3 px-4 text-right text-slate-400">384 B/op</td>
-              <td class="py-3 px-4 text-right text-amber-400">3 allocs/op</td>
+              <td class="py-3 px-4 text-right text-amber-400 font-bold tabular-nums">20,132 rot/s</td>
+              <td class="py-3 px-4 text-right text-amber-400 tabular-nums">72.5 µs/op</td>
+              <td class="py-3 px-4 text-right text-slate-400 tabular-nums">384 B/op</td>
+              <td class="py-3 px-4 text-right text-amber-400 tabular-nums">3 allocs/op</td>
             </tr>
             <tr>
               <td class="py-3 px-4 font-bold text-white">LogHub.QueryByTraceID</td>
-              <td class="py-3 px-4 text-right text-sky-400 font-bold">268,168 ops/s</td>
-              <td class="py-3 px-4 text-right text-sky-400">3.73 µs/op</td>
-              <td class="py-3 px-4 text-right text-slate-400">1,440 B/op</td>
-              <td class="py-3 px-4 text-right text-sky-400">11 allocs/op</td>
+              <td class="py-3 px-4 text-right text-sky-400 font-bold tabular-nums">268,168 ops/s</td>
+              <td class="py-3 px-4 text-right text-sky-400 tabular-nums">3.73 µs/op</td>
+              <td class="py-3 px-4 text-right text-slate-400 tabular-nums">1,440 B/op</td>
+              <td class="py-3 px-4 text-right text-sky-400 tabular-nums">11 allocs/op</td>
             </tr>
           </tbody>
         </table>
@@ -668,26 +640,26 @@ $ walspool monitor
   </section>
 
   <!-- QUICKSTART & POLYGLOT INTEGRATIONS -->
-  <section id="quickstart" class="max-w-5xl mx-auto px-4 sm:px-6 mb-28">
+  <section id="quickstart" class="max-w-6xl mx-auto px-4 sm:px-6 mb-20">
     <div class="text-center mb-10">
-      <div class="text-xs uppercase font-mono tracking-widest text-[#CCFF00] font-bold mb-2">Zero-Friction Adoption</div>
-      <h2 class="text-3xl font-extrabold text-white">Integrate in Seconds Across Your Stack</h2>
+      <div class="text-xs uppercase font-mono tracking-widest text-[#CCFF00] font-bold mb-2">Integration</div>
+      <h2 class="text-2xl sm:text-3xl font-semibold tracking-tight text-white">Client Libraries &amp; Deployments</h2>
     </div>
 
     <div class="rounded-2xl hairline-card overflow-hidden shadow-xl">
-      <!-- Tabs -->
-      <div role="tablist" class="flex border-b border-obsidian-border bg-[#0C0E14] font-mono text-xs overflow-x-auto">
-        <button onclick="switchTab('go')" id="tab-go" class="px-5 py-3.5 border-b-2 border-[#CCFF00] text-[#CCFF00] font-bold bg-[#101217] whitespace-nowrap">Go SDK (Dual-Engine)</button>
-        <button onclick="switchTab('otel')" id="tab-otel" class="px-5 py-3.5 border-b-2 border-transparent text-slate-400 hover:text-white whitespace-nowrap">OpenTelemetry (OTLP)</button>
-        <button onclick="switchTab('docker')" id="tab-docker" class="px-5 py-3.5 border-b-2 border-transparent text-slate-400 hover:text-white whitespace-nowrap">Docker Compose</button>
-        <button onclick="switchTab('curl')" id="tab-curl" class="px-5 py-3.5 border-b-2 border-transparent text-slate-400 hover:text-white whitespace-nowrap">cURL & Shell</button>
+      <!-- Tabs with Complete WAI-ARIA Attributes -->
+      <div role="tablist" aria-label="Quickstart integration examples" class="flex border-b border-white/[0.08] bg-[#0C0E14] font-mono text-xs overflow-x-auto">
+        <button role="tab" id="tab-go" aria-selected="true" aria-controls="code-go" tabindex="0" onclick="switchTab('go')" class="px-5 py-3.5 border-b-2 border-[#CCFF00] text-[#CCFF00] font-bold bg-[#101218] whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#CCFF00]">Go SDK (Dual-Engine)</button>
+        <button role="tab" id="tab-otel" aria-selected="false" aria-controls="code-otel" tabindex="-1" onclick="switchTab('otel')" class="px-5 py-3.5 border-b-2 border-transparent text-slate-400 hover:text-white whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#CCFF00]">OpenTelemetry (OTLP)</button>
+        <button role="tab" id="tab-docker" aria-selected="false" aria-controls="code-docker" tabindex="-1" onclick="switchTab('docker')" class="px-5 py-3.5 border-b-2 border-transparent text-slate-400 hover:text-white whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#CCFF00]">Docker Compose</button>
+        <button role="tab" id="tab-curl" aria-selected="false" aria-controls="code-curl" tabindex="-1" onclick="switchTab('curl')" class="px-5 py-3.5 border-b-2 border-transparent text-slate-400 hover:text-white whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#CCFF00]">cURL &amp; Shell</button>
       </div>
 
       <!-- Panels -->
       <div class="p-6 font-mono text-xs overflow-x-auto bg-[#050608]">
         
         <!-- Go Panel -->
-        <div id="code-go" class="code-panel">
+        <div id="code-go" role="tabpanel" aria-labelledby="tab-go" tabindex="0" class="code-panel focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-white/[0.2]">
           <pre class="text-slate-200 leading-relaxed"><code><span class="text-slate-400">// 1. Import pure Go module (0 external dependencies)</span>
 <span class="text-[#CCFF00] font-semibold">import "github.com/YohannHommet/walspool"</span>
 
@@ -702,7 +674,7 @@ cfg := walspool.DefaultConfig()
 spool, _ := walspool.New(cfg, storage, sink, nil, <span class="text-[#CCFF00] font-semibold">walspool.WithObserver(hub)</span>)
 defer spool.Close()
 
-<span class="text-slate-400">// 4. Ultra-fast append (&lt; 1 µs) - persisted to NVMe & indexed immediately</span>
+<span class="text-slate-400">// 4. Ultra-fast append (&lt; 1 µs) - persisted to NVMe &amp; indexed immediately</span>
 _ = spool.Enqueue(ctx, "orders.checkout", []byte(`{"trace_id":"tr-9941","total":149.00}`))
 
 <span class="text-slate-400">// 5. Query historical logs in &lt; 15µs</span>
@@ -710,19 +682,19 @@ logs := hub.Query(walspool.LogQuery{TraceID: "tr-9941", Limit: 10})</code></pre>
         </div>
 
         <!-- OpenTelemetry Panel -->
-        <div id="code-otel" class="code-panel hidden">
+        <div id="code-otel" role="tabpanel" aria-labelledby="tab-otel" tabindex="0" class="code-panel hidden focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-white/[0.2]">
           <pre class="text-slate-200 leading-relaxed"><code><span class="text-slate-400"># Native Zero-Code OpenTelemetry Ingestion</span>
 <span class="text-slate-400"># Simply configure standard OTel environment variables in your service:</span>
 
 <span class="text-[#CCFF00]">export OTEL_EXPORTER_OTLP_LOGS_ENDPOINT="http://localhost:9099/v1/logs"</span>
 export OTEL_SERVICE_NAME="payment-api"
 
-<span class="text-slate-400"># Walspool receives standard OTLP/HTTP payloads (Protobuf & JSON),</span>
+<span class="text-slate-400"># Walspool receives standard OTLP/HTTP payloads (Protobuf &amp; JSON),</span>
 <span class="text-slate-400"># commits them to the NVMe WAL in sub-15µs, and drains them to downstream collectors.</span></code></pre>
         </div>
 
         <!-- Docker Panel -->
-        <div id="code-docker" class="code-panel hidden">
+        <div id="code-docker" role="tabpanel" aria-labelledby="tab-docker" tabindex="0" class="code-panel hidden focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-white/[0.2]">
           <pre class="text-slate-200 leading-relaxed"><code><span class="text-amber-400">services</span>:
   <span class="text-[#CCFF00]">api</span>:
     <span class="text-slate-400">image</span>: node:20-alpine
@@ -748,7 +720,7 @@ export OTEL_SERVICE_NAME="payment-api"
         </div>
 
         <!-- cURL Panel -->
-        <div id="code-curl" class="code-panel hidden">
+        <div id="code-curl" role="tabpanel" aria-labelledby="tab-curl" tabindex="0" class="code-panel hidden focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-white/[0.2]">
           <pre class="text-slate-200 leading-relaxed"><code><span class="text-slate-400"># 1. Enqueue audit event</span>
 curl -i -X POST http://localhost:9099/v1/enqueue \
   -H "Content-Type: application/json" \
@@ -766,144 +738,144 @@ curl "http://localhost:9099/v1/logs?trace_id=tr-42"</code></pre>
   </section>
 
   <!-- PUBLIC ROADMAP & GITHUB ISSUES TRACKER -->
-  <section id="roadmap" class="max-w-6xl mx-auto px-4 sm:px-6 mb-28">
+  <section id="roadmap" class="max-w-6xl mx-auto px-4 sm:px-6 mb-20">
     <div class="text-center mb-14">
-      <div class="text-xs uppercase font-mono tracking-widest text-[#CCFF00] font-bold mb-2">Transparent Governance</div>
-      <h2 class="text-3xl sm:text-4xl font-extrabold text-white">Public Roadmap & GitHub Issues</h2>
+      <div class="text-xs uppercase font-mono tracking-widest text-[#CCFF00] font-bold mb-2">Target Milestones</div>
+      <h2 class="text-2xl sm:text-3xl font-semibold tracking-tight text-white">Public Roadmap &amp; Issue Tracker</h2>
       <p class="text-slate-300 text-sm max-w-2xl mx-auto mt-3 font-normal">
-        All 20 features from our technical audit and REA challenge are tracked publicly across 3 structured milestones.
+        All 20 features from our technical audit are tracked publicly across 3 structured milestones.
       </p>
     </div>
 
     <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
       
       <!-- MILESTONE 1 -->
-      <div class="p-6 rounded-2xl hairline-card border-[#CCFF00]/30 space-y-4">
+      <div class="p-6 rounded-2xl hairline-card space-y-4">
         <div class="flex items-center justify-between">
-          <span class="px-2.5 py-1 rounded bg-[#182200] text-[#D4FF33] text-xs font-mono font-bold">SPRINT 1</span>
-          <a href="https://github.com/YohannHommet/walspool/milestone/1" target="_blank" rel="noopener" class="text-xs font-mono text-[#CCFF00] hover:underline">v1.2.0 →</a>
+          <span class="px-2.5 py-1 rounded bg-white/[0.06] text-slate-200 text-xs font-mono font-bold border border-white/[0.1]">Milestone v1.2.0</span>
+          <a href="https://github.com/YohannHommet/walspool/milestone/1" target="_blank" rel="noopener noreferrer" class="text-xs font-mono text-[#CCFF00] hover:underline focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#CCFF00]">Issues →</a>
         </div>
-        <h3 class="text-lg font-bold text-white">High Throughput & DX</h3>
-        <p class="text-slate-300 text-xs leading-relaxed">
+        <h3 class="text-lg font-bold text-white">High Throughput &amp; DX</h3>
+        <p class="text-slate-400 text-xs leading-relaxed">
           Unlocks ingestion throughput from 6.5k to 350k+ ev/s (Little's Law resolution) and fixes critical memory hotspots.
         </p>
         <ul class="space-y-2 text-xs font-mono text-slate-300">
-          <li><a href="https://github.com/YohannHommet/walspool/issues/7" target="_blank" class="hover:text-[#CCFF00] flex items-center gap-1.5"><span class="text-[#CCFF00]">#7</span> Batch Ingest (POST /v1/enqueue/batch)</a></li>
-          <li><a href="https://github.com/YohannHommet/walspool/issues/8" target="_blank" class="hover:text-[#CCFF00] flex items-center gap-1.5"><span class="text-[#CCFF00]">#8</span> Streaming NDJSON (x-ndjson)</a></li>
-          <li><a href="https://github.com/YohannHommet/walspool/issues/9" target="_blank" class="hover:text-[#CCFF00] flex items-center gap-1.5"><span class="text-[#CCFF00]">#9</span> Zero-Alloc Metadata Scanner</a></li>
-          <li><a href="https://github.com/YohannHommet/walspool/issues/10" target="_blank" class="hover:text-[#CCFF00] flex items-center gap-1.5"><span class="text-[#CCFF00]">#10</span> Standardize Port to :9099</a></li>
-          <li><a href="https://github.com/YohannHommet/walspool/issues/11" target="_blank" class="hover:text-[#CCFF00] flex items-center gap-1.5"><span class="text-[#CCFF00]">#11</span> Fix Hub Ring Buffer O(N) Shift</a></li>
-          <li><a href="https://github.com/YohannHommet/walspool/issues/12" target="_blank" class="hover:text-[#CCFF00] flex items-center gap-1.5"><span class="text-[#CCFF00]">#12</span> Decorrelated Jitter Backoff Timer</a></li>
+          <li><a href="https://github.com/YohannHommet/walspool/issues/7" target="_blank" rel="noopener noreferrer" class="hover:text-[#CCFF00] flex items-center gap-1.5 focus-visible:outline-none focus-visible:text-[#CCFF00]"><span class="text-[#CCFF00]">#7</span> Batch Ingest (POST /v1/enqueue/batch)</a></li>
+          <li><a href="https://github.com/YohannHommet/walspool/issues/8" target="_blank" rel="noopener noreferrer" class="hover:text-[#CCFF00] flex items-center gap-1.5 focus-visible:outline-none focus-visible:text-[#CCFF00]"><span class="text-[#CCFF00]">#8</span> Streaming NDJSON (x-ndjson)</a></li>
+          <li><a href="https://github.com/YohannHommet/walspool/issues/9" target="_blank" rel="noopener noreferrer" class="hover:text-[#CCFF00] flex items-center gap-1.5 focus-visible:outline-none focus-visible:text-[#CCFF00]"><span class="text-[#CCFF00]">#9</span> Zero-Alloc Metadata Scanner</a></li>
+          <li><a href="https://github.com/YohannHommet/walspool/issues/10" target="_blank" rel="noopener noreferrer" class="hover:text-[#CCFF00] flex items-center gap-1.5 focus-visible:outline-none focus-visible:text-[#CCFF00]"><span class="text-[#CCFF00]">#10</span> Standardize Port to :9099</a></li>
+          <li><a href="https://github.com/YohannHommet/walspool/issues/11" target="_blank" rel="noopener noreferrer" class="hover:text-[#CCFF00] flex items-center gap-1.5 focus-visible:outline-none focus-visible:text-[#CCFF00]"><span class="text-[#CCFF00]">#11</span> Fix Hub Ring Buffer O(N) Shift</a></li>
+          <li><a href="https://github.com/YohannHommet/walspool/issues/12" target="_blank" rel="noopener noreferrer" class="hover:text-[#CCFF00] flex items-center gap-1.5 focus-visible:outline-none focus-visible:text-[#CCFF00]"><span class="text-[#CCFF00]">#12</span> Decorrelated Jitter Backoff Timer</a></li>
         </ul>
       </div>
 
       <!-- MILESTONE 2 -->
-      <div class="p-6 rounded-2xl hairline-card border-amber-500/30 space-y-4">
+      <div class="p-6 rounded-2xl hairline-card space-y-4">
         <div class="flex items-center justify-between">
-          <span class="px-2.5 py-1 rounded bg-amber-950/60 text-amber-400 text-xs font-mono font-bold">SPRINT 2</span>
-          <a href="https://github.com/YohannHommet/walspool/milestone/2" target="_blank" rel="noopener" class="text-xs font-mono text-amber-400 hover:underline">v2.0.0 →</a>
+          <span class="px-2.5 py-1 rounded bg-white/[0.06] text-slate-200 text-xs font-mono font-bold border border-white/[0.1]">Milestone v2.0.0</span>
+          <a href="https://github.com/YohannHommet/walspool/milestone/2" target="_blank" rel="noopener noreferrer" class="text-xs font-mono text-amber-400 hover:underline focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-amber-400">Issues →</a>
         </div>
-        <h3 class="text-lg font-bold text-white">Storage V2 & Hardware Sympathy</h3>
-        <p class="text-slate-300 text-xs leading-relaxed">
+        <h3 class="text-lg font-bold text-white">Storage V2 &amp; Hardware Sympathy</h3>
+        <p class="text-slate-400 text-xs leading-relaxed">
           64-bit aligned V2 binary frame, hardware Castagnoli CRC32C, 64KB sparse index, and circular checkpointing.
         </p>
         <ul class="space-y-2 text-xs font-mono text-slate-300">
-          <li><a href="https://github.com/YohannHommet/walspool/issues/13" target="_blank" class="hover:text-amber-400 flex items-center gap-1.5"><span class="text-amber-400">#13</span> UDS Listener (/var/run/walspool.sock)</a></li>
-          <li><a href="https://github.com/YohannHommet/walspool/issues/14" target="_blank" class="hover:text-amber-400 flex items-center gap-1.5"><span class="text-amber-400">#14</span> Direct Protobuf OTLP Decoder</a></li>
-          <li><a href="https://github.com/YohannHommet/walspool/issues/15" target="_blank" class="hover:text-amber-400 flex items-center gap-1.5"><span class="text-amber-400">#15</span> Aligned 64-bit V2 32B Frame</a></li>
-          <li><a href="https://github.com/YohannHommet/walspool/issues/16" target="_blank" class="hover:text-amber-400 flex items-center gap-1.5"><span class="text-amber-400">#16</span> Hardware Castagnoli CRC32C</a></li>
-          <li><a href="https://github.com/YohannHommet/walspool/issues/17" target="_blank" class="hover:text-amber-400 flex items-center gap-1.5"><span class="text-amber-400">#17</span> Magic Scan Auto-Healing</a></li>
-          <li><a href="https://github.com/YohannHommet/walspool/issues/18" target="_blank" class="hover:text-amber-400 flex items-center gap-1.5"><span class="text-amber-400">#18</span> 64KB Sparse Index (-99.9% RAM)</a></li>
+          <li><a href="https://github.com/YohannHommet/walspool/issues/13" target="_blank" rel="noopener noreferrer" class="hover:text-amber-400 flex items-center gap-1.5 focus-visible:outline-none focus-visible:text-amber-400"><span class="text-amber-400">#13</span> UDS Listener (/var/run/walspool.sock)</a></li>
+          <li><a href="https://github.com/YohannHommet/walspool/issues/14" target="_blank" rel="noopener noreferrer" class="hover:text-amber-400 flex items-center gap-1.5 focus-visible:outline-none focus-visible:text-amber-400"><span class="text-amber-400">#14</span> Direct Protobuf OTLP Decoder</a></li>
+          <li><a href="https://github.com/YohannHommet/walspool/issues/15" target="_blank" rel="noopener noreferrer" class="hover:text-amber-400 flex items-center gap-1.5 focus-visible:outline-none focus-visible:text-amber-400"><span class="text-amber-400">#15</span> Aligned 64-bit V2 32B Frame</a></li>
+          <li><a href="https://github.com/YohannHommet/walspool/issues/16" target="_blank" rel="noopener noreferrer" class="hover:text-amber-400 flex items-center gap-1.5 focus-visible:outline-none focus-visible:text-amber-400"><span class="text-amber-400">#16</span> Hardware Castagnoli CRC32C</a></li>
+          <li><a href="https://github.com/YohannHommet/walspool/issues/17" target="_blank" rel="noopener noreferrer" class="hover:text-amber-400 flex items-center gap-1.5 focus-visible:outline-none focus-visible:text-amber-400"><span class="text-amber-400">#17</span> Magic Scan Auto-Healing</a></li>
+          <li><a href="https://github.com/YohannHommet/walspool/issues/18" target="_blank" rel="noopener noreferrer" class="hover:text-amber-400 flex items-center gap-1.5 focus-visible:outline-none focus-visible:text-amber-400"><span class="text-amber-400">#18</span> 64KB Sparse Index (-99.9% RAM)</a></li>
         </ul>
       </div>
 
       <!-- MILESTONE 3 -->
-      <div class="p-6 rounded-2xl hairline-card border-sky-500/30 space-y-4">
+      <div class="p-6 rounded-2xl hairline-card space-y-4">
         <div class="flex items-center justify-between">
-          <span class="px-2.5 py-1 rounded bg-sky-950/60 text-sky-400 text-xs font-mono font-bold">SPRINT 3</span>
-          <a href="https://github.com/YohannHommet/walspool/milestone/3" target="_blank" rel="noopener" class="text-xs font-mono text-sky-400 hover:underline">v2.1.0 →</a>
+          <span class="px-2.5 py-1 rounded bg-white/[0.06] text-slate-200 text-xs font-mono font-bold border border-white/[0.1]">Milestone v2.1.0</span>
+          <a href="https://github.com/YohannHommet/walspool/milestone/3" target="_blank" rel="noopener noreferrer" class="text-xs font-mono text-sky-400 hover:underline focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-sky-400">Issues →</a>
         </div>
-        <h3 class="text-lg font-bold text-white">Adaptive Dispatch & Semantic CLI</h3>
-        <p class="text-slate-300 text-xs leading-relaxed">
+        <h3 class="text-lg font-bold text-white">Adaptive Dispatch &amp; Semantic CLI</h3>
+        <p class="text-slate-400 text-xs leading-relaxed">
           RTT-driven adaptive batching, watermark pipelined dispatcher, and client-side semantic log filtering.
         </p>
         <ul class="space-y-2 text-xs font-mono text-slate-300">
-          <li><a href="https://github.com/YohannHommet/walspool/issues/24" target="_blank" class="hover:text-sky-400 flex items-center gap-1.5"><span class="text-sky-400">#24</span> Adaptive Batching (RTT-Driven)</a></li>
-          <li><a href="https://github.com/YohannHommet/walspool/issues/25" target="_blank" class="hover:text-sky-400 flex items-center gap-1.5"><span class="text-sky-400">#25</span> Pipelined Dispatcher (16 in-flight)</a></li>
-          <li><a href="https://github.com/YohannHommet/walspool/issues/26" target="_blank" class="hover:text-sky-400 flex items-center gap-1.5"><span class="text-sky-400">#26</span> Semantic Log Filtering in CLI</a></li>
+          <li><a href="https://github.com/YohannHommet/walspool/issues/24" target="_blank" rel="noopener noreferrer" class="hover:text-sky-400 flex items-center gap-1.5 focus-visible:outline-none focus-visible:text-sky-400"><span class="text-sky-400">#24</span> Adaptive Batching (RTT-Driven)</a></li>
+          <li><a href="https://github.com/YohannHommet/walspool/issues/25" target="_blank" rel="noopener noreferrer" class="hover:text-sky-400 flex items-center gap-1.5 focus-visible:outline-none focus-visible:text-sky-400"><span class="text-sky-400">#25</span> Pipelined Dispatcher (16 in-flight)</a></li>
+          <li><a href="https://github.com/YohannHommet/walspool/issues/26" target="_blank" rel="noopener noreferrer" class="hover:text-sky-400 flex items-center gap-1.5 focus-visible:outline-none focus-visible:text-sky-400"><span class="text-sky-400">#26</span> Semantic Log Filtering in CLI</a></li>
         </ul>
       </div>
 
     </div>
   </section>
 
-  <!-- COMMUNITY, OPEN-SOURCE & ROADMAP -->
-  <section id="community" class="max-w-6xl mx-auto px-4 sm:px-6 mb-28">
-    <div class="p-8 sm:p-12 rounded-2xl hairline-card border-[#CCFF00]/40 relative overflow-hidden bg-gradient-to-b from-[#10141a] to-[#08090C] shadow-2xl">
+  <!-- COMMUNITY & FAIR-SOURCE -->
+  <section id="community" class="max-w-6xl mx-auto px-4 sm:px-6 mb-20">
+    <div class="p-8 sm:p-12 rounded-2xl hairline-card relative overflow-hidden bg-gradient-to-b from-[#10141a] to-[#08090C] shadow-2xl">
       
       <div class="text-center max-w-3xl mx-auto mb-12">
-        <div class="inline-flex items-center gap-1.5 px-3 py-1 rounded bg-[#182200] text-[#CCFF00] text-xs font-mono font-bold border border-[#CCFF00]/40 mb-4">
-          100% FREE FOR PRODUCTION · FAIR-SOURCE
+        <div class="inline-flex items-center px-3 py-1 rounded bg-white/[0.06] text-slate-200 text-xs font-mono font-bold border border-white/[0.1] mb-4">
+          FAIR-SOURCE (FSL-1.1-MIT)
         </div>
-        <h2 class="text-3xl sm:text-4xl font-extrabold text-white">Walspool Community is Free & Open</h2>
+        <h2 class="text-2xl sm:text-3xl font-semibold tracking-tight text-white">Walspool Community is Free &amp; Open</h2>
         <p class="text-slate-300 text-sm mt-3 leading-relaxed">
-          No credit card required. No billing tiers. No artificial volume caps or crippled features. Walspool Community is licensed under <a href="https://github.com/YohannHommet/walspool/blob/main/LICENSE" target="_blank" class="text-[#CCFF00] underline font-mono">FSL-1.1-MIT</a>, granting complete freedom for internal commercial use with automatic conversion to Apache 2.0.
+          Walspool Community is source-available under the Functional Source License (<a href="https://github.com/YohannHommet/walspool/blob/main/LICENSE" target="_blank" rel="noopener noreferrer" class="text-[#CCFF00] underline font-mono">FSL-1.1-MIT</a>). 100% free for internal commercial use, educational use, and production fleets, with automatic conversion to the permissive MIT License after two years.
         </p>
       </div>
 
-      <!-- 4 Transparency Pillars -->
+      <!-- 4 Transparency Pillars (Monochrome Technical Design) -->
       <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
         
-        <div class="p-5 rounded-xl bg-[#050608] border border-obsidian-border space-y-2">
+        <div class="p-5 rounded-xl bg-[#0B0D12] border border-white/[0.08] space-y-2">
           <div class="text-[#CCFF00] font-mono text-sm font-bold flex items-center gap-2">
-            <span>🚀</span> Free in Production
+            <span>[Zero Fees]</span> Free in Production
           </div>
           <p class="text-xs text-slate-400 leading-relaxed">
-            Deploy as an embedded Go library or Docker sidecar across your entire fleet with zero licensing costs or seat limits.
+            Deploy as an embedded Go library or Docker sidecar across your entire fleet with zero licensing fees or seat limits.
           </p>
         </div>
 
-        <div class="p-5 rounded-xl bg-[#050608] border border-obsidian-border space-y-2">
+        <div class="p-5 rounded-xl bg-[#0B0D12] border border-white/[0.08] space-y-2">
           <div class="text-sky-400 font-mono text-sm font-bold flex items-center gap-2">
-            <span>🛡️</span> Pure Standard Library
+            <span>[Pure Go]</span> Standard Library Only
           </div>
           <p class="text-xs text-slate-400 leading-relaxed">
-            Zero third-party Go dependencies, zero CGO bindings. Full auditability and rock-solid supply-chain security.
+            Zero third-party Go dependencies, zero CGO bindings. Full auditability and minimal supply-chain attack surface.
           </p>
         </div>
 
-        <div class="p-5 rounded-xl bg-[#050608] border border-obsidian-border space-y-2">
+        <div class="p-5 rounded-xl bg-[#0B0D12] border border-white/[0.08] space-y-2">
           <div class="text-amber-400 font-mono text-sm font-bold flex items-center gap-2">
-            <span>📋</span> 20 Public Issues
+            <span>[Backlog]</span> 20 Public Issues
           </div>
           <p class="text-xs text-slate-400 leading-relaxed">
             Every feature on our roadmap is publicly tracked and discussed on GitHub. Community PRs and feedback are welcomed.
           </p>
         </div>
 
-        <div class="p-5 rounded-xl bg-[#050608] border border-obsidian-border space-y-2">
+        <div class="p-5 rounded-xl bg-[#0B0D12] border border-white/[0.08] space-y-2">
           <div class="text-[#CCFF00] font-mono text-sm font-bold flex items-center gap-2">
-            <span>🏢</span> Meow Labs Backed
+            <span>[Support]</span> Meow Labs Backed
           </div>
           <p class="text-xs text-slate-400 leading-relaxed">
-            Need high-volume streaming architecture reviews or custom enterprise integrations? Supported by <a href="https://meowlabs.tech" target="_blank" class="text-[#CCFF00] hover:underline font-semibold">Meow Labs</a>.
+            Need high-volume streaming architecture reviews or custom enterprise integrations? Supported by <a href="https://meowlabs.tech" target="_blank" rel="noopener noreferrer" class="text-[#CCFF00] hover:underline font-semibold">Meow Labs</a>.
           </p>
         </div>
 
       </div>
 
       <!-- Action Banner -->
-      <div class="flex flex-col sm:flex-row items-center justify-between gap-6 p-6 rounded-xl bg-[#101217] border border-obsidian-border">
+      <div class="flex flex-col sm:flex-row items-center justify-between gap-6 p-6 rounded-xl bg-[#101218] border border-white/[0.08]">
         <div>
-          <h4 class="text-base font-bold text-white mb-1">Join the Community & Star the Repo</h4>
+          <h4 class="text-base font-bold text-white mb-1">Join the Community &amp; Star the Repo</h4>
           <p class="text-xs text-slate-400">Give a star on GitHub to support the project and track upcoming releases.</p>
         </div>
         <div class="flex items-center gap-3 w-full sm:w-auto">
-          <a href="https://github.com/YohannHommet/walspool" target="_blank" rel="noopener" class="w-full sm:w-auto px-5 py-2.5 rounded-lg bg-[#CCFF00] hover:bg-lime-300 text-slate-950 font-bold text-xs transition font-mono flex items-center justify-center gap-2 shadow-lg shadow-lime-500/10">
+          <a href="https://github.com/YohannHommet/walspool" target="_blank" rel="noopener noreferrer" class="w-full sm:w-auto px-5 py-2.5 rounded-lg bg-[#CCFF00] hover:bg-lime-300 text-slate-950 font-bold text-xs transition font-mono flex items-center justify-center gap-2 shadow-lg shadow-lime-500/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white">
             <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
             <span>Star on GitHub</span>
           </a>
-          <a href="https://github.com/YohannHommet/walspool/issues" target="_blank" rel="noopener" class="w-full sm:w-auto px-5 py-2.5 rounded-lg bg-[#161821] hover:bg-[#202330] border border-obsidian-border text-slate-200 font-semibold text-xs transition font-mono flex items-center justify-center gap-2">
+          <a href="https://github.com/YohannHommet/walspool/issues" target="_blank" rel="noopener noreferrer" class="w-full sm:w-auto px-5 py-2.5 rounded-lg bg-[#161922] hover:bg-[#202430] border border-white/[0.1] text-slate-200 font-semibold text-xs transition font-mono flex items-center justify-center gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#CCFF00]">
             <span>View 20 Open Issues →</span>
           </a>
         </div>
@@ -913,9 +885,9 @@ curl "http://localhost:9099/v1/logs?trace_id=tr-42"</code></pre>
   </section>
 
   <!-- FOOTER -->
-  <footer class="border-t border-obsidian-border py-10 text-center text-xs text-slate-400 font-mono bg-[#050608]">
-    <div class="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-4">
-      <div>walspool v1.1.0 © 2026. Licensed under <a href="https://github.com/YohannHommet/walspool/blob/main/LICENSE" target="_blank" class="text-[#CCFF00] hover:underline">FSL-1.1-MIT</a> (converts to Apache 2.0). Maintained by <a href="https://github.com/YohannHommet" class="text-[#CCFF00] hover:underline">Yohann Hommet</a>.</div>
+  <footer class="border-t border-white/[0.08] py-10 text-center text-xs text-slate-400 font-mono bg-[#050608]">
+    <div class="max-w-6xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-4">
+      <div>walspool v1.1.0 &copy; 2026. Licensed under <a href="https://github.com/YohannHommet/walspool/blob/main/LICENSE" target="_blank" rel="noopener noreferrer" class="text-[#CCFF00] hover:underline">FSL-1.1-MIT</a> (converts to Apache 2.0). Maintained by <a href="https://github.com/YohannHommet" target="_blank" rel="noopener noreferrer" class="text-[#CCFF00] hover:underline">Yohann Hommet</a>.</div>
       <div class="flex gap-6 flex-wrap justify-center">
         <a href="#why-walspool" class="hover:text-slate-200 transition">Why Walspool</a>
         <a href="#simulator" class="hover:text-slate-200 transition">Live Sandbox</a>
@@ -924,13 +896,13 @@ curl "http://localhost:9099/v1/logs?trace_id=tr-42"</code></pre>
         <a href="#benchmarks" class="hover:text-slate-200 transition">Benchmarks</a>
         <a href="#roadmap" class="hover:text-slate-200 transition">Roadmap</a>
         <a href="#community" class="hover:text-slate-200 transition">Community</a>
-        <a href="https://github.com/YohannHommet/walspool" target="_blank" class="hover:text-[#CCFF00] transition">GitHub</a>
+        <a href="https://github.com/YohannHommet/walspool" target="_blank" rel="noopener noreferrer" class="hover:text-[#CCFF00] transition">GitHub</a>
       </div>
     </div>
   </footer>
 
   <!-- TOAST NOTIFICATION -->
-  <div id="toast" class="fixed bottom-6 right-6 z-50 px-4 py-2.5 rounded-xl bg-[#182200] border border-[#CCFF00]/50 text-[#D4FF33] text-xs font-mono hidden shadow-2xl flex items-center gap-2">
+  <div id="toast" role="status" aria-live="polite" class="fixed bottom-6 right-6 z-50 px-4 py-2.5 rounded-xl bg-[#101218] border border-white/[0.15] text-[#D4FF33] text-xs font-mono hidden shadow-2xl flex items-center gap-2">
     <svg class="w-4 h-4 text-[#CCFF00]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
     <span id="toast-msg">Copied to clipboard!</span>
   </div>
@@ -941,6 +913,7 @@ curl "http://localhost:9099/v1/logs?trace_id=tr-42"</code></pre>
     let simIngested = 1420;
     let sinkActive = true;
     let currentMode = 'monitor';
+    const MAX_TERMINAL_LINES = 60;
     const terminal = document.getElementById('terminal-out');
     const services = ['checkout-svc', 'billing-svc', 'auth-svc', 'webhook-relay'];
     const levels = ['INFO', 'INFO', 'WARN', 'ERROR'];
@@ -964,7 +937,7 @@ curl "http://localhost:9099/v1/logs?trace_id=tr-42"</code></pre>
 <div class="text-slate-200">#${simOffset} [checkout-svc] trace=4bf92f3577b34da6 total=149.50 status=200 CRC32=0xA8B2C411 (<span class="text-[#CCFF00]">0.47µs</span>)</div>
 <div class="text-slate-200">#${simOffset-1} [billing-svc] trace=7f8a10e42c5b91d6 invoice_id=inv_8841 amount=89.00 (<span class="text-[#CCFF00]">0.48µs</span>)</div>
 <div class="text-slate-200">#${simOffset-2} [auth-svc] trace=2a4b8c9d0e1f3a5b user_id=usr_991 session=active (<span class="text-[#CCFF00]">0.46µs</span>)</div>
-<div class="text-slate-400 pt-2">⚡ Click "Enqueue Event" or "Query Trace ID" to simulate live load...</div>
+<div class="text-slate-400 pt-2">[READY] Click "Enqueue Event" or "Query Trace ID" to simulate live load.</div>
       `;
     }
 
@@ -977,17 +950,30 @@ curl "http://localhost:9099/v1/logs?trace_id=tr-42"</code></pre>
       `;
     }
 
+    function appendTerminalLine(element) {
+      while (terminal.childElementCount >= MAX_TERMINAL_LINES) {
+        terminal.removeChild(terminal.firstElementChild);
+      }
+      const isNearBottom = (terminal.scrollHeight - terminal.clientHeight - terminal.scrollTop) <= 40;
+      terminal.appendChild(element);
+      if (isNearBottom) {
+        requestAnimationFrame(() => {
+          terminal.scrollTop = terminal.scrollHeight;
+        });
+      }
+    }
+
     function switchSimMode(mode) {
       currentMode = mode;
       const btnMon = document.getElementById('sim-tab-monitor');
       const btnStr = document.getElementById('sim-tab-stream');
       if (mode === 'monitor') {
-        btnMon.className = 'px-3 py-1 rounded bg-[#CCFF00]/20 text-[#D4FF33] font-bold';
-        btnStr.className = 'px-3 py-1 rounded text-slate-400 hover:text-white';
+        btnMon.className = 'px-3 py-1 rounded bg-[#CCFF00]/20 text-[#D4FF33] font-bold focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#CCFF00]';
+        btnStr.className = 'px-3 py-1 rounded text-slate-400 hover:text-white focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#CCFF00]';
         renderMonitorScreen();
       } else {
-        btnStr.className = 'px-3 py-1 rounded bg-[#CCFF00]/20 text-[#D4FF33] font-bold';
-        btnMon.className = 'px-3 py-1 rounded text-slate-400 hover:text-white';
+        btnStr.className = 'px-3 py-1 rounded bg-[#CCFF00]/20 text-[#D4FF33] font-bold focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#CCFF00]';
+        btnMon.className = 'px-3 py-1 rounded text-slate-400 hover:text-white focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#CCFF00]';
         renderStreamScreen();
       }
     }
@@ -1012,9 +998,8 @@ curl "http://localhost:9099/v1/logs?trace_id=tr-42"</code></pre>
         const line = document.createElement('div');
         line.className = 'text-slate-200';
         const lvlColor = lvl === 'ERROR' ? 'text-rose-400 font-bold' : (lvl === 'WARN' ? 'text-amber-400 font-bold' : 'text-[#CCFF00] font-bold');
-        line.innerHTML = `<span class="text-slate-400">${new Date().toISOString().slice(11,19)}Z</span> <span class="${lvlColor}">${lvl}</span> <span class="text-sky-400">[${svc}]</span> trace=${trace} "Event appended to WAL (<span class="text-[#CCFF00]">0.47µs</span>)"`;
-        terminal.appendChild(line);
-        terminal.scrollTop = terminal.scrollHeight;
+        line.innerHTML = `<span class="text-slate-400">${new Date().toISOString().slice(11,19)}Z</span> <span class="${lvlColor}">[${lvl}]</span> <span class="text-sky-400">[${svc}]</span> trace=${trace} "Event appended to WAL (<span class="text-[#CCFF00]">0.47µs</span>)"`;
+        appendTerminalLine(line);
       }
 
       if (!sinkActive) {
@@ -1031,46 +1016,44 @@ curl "http://localhost:9099/v1/logs?trace_id=tr-42"</code></pre>
       const target = recentTraces[recentTraces.length - 1];
       const line = document.createElement('div');
       line.className = 'text-[#D4FF33] font-bold pt-1';
-      line.innerHTML = `🔍 [HUB QUERY] TraceID=${target} -> Found in <span class="text-white">11.8 µs</span> (LogHub secondary index, 0 disk I/O)`;
-      terminal.appendChild(line);
-      terminal.scrollTop = terminal.scrollHeight;
+      line.innerHTML = `[HUB QUERY] TraceID=${target} -> Found in <span class="text-white">11.8 µs</span> (LogHub secondary index, 0 disk I/O)`;
+      appendTerminalLine(line);
     }
 
     function simNetworkDrop() {
       sinkActive = !sinkActive;
       const btn = document.getElementById('btn-network');
       const line = document.createElement('div');
+      btn.setAttribute('aria-pressed', sinkActive ? 'false' : 'true');
       if (!sinkActive) {
-        btn.innerText = "Simulate Downstream Recovery";
-        btn.className = "px-3.5 py-2 rounded-lg bg-amber-950/60 border border-amber-500/40 text-amber-400 font-mono text-xs font-semibold flex items-center gap-1.5 transition";
+        btn.innerText = "Simulate Recovery";
+        btn.className = "px-3.5 py-2 rounded-lg bg-amber-950/60 border border-amber-500/40 text-amber-400 font-mono text-xs font-semibold flex items-center gap-1.5 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400 focus-visible:ring-offset-2 focus-visible:ring-offset-[#0A0C10]";
         line.className = 'text-amber-400 font-bold pt-1';
-        line.innerHTML = `⚠️ [DOWNSTREAM 503] Remote endpoint unavailable. Spooling burst events to local NVMe WAL with exponential backoff...`;
+        line.innerHTML = `[DOWNSTREAM 503] Remote endpoint unavailable. Spooling burst events to local NVMe WAL with exponential backoff...`;
         document.getElementById('gauge-status').innerText = '503 BACKOFF';
         document.getElementById('gauge-status').className = 'text-amber-400 font-bold';
       } else {
-        btn.innerText = "⚠️ Downstream 503 Outage";
-        btn.className = "px-3.5 py-2 rounded-lg bg-[#161821] hover:bg-[#202330] border border-obsidian-border text-amber-400 font-mono text-xs font-semibold flex items-center gap-1.5 transition";
+        btn.innerText = "Simulate 503 Outage";
+        btn.className = "px-3.5 py-2 rounded-lg bg-[#161922] hover:bg-[#202430] border border-white/[0.08] text-amber-400 font-mono text-xs font-semibold flex items-center gap-1.5 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400 focus-visible:ring-offset-2 focus-visible:ring-offset-[#0A0C10]";
         line.className = 'text-[#CCFF00] font-bold pt-1';
-        line.innerHTML = `✅ [DOWNSTREAM RECOVERED] Connection restored. Draining in-flight records; checkpoint advanced to Offset=${simOffset}.`;
+        line.innerHTML = `[DOWNSTREAM RECOVERED] Connection restored. Draining in-flight records; checkpoint advanced to Offset=${simOffset}.`;
         document.getElementById('gauge-status').innerText = 'HEALTHY';
         document.getElementById('gauge-status').className = 'text-[#CCFF00] font-bold';
       }
-      terminal.appendChild(line);
-      terminal.scrollTop = terminal.scrollHeight;
+      appendTerminalLine(line);
     }
 
     function simCrashAndRecover() {
       const line = document.createElement('div');
       line.className = 'text-rose-400 font-bold pt-1';
-      line.innerHTML = `💥 [SIGKILL] Kernel terminated sidecar daemon abruptly!`;
-      terminal.appendChild(line);
+      line.innerHTML = `[SIGKILL] Kernel terminated sidecar daemon abruptly.`;
+      appendTerminalLine(line);
       
       setTimeout(() => {
         const recLine = document.createElement('div');
         recLine.className = 'text-[#CCFF00] font-bold';
-        recLine.innerHTML = `🔄 [CRASH RECOVERY] Read checkpoint.meta (Offset: ${simOffset}). All segments validated via CRC32. Zero data loss. Resuming at Offset=${simOffset}.`;
-        terminal.appendChild(recLine);
-        terminal.scrollTop = terminal.scrollHeight;
+        recLine.innerHTML = `[CRASH RECOVERY] Read checkpoint.meta (Offset: ${simOffset}). All segments validated via CRC32. Zero data loss. Resuming at Offset=${simOffset}.`;
+        appendTerminalLine(recLine);
       }, 350);
     }
 
@@ -1084,19 +1067,49 @@ curl "http://localhost:9099/v1/logs?trace_id=tr-42"</code></pre>
         const btn = document.getElementById('tab-' + t);
         const panel = document.getElementById('code-' + t);
         if (!btn || !panel) return;
-        if (t === target) {
-          btn.className = "px-5 py-3.5 border-b-2 border-[#CCFF00] text-[#CCFF00] font-bold bg-[#101217] whitespace-nowrap";
+        const isSelected = (t === target);
+        btn.setAttribute('aria-selected', isSelected ? 'true' : 'false');
+        btn.setAttribute('tabindex', isSelected ? '0' : '-1');
+        if (isSelected) {
+          btn.className = "px-5 py-3.5 border-b-2 border-[#CCFF00] text-[#CCFF00] font-bold bg-[#101218] whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#CCFF00]";
           panel.classList.remove('hidden');
         } else {
-          btn.className = "px-5 py-3.5 border-b-2 border-transparent text-slate-400 hover:text-white whitespace-nowrap";
+          btn.className = "px-5 py-3.5 border-b-2 border-transparent text-slate-400 hover:text-white whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#CCFF00]";
           panel.classList.add('hidden');
         }
       });
     }
 
-    function copyInstallCmd() {
-      navigator.clipboard.writeText("go install github.com/YohannHommet/walspool/cmd/walspool@latest");
-      showToast("Copied 'go install' command to clipboard!");
+    async function copyInstallCmd() {
+      const text = "go install github.com/YohannHommet/walspool/cmd/walspool@latest";
+      try {
+        if (navigator.clipboard && window.isSecureContext) {
+          await navigator.clipboard.writeText(text);
+          showToast("Copied 'go install' command to clipboard!");
+          return;
+        }
+        throw new Error("Clipboard API unavailable");
+      } catch (err) {
+        try {
+          const textArea = document.createElement("textarea");
+          textArea.value = text;
+          textArea.style.position = "fixed";
+          textArea.style.left = "-999999px";
+          textArea.style.top = "-999999px";
+          document.body.appendChild(textArea);
+          textArea.focus();
+          textArea.select();
+          const successful = document.execCommand('copy');
+          document.body.removeChild(textArea);
+          if (successful) {
+            showToast("Copied 'go install' command to clipboard!");
+            return;
+          }
+        } catch (fallbackErr) {
+          console.warn("Clipboard fallback failed:", fallbackErr);
+        }
+        showToast("Press Ctrl+C to copy command manually");
+      }
     }
 
     function showToast(msg) {
