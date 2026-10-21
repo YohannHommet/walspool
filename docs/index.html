@@ -111,7 +111,7 @@
     ::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.12); border-radius: 3px; }
     ::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.25); }
 
-    /* Animation de flux continu dans le pipeline SVG / CSS */
+    /* Continuous flow animation in visual pipeline SVG / CSS */
     @keyframes pipeFlow {
       0% { transform: translateX(-100%); }
       100% { transform: translateX(100%); }
@@ -168,10 +168,10 @@
 
       <!-- Focused Navigation -->
       <nav aria-label="Main Navigation" class="hidden lg:flex items-center gap-6 text-sm font-medium text-slate-300">
-        <a href="#simulator" class="hover:text-[#CCFF00] transition focus-visible:outline-none focus-visible:text-[#CCFF00]">Simulateur</a>
+        <a href="#simulator" class="hover:text-[#CCFF00] transition focus-visible:outline-none focus-visible:text-[#CCFF00]">Simulator</a>
         <a href="#why-walspool" class="hover:text-[#CCFF00] transition focus-visible:outline-none focus-visible:text-[#CCFF00]">Evaluation</a>
-        <a href="#pillars" class="hover:text-[#CCFF00] transition focus-visible:outline-none focus-visible:text-[#CCFF00]">Piliers</a>
-        <a href="#integrations" class="hover:text-[#CCFF00] transition focus-visible:outline-none focus-visible:text-[#CCFF00]">Integrations</a>
+        <a href="#pillars" class="hover:text-[#CCFF00] transition focus-visible:outline-none focus-visible:text-[#CCFF00]">Pillars</a>
+        <a href="#integrations" class="hover:text-[#CCFF00] transition focus-visible:outline-none focus-visible:text-[#CCFF00]">Ecosystem</a>
         <a href="#architecture" class="hover:text-[#CCFF00] transition focus-visible:outline-none focus-visible:text-[#CCFF00]">Architecture</a>
         <a href="#cli" class="hover:text-[#CCFF00] transition focus-visible:outline-none focus-visible:text-[#CCFF00]">CLI &amp; TUI</a>
         <a href="#benchmarks" class="hover:text-[#CCFF00] transition focus-visible:outline-none focus-visible:text-[#CCFF00]">Benchmarks</a>
@@ -207,37 +207,56 @@
       Walspool commits outbound requests to local NVMe in sub-microsecond time, immediately freeing your HTTP workers. It absorbs downstream outages, survives sudden process restarts, and guarantees delivery with zero cluster complexity.
     </p>
 
-    <!-- Dual CTAs : Quickstart & Commande Docker Immediate -->
-    <div class="flex flex-col sm:flex-row items-center justify-center gap-4 mb-16">
-      <a href="#quickstart" class="w-full sm:w-auto px-7 py-3.5 rounded-xl bg-[#CCFF00] hover:bg-lime-300 text-slate-950 font-bold text-sm transition shadow-lg shadow-lime-500/10 flex items-center justify-center gap-2 font-mono focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white">
-        <span>Quickstart Guide</span>
-        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
-      </a>
-
-      <!-- Bouton Copie Commande Docker Run -->
-      <button type="button" aria-label="Copy Docker run command to clipboard" onclick="copyDockerCmd()" class="w-full sm:w-auto flex items-center justify-between px-5 py-3.5 rounded-xl bg-[#101218] border border-white/[0.08] text-slate-200 font-mono text-xs hover:border-white/[0.2] transition group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#CCFF00] min-w-0">
-        <span class="text-slate-400 group-hover:text-slate-200 truncate">$ docker run -d -p 9099:9099 ghcr.io/yohannhommet/walspool:v1.1</span>
-        <span id="copy-badge" class="ml-4 text-[#CCFF00] text-xs font-bold uppercase tracking-wider shrink-0">Copy</span>
-      </button>
+    <!-- 2-Step Instant Experience (Time-to-First-Ingest in 12s) -->
+    <div class="max-w-2xl mx-auto mb-14 rounded-xl border border-white/[0.08] bg-[#101218] p-4 text-left hairline-card">
+      <div class="flex items-center justify-between pb-3 mb-3 border-b border-white/[0.08] text-xs font-mono text-slate-400">
+        <span class="flex items-center gap-2 text-white font-medium">
+          <span class="w-2 h-2 rounded-full bg-[#CCFF00]"></span>
+          Time to First Ingest: 12 Seconds
+        </span>
+        <a href="#quickstart" class="text-[#CCFF00] hover:underline font-semibold flex items-center gap-1 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#CCFF00]">
+          Quickstart Guide &rarr;
+        </a>
+      </div>
+      <div class="space-y-2.5 font-mono text-xs">
+        <div class="flex items-center justify-between gap-3 p-2.5 rounded-lg bg-[#08090C] border border-white/[0.06] group">
+          <div class="flex items-center gap-2 truncate">
+            <span class="text-slate-500 select-none">1.</span>
+            <span class="text-slate-300 truncate">$ docker run -d -p 9099:9099 ghcr.io/yohannhommet/walspool:v1.1</span>
+          </div>
+          <button type="button" onclick="copyDockerCmd()" aria-label="Copy Docker command to clipboard" class="text-[11px] font-bold text-[#CCFF00] hover:text-white px-2.5 py-1 rounded bg-[#161922] border border-white/[0.08] shrink-0 transition focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#CCFF00]">
+            <span id="copy-badge">Copy</span>
+          </button>
+        </div>
+        <div class="flex items-center justify-between gap-3 p-2.5 rounded-lg bg-[#08090C] border border-white/[0.06] group">
+          <div class="flex items-center gap-2 truncate">
+            <span class="text-slate-500 select-none">2.</span>
+            <span class="text-slate-300 truncate">$ curl -X POST http://localhost:9099/v1/enqueue -d '{"topic":"orders","payload":{"id":99}}'</span>
+          </div>
+          <button type="button" onclick="copyCurlHeroCmd()" aria-label="Copy cURL command to clipboard" class="text-[11px] font-bold text-[#CCFF00] hover:text-white px-2.5 py-1 rounded bg-[#161922] border border-white/[0.08] shrink-0 transition focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#CCFF00]">
+            <span id="copy-curl-badge">Copy</span>
+          </button>
+        </div>
+      </div>
     </div>
 
-    <!-- CERTIFIED METRICS STRIP (4 metriques claires) -->
+    <!-- CERTIFIED METRICS STRIP (4 metriques physiques claires) -->
     <div class="grid grid-cols-2 md:grid-cols-4 max-w-6xl mx-auto border border-white/[0.08] rounded-xl bg-[#101218] divide-y md:divide-y-0 md:divide-x divide-white/[0.08] text-left">
       <div class="p-5">
         <div class="text-2xl sm:text-3xl font-semibold font-mono tracking-tight text-white tabular-nums">&lt; 0.5 µs</div>
-        <div class="text-xs text-slate-400 mt-1">NVMe Write Latency (128KB Group Commit)</div>
+        <div class="text-xs text-slate-400 mt-1">In-Process NVMe Commit (<span class="text-slate-300">Sidecar P99 &lt; 1.5ms</span>)</div>
       </div>
       <div class="p-5">
         <div class="text-2xl sm:text-3xl font-semibold font-mono tracking-tight text-white">100% Durable</div>
-        <div class="text-xs text-slate-400 mt-1">Crash-Safe CRC32 Storage (Auto-repair)</div>
+        <div class="text-xs text-slate-400 mt-1">Crash-Safe CRC32 IEEE (Atomic <span class="text-slate-300">os.Truncate</span>)</div>
       </div>
       <div class="p-5">
         <div class="text-2xl sm:text-3xl font-semibold font-mono tracking-tight text-white tabular-nums">&lt; 15 MB RAM</div>
-        <div class="text-xs text-slate-400 mt-1">Minimal Memory Footprint (Zero JVM)</div>
+        <div class="text-xs text-slate-400 mt-1">Minimal Base Memory (Zero JVM / Heavy Daemon)</div>
       </div>
       <div class="p-5">
-        <div class="text-2xl sm:text-3xl font-semibold font-mono tracking-tight text-white tabular-nums">0 Deps</div>
-        <div class="text-xs text-slate-400 mt-1">Pure Go Standard Library (No CGO)</div>
+        <div class="text-2xl sm:text-3xl font-semibold font-mono tracking-tight text-white tabular-nums">0 CGO Deps</div>
+        <div class="text-xs text-slate-400 mt-1">Pure Go Standard Library (Static 14 MB Binary)</div>
       </div>
     </div>
   </section>
@@ -254,8 +273,8 @@
 
     <div class="rounded-2xl hairline-card overflow-hidden shadow-2xl">
       
-      <!-- BANDEAU D'INTEGRITE ABSOLUE -->
-      <div class="px-4 py-2.5 bg-[#07080B] border-b border-white/[0.08] flex flex-wrap items-center justify-between gap-3 text-xs font-mono" role="region" aria-label="Indicateur d'integrite absolue">
+      <!-- INTEGRITY INDICATOR BANNER -->
+      <div class="px-4 py-2.5 bg-[#07080B] border-b border-white/[0.08] flex flex-wrap items-center justify-between gap-3 text-xs font-mono" role="region" aria-label="Absolute integrity indicators">
         <div class="flex items-center gap-3">
           <span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded bg-[#CCFF00]/10 border border-[#CCFF00]/30 text-[#D4FF33] font-bold text-[11px]">
             <svg class="w-3.5 h-3.5 text-[#CCFF00]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
@@ -264,9 +283,9 @@
           <span class="text-slate-300">
             Data Preserved: <strong id="metric-preserved" class="text-[#CCFF00] font-bold tabular-nums">100.00%</strong>
           </span>
-          <span class="text-slate-600">|</span>
+          <span class="text-slate-600" aria-hidden="true">|</span>
           <span class="text-slate-300">
-            Data Loss: <strong id="metric-loss" class="text-emerald-400 font-bold tabular-nums">0 bytes</strong>
+            Data Loss: <strong id="simulator-metric-loss" class="text-emerald-400 font-bold tabular-nums">0 bytes</strong>
           </span>
         </div>
 
@@ -282,8 +301,8 @@
         </div>
       </div>
 
-      <!-- MINI-PIPELINE VISUEL SVG / CSS -->
-      <div class="p-4 sm:p-5 bg-[#0C0E14] border-b border-white/[0.08]" aria-label="Pipeline visuel interactif">
+      <!-- INTERACTIVE VISUAL PIPELINE -->
+      <div class="p-4 sm:p-5 bg-[#0C0E14] border-b border-white/[0.08]" aria-label="Interactive visual pipeline">
         <div class="grid grid-cols-1 md:grid-cols-5 items-center gap-3">
           
           <!-- Noeud 1 : Client App -->
@@ -298,7 +317,7 @@
             <span id="pipe-client-status" class="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-[#CCFF00]/15 text-[#D4FF33] border border-[#CCFF00]/30 tabular-nums">200 OK (&lt; 0.5µs)</span>
           </div>
 
-          <!-- Connecteur 1 : Client -> Walspool -->
+          <!-- Connecteur 1 : Client -> Walspool (Desktop) -->
           <div id="pipe-connector-ingest" class="hidden md:flex flex-col items-center justify-center text-center px-1">
             <div class="text-[10px] font-mono text-slate-400 mb-1">Local Loopback</div>
             <div class="w-full flex items-center justify-center relative">
@@ -310,6 +329,12 @@
             <div class="text-[10px] font-mono text-[#D4FF33] mt-1 tabular-nums">0.47 µs ack</div>
           </div>
 
+          <!-- Connecteur 1 Mobile : Client -> Walspool -->
+          <div class="flex md:hidden flex-col items-center justify-center py-1">
+            <svg class="w-3.5 h-3.5 text-[#CCFF00]" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 10.293a1 1 0 010 1.414l-6 6a1 1 0 01-1.414 0l-6-6a1 1 0 111.414-1.414L9 14.586V3a1 1 0 012 0v11.586l4.293-4.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
+            <span class="text-[9px] font-mono text-[#D4FF33]">Loopback Ingest (&lt; 0.5 µs)</span>
+          </div>
+
           <!-- Noeud 2 : Walspool WAL NVMe (Amortisseur Central) -->
           <div id="pipe-node-walspool" class="p-3 rounded-xl bg-[#161922] border-2 border-[#CCFF00]/60 shadow-[0_0_20px_rgba(204,255,0,0.1)] flex items-center justify-between transition-all duration-300">
             <div class="flex items-center gap-2.5">
@@ -319,7 +344,7 @@
               <div>
                 <div class="text-xs font-mono font-bold text-white flex items-center gap-1.5">
                   <span>Walspool Core</span>
-                  <span class="text-[10px] px-1.5 py-0.2 rounded bg-amber-500/20 text-amber-400 font-normal">NVMe WAL</span>
+                  <span class="text-[10px] px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-400 font-normal">NVMe WAL</span>
                 </div>
                 <div id="pipe-walspool-sub" class="text-[11px] font-mono text-slate-300">CRC32 Tail Repair: Active</div>
               </div>
@@ -330,7 +355,7 @@
             </div>
           </div>
 
-          <!-- Connecteur 2 : Walspool -> Downstream API -->
+          <!-- Connecteur 2 : Walspool -> Downstream API (Desktop) -->
           <div id="pipe-connector-downstream" class="hidden md:flex flex-col items-center justify-center text-center px-1">
             <div id="pipe-link-label" class="text-[10px] font-mono text-slate-400 mb-1">HTTP / OTLP Egress</div>
             <div class="w-full flex items-center justify-center relative">
@@ -340,6 +365,12 @@
               <svg id="pipe-link-arrow" class="w-3.5 h-3.5 text-[#CCFF00] shrink-0 -ml-1 transition-colors duration-300" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z" clip-rule="evenodd"/></svg>
             </div>
             <div id="pipe-link-rate" class="text-[10px] font-mono text-slate-300 mt-1 tabular-nums">10,000 ev/s</div>
+          </div>
+
+          <!-- Connecteur 2 Mobile : Walspool -> Downstream -->
+          <div class="flex md:hidden flex-col items-center justify-center py-1">
+            <svg class="w-3.5 h-3.5 text-[#CCFF00]" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 10.293a1 1 0 010 1.414l-6 6a1 1 0 01-1.414 0l-6-6a1 1 0 111.414-1.414L9 14.586V3a1 1 0 012 0v11.586l4.293-4.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
+            <span class="text-[9px] font-mono text-slate-400">Async Egress (HTTP / OTLP)</span>
           </div>
 
           <!-- Noeud 3 : Downstream API -->
@@ -360,62 +391,68 @@
       <!-- BARRE SUPERIEURE TERMINAL & SWITCHER DE MODE -->
       <div class="bg-[#0C0E14] px-4 py-3 border-b border-white/[0.08] flex items-center justify-between">
         <div class="flex items-center gap-2">
-          <div class="w-3 h-3 rounded-full bg-rose-500/80"></div>
-          <div class="w-3 h-3 rounded-full bg-amber-500/80"></div>
-          <div class="w-3 h-3 rounded-full bg-[#CCFF00]/80"></div>
-          <span class="hidden sm:inline ml-2 text-xs font-mono text-slate-400 font-medium">walspool terminal interactive sandbox</span>
+          <span class="text-xs font-mono font-bold text-[#CCFF00] flex items-center gap-2">
+            <span class="w-2 h-2 rounded-full bg-[#CCFF00]"></span>
+            &gt;_ walspool sandbox terminal
+          </span>
         </div>
         
         <!-- Selecteur de mode terminal -->
-        <div class="flex items-center gap-1 bg-[#161922] p-1 rounded-lg border border-white/[0.08] text-xs font-mono" role="group" aria-label="Mode d'affichage du terminal">
-          <button id="sim-tab-monitor" onclick="switchSimMode('monitor')" class="px-3 py-1 rounded bg-[#CCFF00]/20 text-[#D4FF33] font-bold focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#CCFF00]">walspool monitor</button>
-          <button id="sim-tab-stream" onclick="switchSimMode('stream')" class="px-3 py-1 rounded text-slate-400 hover:text-white focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#CCFF00]">walspool stream</button>
+        <div class="flex items-center gap-1 bg-[#161922] p-1 rounded-lg border border-white/[0.08] text-xs font-mono" role="group" aria-label="Terminal display mode">
+          <button id="sim-tab-monitor" type="button" aria-pressed="true" onclick="switchSimMode('monitor')" class="px-3 py-1 rounded bg-[#CCFF00]/20 text-[#D4FF33] font-bold focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#CCFF00]">walspool monitor</button>
+          <button id="sim-tab-stream" type="button" aria-pressed="false" onclick="switchSimMode('stream')" class="px-3 py-1 rounded text-slate-400 hover:text-white focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#CCFF00]">walspool stream</button>
         </div>
       </div>
 
-      <!-- BARRE DES 3 SCENARIOS DE CRISE EN 1 CLIC -->
+      <!-- 3 1-CLICK CRISIS SCENARIOS BAR (STABLE NO CLS) -->
       <div class="p-4 bg-[#0A0C10] border-b border-white/[0.08] flex flex-wrap items-center gap-2.5">
         <span class="text-xs font-mono uppercase tracking-wider text-slate-400 font-semibold mr-1">Crisis Scenarios:</span>
 
         <!-- Scenario 1 : Downstream 503 Outage -->
-        <button id="btn-scenario-503" onclick="triggerScenario503()" aria-pressed="false" class="px-3.5 py-2 rounded-lg bg-[#161922] hover:bg-[#202430] border border-amber-500/30 text-amber-400 font-mono text-xs font-semibold flex items-center gap-1.5 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400 focus-visible:ring-offset-2 focus-visible:ring-offset-[#0A0C10]">
+        <button id="btn-scenario-503" type="button" onclick="triggerScenario503()" aria-pressed="false" class="px-3.5 py-2 rounded-lg bg-[#161922] hover:bg-[#202430] border border-amber-500/30 text-amber-400 font-mono text-xs font-semibold flex items-center gap-1.5 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400">
           <svg class="w-4 h-4 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
-          <span>1. Downstream 503 Outage</span>
-        </button>
-
-        <!-- Bouton contextuel : Restore Downstream & Flush Buffer -->
-        <button id="btn-restore-drain" onclick="restoreDownstreamSink()" class="hidden px-3.5 py-2 rounded-lg bg-[#CCFF00] hover:bg-lime-300 text-slate-950 font-mono text-xs font-bold flex items-center gap-1.5 transition shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#CCFF00] focus-visible:ring-offset-2 focus-visible:ring-offset-[#0A0C10]">
-          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
-          <span>Restore Downstream (Flush Buffer)</span>
+          <span>Downstream 503 Outage</span>
         </button>
 
         <!-- Scenario 2 : SIGKILL Crash & Auto-Heal -->
-        <button id="btn-scenario-sigkill" onclick="triggerScenarioSIGKILL()" class="px-3.5 py-2 rounded-lg bg-[#161922] hover:bg-rose-950/40 border border-rose-500/30 text-rose-400 font-mono text-xs font-semibold flex items-center gap-1.5 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-400 focus-visible:ring-offset-2 focus-visible:ring-offset-[#0A0C10]">
+        <button id="btn-scenario-sigkill" type="button" onclick="triggerScenarioSIGKILL()" class="px-3.5 py-2 rounded-lg bg-[#161922] hover:bg-rose-950/40 border border-rose-500/30 text-rose-400 font-mono text-xs font-semibold flex items-center gap-1.5 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-400">
           <svg class="w-4 h-4 text-rose-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
-          <span>2. SIGKILL Crash &amp; Auto-Heal</span>
+          <span>SIGKILL Eviction &amp; Auto-Heal</span>
         </button>
 
         <!-- Scenario 3 : Traffic Burst 50,000 req/s -->
-        <button id="btn-scenario-burst" onclick="triggerScenarioBurst()" class="px-3.5 py-2 rounded-lg bg-[#161922] hover:bg-[#202430] border border-sky-500/30 text-sky-400 font-mono text-xs font-semibold flex items-center gap-1.5 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400 focus-visible:ring-offset-2 focus-visible:ring-offset-[#0A0C10]">
+        <button id="btn-scenario-burst" type="button" onclick="triggerScenarioBurst()" class="px-3.5 py-2 rounded-lg bg-[#161922] hover:bg-[#202430] border border-sky-500/30 text-sky-400 font-mono text-xs font-semibold flex items-center gap-1.5 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400">
           <svg class="w-4 h-4 text-sky-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 5l7 7-7 7M5 5l7 7-7 7"/></svg>
-          <span>3. Traffic Burst 50,000 req/s</span>
+          <span>Traffic Burst 50,000 req/s</span>
         </button>
 
-        <!-- Actions Utilitaires -->
+        <!-- Utility Actions -->
         <div class="ml-auto flex items-center gap-2">
-          <button onclick="simEnqueueBatch()" class="px-3 py-1.5 rounded-lg bg-[#101218] hover:bg-[#161922] border border-white/[0.08] text-slate-200 font-mono text-xs font-medium flex items-center gap-1 transition focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#CCFF00]">
+          <button type="button" onclick="simEnqueueBatch()" class="px-3 py-1.5 rounded-lg bg-[#101218] hover:bg-[#161922] border border-white/[0.08] text-slate-200 font-mono text-xs font-medium flex items-center gap-1 transition focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#CCFF00]">
             +1 Event (&lt; 0.5µs)
           </button>
-          <button onclick="simQueryTrace()" class="hidden sm:flex px-3 py-1.5 rounded-lg bg-[#101218] hover:bg-[#161922] border border-white/[0.08] text-slate-200 font-mono text-xs font-medium items-center gap-1 transition focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-sky-400">
+          <button type="button" onclick="simQueryTrace()" class="hidden sm:flex px-3 py-1.5 rounded-lg bg-[#101218] hover:bg-[#161922] border border-white/[0.08] text-slate-200 font-mono text-xs font-medium items-center gap-1 transition focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-sky-400">
             Query Trace (&lt; 15µs)
           </button>
-          <button onclick="clearConsole()" class="px-2.5 py-1.5 rounded text-xs text-slate-400 hover:text-white font-mono transition focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-white">
+          <button type="button" onclick="clearConsole()" class="px-2.5 py-1.5 rounded text-xs text-slate-400 hover:text-white font-mono transition focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-white">
             Clear
           </button>
         </div>
       </div>
 
-      <!-- JAUGES EN DIRECT -->
+      <!-- CONTEXTUAL 503 CRISIS ALERT BANNER (STABLE NO CLS) -->
+      <div id="outage-alert-banner" class="hidden px-4 py-2.5 bg-amber-500/10 border-b border-amber-500/30 flex items-center justify-between gap-3 text-xs font-mono">
+        <span class="text-amber-400 font-semibold flex items-center gap-2 truncate">
+          <svg class="w-4 h-4 text-amber-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+          <span class="truncate">Downstream 503 Active: Events safely buffered in NVMe spool. Zero caller backpressure.</span>
+        </span>
+        <button id="btn-restore-drain" type="button" onclick="restoreDownstreamSink()" class="px-3.5 py-1.5 rounded-lg bg-[#CCFF00] hover:bg-lime-300 text-slate-950 font-bold transition flex items-center gap-1.5 shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white">
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+          <span>Restore &amp; Flush Buffer</span>
+        </button>
+      </div>
+
+      <!-- LIVE METRIC GAUGES -->
       <div class="grid grid-cols-2 md:grid-cols-4 gap-2 p-3 bg-[#0A0C10] border-b border-white/[0.08] text-xs font-mono text-slate-300">
         <div class="px-3 py-1.5 bg-[#101218] rounded border border-white/[0.08] min-w-0">
           <span class="text-slate-400">Total Ingested:</span> <span id="gauge-ingested" class="text-[#CCFF00] font-bold tabular-nums">1,420</span>
@@ -431,9 +468,9 @@
         </div>
       </div>
 
-      <!-- SORTIE TERMINAL (CONSOLE WAI-ARIA) -->
+      <!-- TERMINAL OUTPUT (WAI-ARIA LIVE LOG CONSOLE) -->
       <div id="terminal-out" role="log" aria-live="polite" aria-atomic="false" aria-label="Walspool terminal simulator output" tabindex="0" class="p-5 font-mono text-xs text-slate-200 h-80 overflow-y-auto overflow-x-auto whitespace-pre space-y-1 bg-[#050608] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#CCFF00]/40 transition-colors duration-150">
-        <!-- Rendu dynamique par le JavaScript -->
+        <!-- Dynamic output rendered by JavaScript -->
       </div>
     </div>
   </section>
@@ -453,11 +490,11 @@
       <table class="w-full text-left text-xs font-mono">
         <thead class="bg-[#101218] text-slate-300 border-b border-white/[0.08]">
           <tr>
-            <th class="py-4 px-5 font-bold">Architecture Pattern</th>
-            <th class="py-4 px-5">Client Latency</th>
-            <th class="py-4 px-5">Crash Durability (SIGKILL / OOM)</th>
-            <th class="py-4 px-5">Operational Cost</th>
-            <th class="py-4 px-5">Downstream Outage Behavior</th>
+            <th scope="col" class="py-4 px-5 font-bold">Architecture Pattern</th>
+            <th scope="col" class="py-4 px-5 font-bold">Client Latency</th>
+            <th scope="col" class="py-4 px-5 font-bold">Crash Durability (SIGKILL / OOM)</th>
+            <th scope="col" class="py-4 px-5 font-bold">Operational Cost</th>
+            <th scope="col" class="py-4 px-5 font-bold">Downstream Outage Behavior</th>
           </tr>
         </thead>
         <tbody class="divide-y divide-white/[0.08] text-slate-300">
@@ -495,10 +532,10 @@
                 <span>Walspool (Embedded WAL &amp; Sidecar)</span>
               </div>
             </td>
-            <td class="py-4 px-5 text-white font-mono tabular-nums">&lt; 0.5 µs <span class="text-xs text-slate-400 font-normal">(NVMe group commit)</span></td>
-            <td class="py-4 px-5 text-white font-mono">100% durable <span class="text-xs text-slate-400 font-normal">(CRC32)</span></td>
-            <td class="py-4 px-5 text-white font-mono">&lt; 15 MB RAM <span class="text-xs text-slate-400 font-normal">(0 deps)</span></td>
-            <td class="py-4 px-5 text-white font-mono">Bounded spooling &amp; retry</td>
+            <td class="py-4 px-5 text-white font-mono tabular-nums">&lt; 0.5 µs in-process <span class="text-xs text-slate-400 font-normal">(Sidecar P99 &lt; 1.5ms)</span></td>
+            <td class="py-4 px-5 text-white font-mono">100% durable <span class="text-xs text-slate-400 font-normal">(CRC32 IEEE)</span></td>
+            <td class="py-4 px-5 text-white font-mono">&lt; 15 MB RAM <span class="text-xs text-slate-400 font-normal">(0 CGO deps)</span></td>
+            <td class="py-4 px-5 text-white font-mono">Bounded spooling &amp; jittered retry</td>
           </tr>
         </tbody>
       </table>
@@ -550,21 +587,21 @@
     <div class="grid grid-cols-1 md:grid-cols-6 gap-6">
 
       <!-- PILIER 1 : RESILIENCE (Col span 3) -->
-      <div class="md:col-span-3 p-8 rounded-2xl hairline-card flex flex-col justify-between border-t-2 border-t-amber-400/80">
+      <div class="md:col-span-3 p-8 rounded-xl hairline-card flex flex-col justify-between border border-white/[0.08] hover:border-white/[0.16] transition">
         <div>
           <div class="flex items-center justify-between mb-4">
-            <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded bg-amber-950/60 text-amber-400 text-xs font-mono font-bold border border-amber-500/40">
-              PILLAR 01: RESILIENCE
+            <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-md bg-[#161922] text-amber-300 text-xs font-mono font-semibold border border-amber-500/30">
+              Resilience &amp; Durability
             </span>
             <span class="text-xs font-mono text-slate-400">Zero Data Loss</span>
           </div>
-          <h3 class="text-xl font-bold text-white mb-3">Crash-Proof Under Sudden Termination</h3>
+          <h3 class="text-xl font-semibold text-white mb-3">Crash-Proof Under Sudden Eviction</h3>
           <p class="text-slate-300 text-sm leading-relaxed mb-6">
             Survives abrupt power cuts, host reboots, and Kubernetes SIGKILL evictions without dropping in-flight traffic.
-            Walspool verifies every record with an IEEE CRC32 checksum. Upon unclean restarts, its automatic torn-write self-healing detects incomplete writes and truncates damaged tail bytes cleanly at the last valid boundary.
+            Walspool verifies every record with an IEEE 802.3 CRC32 checksum. Upon unclean restarts, its automatic torn-write self-healing detects incomplete writes and truncates damaged tail bytes cleanly at the last valid boundary.
           </p>
         </div>
-        <div class="flex flex-wrap gap-2 pt-2 border-t border-white/[0.06] font-mono text-[11px] text-slate-400">
+        <div class="flex flex-wrap gap-2 pt-3 border-t border-white/[0.06] font-mono text-[11px] text-slate-400">
           <span class="px-2.5 py-1 rounded bg-[#0B0D12] border border-white/[0.08] text-amber-300">CRC32 Checksummed</span>
           <span class="px-2.5 py-1 rounded bg-[#0B0D12] border border-white/[0.08] text-slate-300">Atomic Boundary Repair</span>
           <span class="px-2.5 py-1 rounded bg-[#0B0D12] border border-white/[0.08] text-slate-300">SIGKILL Resilient</span>
@@ -572,77 +609,77 @@
       </div>
 
       <!-- PILIER 2 : RAPIDITE (Col span 3) -->
-      <div class="md:col-span-3 p-8 rounded-2xl hairline-card flex flex-col justify-between border-t-2 border-t-[#CCFF00]">
+      <div class="md:col-span-3 p-8 rounded-xl hairline-card flex flex-col justify-between border border-white/[0.08] hover:border-white/[0.16] transition">
         <div>
           <div class="flex items-center justify-between mb-4">
-            <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded bg-[#182200] text-[#CCFF00] text-xs font-mono font-bold border border-[#CCFF00]/40">
-              PILLAR 02: SPEED
+            <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-md bg-[#161922] text-[#CCFF00] text-xs font-mono font-semibold border border-[#CCFF00]/30">
+              Velocity &amp; Low Latency
             </span>
             <span class="text-xs font-mono text-[#CCFF00] font-bold tabular-nums">&lt; 0.5 µs Commits</span>
           </div>
-          <h3 class="text-xl font-bold text-white mb-3">Sub-Microsecond Outbound Release</h3>
+          <h3 class="text-xl font-semibold text-white mb-3">Sub-Microsecond Outbound Release</h3>
           <p class="text-slate-300 text-sm leading-relaxed mb-6">
-            Reaches over 2.2 million appends per second on standard NVMe drives through an optimized 128 KB group commit engine.
-            Your API handlers enqueue events and immediately return 200 OK responses to users, eliminating blocking network round trips to third-party endpoints.
+            Reaches over 2.2 million appends per second in-process (&lt; 0.5 µs) and sub-millisecond sidecar loopback (P99 &lt; 1.5 ms) on NVMe drives through an optimized 128 KB group commit engine.
+            Your API handlers enqueue events and immediately return 200 OK responses to callers, eliminating blocking network round trips.
           </p>
         </div>
-        <div class="flex flex-wrap gap-2 pt-2 border-t border-white/[0.06] font-mono text-[11px] text-slate-400">
-          <span class="px-2.5 py-1 rounded bg-[#0B0D12] border border-white/[0.08] text-[#CCFF00]">2,194,890 appends/s</span>
-          <span class="px-2.5 py-1 rounded bg-[#0B0D12] border border-white/[0.08] text-slate-300">128 KB Group Commit</span>
+        <div class="flex flex-wrap gap-2 pt-3 border-t border-white/[0.06] font-mono text-[11px] text-slate-400">
+          <span class="px-2.5 py-1 rounded bg-[#0B0D12] border border-white/[0.08] text-[#CCFF00]">2.2M appends/s (In-Process)</span>
+          <span class="px-2.5 py-1 rounded bg-[#0B0D12] border border-white/[0.08] text-slate-300">P99 &lt; 1.5ms Sidecar</span>
           <span class="px-2.5 py-1 rounded bg-[#0B0D12] border border-white/[0.08] text-slate-300">Zero Thread Stall</span>
         </div>
       </div>
 
       <!-- PILIER 3 : FACILITE D'UTILISATION (Col span 2) -->
-      <div class="md:col-span-2 p-7 rounded-2xl hairline-card flex flex-col justify-between">
+      <div class="md:col-span-2 p-7 rounded-xl hairline-card flex flex-col justify-between border border-white/[0.08] hover:border-white/[0.16] transition">
         <div>
           <div class="flex items-center justify-between mb-4">
-            <span class="text-xs font-mono font-bold text-sky-400 px-2.5 py-1 rounded bg-sky-950/60 border border-sky-500/40">
-              PILLAR 03: SIMPLICITY
+            <span class="text-xs font-mono font-semibold text-sky-400 px-2.5 py-1 rounded-md bg-[#161922] border border-sky-500/30">
+              Frictionless Simplicity
             </span>
           </div>
-          <h4 class="text-lg font-bold text-white mb-2">Zero JVM, Zero Cluster, Up in 60s</h4>
-          <p class="text-slate-400 text-xs leading-relaxed mb-4">
+          <h4 class="text-lg font-semibold text-white mb-2">Zero JVM, Zero Cluster, Up in 60s</h4>
+          <p class="text-slate-300 text-sm leading-relaxed mb-4">
             Distributed as a single standalone static binary with zero external dependencies and no dynamic CGO. Run locally in 60 seconds with sensible defaults and zero configuration.
           </p>
         </div>
-        <div class="font-mono text-[11px] text-sky-300 flex items-center gap-1.5">
-          <span>&check; Single static binary</span>
+        <div class="font-mono text-[11px] text-sky-300 flex items-center gap-1.5 pt-2 border-t border-white/[0.06]">
+          <span>&check; Single 14 MB static binary</span>
         </div>
       </div>
 
       <!-- PILIER 4 : GRANDE FLEXIBILITE (Col span 2) -->
-      <div class="md:col-span-2 p-7 rounded-2xl hairline-card flex flex-col justify-between">
+      <div class="md:col-span-2 p-7 rounded-xl hairline-card flex flex-col justify-between border border-white/[0.08] hover:border-white/[0.16] transition">
         <div>
           <div class="flex items-center justify-between mb-4">
-            <span class="text-xs font-mono font-bold text-indigo-400 px-2.5 py-1 rounded bg-indigo-950/60 border border-indigo-500/40">
-              PILLAR 04: FLEXIBILITY
+            <span class="text-xs font-mono font-semibold text-indigo-300 px-2.5 py-1 rounded-md bg-[#161922] border border-indigo-500/30">
+              Polyglot Architecture
             </span>
           </div>
-          <h4 class="text-lg font-bold text-white mb-2">Go In-Process or Polyglot Sidecar</h4>
-          <p class="text-slate-400 text-xs leading-relaxed mb-4">
+          <h4 class="text-lg font-semibold text-white mb-2">Go In-Process or Polyglot Sidecar</h4>
+          <p class="text-slate-300 text-sm leading-relaxed mb-4">
             Embed as a lightweight Go library inside your application, or deploy as a universal containerized sidecar for Node, Python, Java, and Rust with native OpenTelemetry ingestion.
           </p>
         </div>
-        <div class="font-mono text-[11px] text-indigo-300 flex items-center gap-1.5">
-          <span>&check; Native OTLP &amp; Unix socket</span>
+        <div class="font-mono text-[11px] text-indigo-300 flex items-center gap-1.5 pt-2 border-t border-white/[0.06]">
+          <span>&check; Native OTLP HTTP :4318</span>
         </div>
       </div>
 
-      <!-- PILIER 5 : COMPLEMENTARITE AVEC L'EXISTANT (Col span 2) -->
-      <div class="md:col-span-2 p-7 rounded-2xl hairline-card flex flex-col justify-between">
+      <!-- PILLAR 5: ECOSYSTEM SYNERGY & COMPLEMENTARITY (Col span 2) -->
+      <div class="md:col-span-2 p-7 rounded-xl hairline-card flex flex-col justify-between border border-white/[0.08] hover:border-white/[0.16] transition">
         <div>
           <div class="flex items-center justify-between mb-4">
-            <span class="text-xs font-mono font-bold text-[#CCFF00] px-2.5 py-1 rounded bg-[#182200] border border-[#CCFF00]/40">
-              PILLAR 05: SYNERGY
+            <span class="text-xs font-mono font-semibold text-[#CCFF00] px-2.5 py-1 rounded-md bg-[#161922] border border-[#CCFF00]/30">
+              Ecosystem Synergy
             </span>
           </div>
-          <h4 class="text-lg font-bold text-white mb-2">Upstream Shock Absorber</h4>
-          <p class="text-slate-400 text-xs leading-relaxed mb-4">
-            Walspool does not replace your stack. It sits directly upstream of Kafka, PostgreSQL, Datadog, or S3, buffering unexpected bursts and protecting your services during network partitions.
+          <h4 class="text-lg font-semibold text-white mb-2">Upstream Shock Absorber</h4>
+          <p class="text-slate-300 text-sm leading-relaxed mb-4">
+            Walspool does not replace your stack. It sits directly upstream of Kafka, PostgreSQL, Datadog, or S3, buffering bursts and protecting services from partition rebalances, rate limits, and table bloat.
           </p>
         </div>
-        <div class="font-mono text-[11px] text-[#D4FF33] flex items-center gap-1.5">
+        <div class="font-mono text-[11px] text-[#D4FF33] flex items-center gap-1.5 pt-2 border-t border-white/[0.06]">
           <span>&check; Protects Kafka, PG &amp; Datadog</span>
         </div>
       </div>
@@ -867,11 +904,11 @@ $ walspool monitor
         <table class="w-full text-left text-xs font-mono">
           <thead class="bg-[#0C0E14] text-slate-300 border-b border-white/[0.08]">
             <tr>
-              <th class="py-3 px-4 font-bold">Benchmark Operation</th>
-              <th class="py-3 px-4 text-right">Throughput</th>
-              <th class="py-3 px-4 text-right">Latency</th>
-              <th class="py-3 px-4 text-right">Memory / Op</th>
-              <th class="py-3 px-4 text-right">Allocations</th>
+              <th scope="col" class="py-3 px-4 font-bold">Benchmark Operation</th>
+              <th scope="col" class="py-3 px-4 text-right font-bold">Throughput</th>
+              <th scope="col" class="py-3 px-4 text-right font-bold">Latency</th>
+              <th scope="col" class="py-3 px-4 text-right font-bold">Memory / Op</th>
+              <th scope="col" class="py-3 px-4 text-right font-bold">Allocations</th>
             </tr>
           </thead>
           <tbody class="divide-y divide-white/[0.08] text-slate-200">
@@ -1047,11 +1084,11 @@ curl "http://localhost:9099/v1/logs?trace_id=tr-42"</code></pre>
           <button id="tab-webhooks" role="tab" aria-selected="false" aria-controls="panel-shock-absorber" tabindex="-1" onclick="selectShockTab('webhooks')"
             class="shock-tab-btn px-3.5 py-2 rounded-lg text-xs font-mono font-semibold transition flex items-center gap-2 whitespace-nowrap text-slate-400 hover:text-white border border-transparent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#CCFF00]">
             <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
-            <span>Webhooks Tiers</span>
+            <span>Third-Party Webhooks</span>
           </button>
         </div>
 
-        <!-- 1-Click Toggle: Without Walspool vs Avec Walspool -->
+        <!-- 1-Click Toggle: Without Walspool vs With Walspool -->
         <div class="flex items-center justify-between sm:justify-end gap-3 bg-[#08090C] p-1.5 rounded-xl border border-white/[0.08]">
           <span class="text-xs font-mono text-slate-400 pl-2">Architecture Mode:</span>
           <button id="btn-toggle-walspool" type="button" role="switch" aria-checked="true" onclick="toggleWalspoolMode()"
@@ -1092,15 +1129,15 @@ curl "http://localhost:9099/v1/logs?trace_id=tr-42"</code></pre>
               <div class="space-y-1.5 font-mono text-xs">
                 <div class="flex justify-between text-slate-400 text-[11px]">
                   <span>Client Latency:</span>
-                  <span id="pipe-app-latency" class="text-[#CCFF00] font-bold">0.47 µs</span>
+                  <span id="pipe-app-latency" class="text-[#CCFF00] font-bold tabular-nums">0.47 µs</span>
                 </div>
                 <div class="flex justify-between text-slate-400 text-[11px]">
                   <span>Blocked Workers:</span>
-                  <span id="pipe-app-workers" class="text-[#CCFF00] font-bold">0 (0.0%)</span>
+                  <span id="pipe-app-workers" class="text-[#CCFF00] font-bold tabular-nums">0 (0.0%)</span>
                 </div>
               </div>
               <div id="pipe-app-status-tag" class="mt-3 py-1 px-2 rounded bg-white/[0.04] text-[10px] font-mono text-slate-300 border border-white/[0.06] text-center">
-                Instant 200 OK (< 0.5 µs)
+                Instant 200 OK (&lt; 0.5 µs)
               </div>
             </div>
 
@@ -1115,12 +1152,12 @@ curl "http://localhost:9099/v1/logs?trace_id=tr-42"</code></pre>
               </div>
               <div class="space-y-1.5 font-mono text-xs">
                 <div class="flex justify-between text-slate-400 text-[11px]">
-                  <span>I/O Mecanique:</span>
+                  <span>I/O Mechanism:</span>
                   <span id="pipe-buffer-io" class="text-white font-bold">O(1) Sequential Write</span>
                 </div>
                 <div class="flex justify-between text-slate-400 text-[11px]">
-                  <span>Integrite Donnees:</span>
-                  <span id="pipe-buffer-integrity" class="text-[#CCFF00] font-bold">Castagnoli CRC32C</span>
+                  <span>Data Integrity:</span>
+                  <span id="pipe-buffer-integrity" class="text-[#CCFF00] font-bold">CRC32 IEEE Frame</span>
                 </div>
               </div>
               <div id="pipe-buffer-status-tag" class="mt-3 py-1 px-2 rounded bg-[#CCFF00]/10 text-[10px] font-mono text-[#CCFF00] border border-[#CCFF00]/20 text-center font-bold">
@@ -1139,11 +1176,11 @@ curl "http://localhost:9099/v1/logs?trace_id=tr-42"</code></pre>
               </div>
               <div class="space-y-1.5 font-mono text-xs">
                 <div class="flex justify-between text-slate-400 text-[11px]">
-                  <span>Drain Asynchrone:</span>
+                  <span>Async Drain:</span>
                   <span id="pipe-target-drain" class="text-sky-400 font-bold">Paced Jitter Backoff</span>
                 </div>
                 <div class="flex justify-between text-slate-400 text-[11px]">
-                  <span>Backpressure App:</span>
+                  <span>App Backpressure:</span>
                   <span id="pipe-target-bp" class="text-[#CCFF00] font-bold">Completely Eliminated</span>
                 </div>
               </div>
@@ -1159,27 +1196,27 @@ curl "http://localhost:9099/v1/logs?trace_id=tr-42"</code></pre>
         <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
           
           <div class="p-4 rounded-xl bg-[#08090C] border border-white/[0.08] space-y-1">
-            <div class="text-[11px] font-mono text-slate-400 uppercase">Latence P99 App</div>
-            <div id="metric-latency" class="text-xl sm:text-2xl font-bold font-mono text-[#CCFF00]">0.47 µs</div>
-            <div id="metric-latency-sub" class="text-[10px] font-mono text-slate-400">Commit NVMe constant</div>
+            <div class="text-[11px] font-mono text-slate-400 uppercase">App P99 Latency</div>
+            <div id="metric-latency" class="text-xl sm:text-2xl font-bold font-mono text-[#CCFF00] tabular-nums">0.47 µs</div>
+            <div id="metric-latency-sub" class="text-[10px] font-mono text-slate-400">Deterministic local NVMe commit</div>
           </div>
 
           <div class="p-4 rounded-xl bg-[#08090C] border border-white/[0.08] space-y-1">
             <div class="text-[11px] font-mono text-slate-400 uppercase">Worker Thread Load</div>
-            <div id="metric-threads" class="text-xl sm:text-2xl font-bold font-mono text-white">0% Blocked</div>
-            <div id="metric-threads-sub" class="text-[10px] font-mono text-[#CCFF00]">Little's Law L ~ 0</div>
+            <div id="metric-threads" class="text-xl sm:text-2xl font-bold font-mono text-white tabular-nums">0% Blocked</div>
+            <div id="metric-threads-sub" class="text-[10px] font-mono text-[#CCFF00]">L_app bounded (&lt; 1 worker)</div>
           </div>
 
           <div class="p-4 rounded-xl bg-[#08090C] border border-white/[0.08] space-y-1">
             <div class="text-[11px] font-mono text-slate-400 uppercase">Throughput During Outage</div>
-            <div id="metric-throughput" class="text-xl sm:text-2xl font-bold font-mono text-sky-400">350,000+ ev/s</div>
+            <div id="metric-throughput" class="text-xl sm:text-2xl font-bold font-mono text-sky-400 tabular-nums">350,000+ ev/s</div>
             <div id="metric-throughput-sub" class="text-[10px] font-mono text-slate-400">Zero client degradation</div>
           </div>
 
           <div class="p-4 rounded-xl bg-[#08090C] border border-white/[0.08] space-y-1">
             <div class="text-[11px] font-mono text-slate-400 uppercase">Zero Data Loss Guarantee</div>
-            <div id="metric-loss" class="text-xl sm:text-2xl font-bold font-mono text-[#CCFF00]">0.00% Loss</div>
-            <div id="metric-loss-sub" class="text-[10px] font-mono text-slate-400">Segments NVMe crash-safe</div>
+            <div id="metric-loss" class="text-xl sm:text-2xl font-bold font-mono text-[#CCFF00] tabular-nums">0.00% Loss</div>
+            <div id="metric-loss-sub" class="text-[10px] font-mono text-slate-400">Crash-safe NVMe segments</div>
           </div>
 
         </div>
@@ -1215,10 +1252,10 @@ curl "http://localhost:9099/v1/logs?trace_id=tr-42"</code></pre>
           <div class="lg:col-span-5 p-5 rounded-xl bg-[#08090C] border border-white/[0.08] flex flex-col justify-between space-y-3 font-mono">
             <div class="flex items-center justify-between pb-2 border-b border-white/[0.08]">
               <div class="flex items-center gap-2">
-                <span class="w-2.5 h-2.5 rounded-full bg-rose-500/80"></span>
-                <span class="w-2.5 h-2.5 rounded-full bg-amber-500/80"></span>
-                <span class="w-2.5 h-2.5 rounded-full bg-[#CCFF00]/80"></span>
-                <span id="config-filename" class="text-xs text-slate-300 font-bold ml-1">walspool-kafka.yaml</span>
+                <span class="text-xs font-mono font-bold text-slate-300 flex items-center gap-1.5">
+                  <span class="w-2 h-2 rounded-full bg-[#CCFF00]"></span>
+                  &gt;_ <span id="config-filename">walspool-sidecar CLI</span>
+                </span>
               </div>
               <button type="button" onclick="copyShockConfig()" class="text-slate-400 hover:text-[#CCFF00] text-xs transition flex items-center gap-1 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#CCFF00] rounded px-1.5 py-0.5">
                 <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
@@ -1226,11 +1263,14 @@ curl "http://localhost:9099/v1/logs?trace_id=tr-42"</code></pre>
               </button>
             </div>
             
-            <pre class="text-xs text-slate-200 leading-relaxed overflow-x-auto py-2"><code id="config-code-block"><span class="text-[#CCFF00]">sink:</span> <span class="text-sky-300">"kafka://kafka-cluster.internal:9092/telemetry.events"</span>
-<span class="text-[#CCFF00]">buffer:</span> <span class="text-sky-300">"nvme:///var/data/walspool/kafka-spool?max_size_gb=100"</span>
-<span class="text-[#CCFF00]">policy:</span> <span class="text-slate-300">{</span> <span class="text-amber-300">retry:</span> <span class="text-emerald-300">"decorrelated_jitter"</span><span class="text-slate-300">,</span> <span class="text-amber-300">acks:</span> <span class="text-emerald-300">"local_nvme"</span> <span class="text-slate-300">}</span></code></pre>
+            <pre class="text-xs text-slate-200 leading-relaxed overflow-x-auto py-2"><code id="config-code-block"><span class="text-[#CCFF00]">walspool-sidecar</span> \
+  <span class="text-sky-300">-addr</span> :9099 \
+  <span class="text-sky-300">-sink-url</span> https://kafka-bridge.internal:8082/topics/events \
+  <span class="text-sky-300">-data-dir</span> /var/data/walspool \
+  <span class="text-sky-300">-batch-size</span> 1000 \
+  <span class="text-sky-300">-flush-ms</span> 50</code></pre>
             
-            <div class="text-[11px] text-slate-500 pt-2 border-t border-white/[0.04]">
+            <div class="text-[11px] text-slate-400 pt-2 border-t border-white/[0.04]">
               Zero CGO - Zero heavy daemon - Production ready
             </div>
           </div>
@@ -1241,33 +1281,31 @@ curl "http://localhost:9099/v1/logs?trace_id=tr-42"</code></pre>
 
     </div>
 
-    <!-- POINT 3 STRATEGIE B: BLUEPRINTS COMPARATIFS D'ARCHITECTURE (AVANT VS AVEC WALSPOOL) -->
+    <!-- COMPARATIVE ARCHITECTURE BLUEPRINTS (BEFORE VS WITH WALSPOOL) -->
     <div class="mb-14">
       <div class="text-center mb-8">
         <div class="text-xs uppercase font-mono tracking-widest text-[#CCFF00] font-bold mb-1">Architecture Deep Dive</div>
-        <h3 class="text-xl sm:text-2xl font-semibold tracking-tight text-white">Blueprints Comparatifs: Elimination de la Backpressure</h3>
+        <h3 class="text-xl sm:text-2xl font-semibold tracking-tight text-white">Comparative Architecture: Backpressure Elimination</h3>
         <p class="text-slate-400 text-xs sm:text-sm max-w-2xl mx-auto mt-2">
-          Demonstration visuelle de l'isolation du chemin critique applicatif selon le theoreme de Little (L = lambda * W).
+          Visual proof of critical path isolation according to Little's Law (L = &lambda; &middot; W).
         </p>
       </div>
 
       <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
         
-        <!-- BLUEPRINT A: SANS WALSPOOL (TOPOLOGIE FRAGILE) -->
+        <!-- BLUEPRINT A: WITHOUT WALSPOOL (FRAGILE TOPOLOGY) -->
         <div class="p-6 rounded-2xl bg-[#0B0D12] border border-rose-500/20 shadow-xl space-y-5 flex flex-col justify-between relative overflow-hidden">
-          <div class="absolute -right-12 -top-12 w-32 h-32 bg-rose-500/5 rounded-full blur-2xl pointer-events-none"></div>
-          
           <div>
             <div class="flex items-center justify-between mb-3">
               <span class="px-2.5 py-1 rounded bg-rose-950/60 text-rose-400 text-xs font-mono font-bold border border-rose-500/30">
-                Topologie Fragile (Without Walspool)
+                Fragile Direct Coupling (Without Walspool)
               </span>
               <span class="text-xs font-mono text-rose-400 font-bold flex items-center gap-1">
                 <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
                 Synchronous Coupling
               </span>
             </div>
-            <h4 class="text-base font-bold text-white mb-2">Cascading Blocks &amp; Worker Starvation</h4>
+            <h4 class="text-base font-semibold text-white mb-2">Cascading Blocks &amp; Worker Starvation</h4>
             <p class="text-xs text-slate-300 leading-relaxed mb-4">
               Applications call downstream brokers directly over network sockets. Any downstream latency spike immediately blocks client HTTP worker threads.
             </p>
@@ -1277,11 +1315,11 @@ curl "http://localhost:9099/v1/logs?trace_id=tr-42"</code></pre>
               <div class="text-slate-400">[Client Request]</div>
               <div class="text-rose-400 font-bold">  │</div>
               <div class="text-rose-400 font-bold">  ▼</div>
-              <div class="text-white font-bold">[App Web Workers] <span class="text-rose-400">──(Sync HTTP/TCP)──&gt;</span> [Reseau Externe] <span class="text-rose-400">──&gt;</span> [Destination]</div>
-              <div class="text-rose-400">  │ (Pool: 100/100 sature)                                │ (Panne / 429)</div>
+              <div class="text-white font-bold">[App Web Workers] <span class="text-rose-400">──(Sync HTTP/TCP)──&gt;</span> [External Network] <span class="text-rose-400">──&gt;</span> [Destination]</div>
+              <div class="text-rose-400">  │ (100/100 pool starved)                                │ (Outage / 429)</div>
               <div class="text-rose-400">  │ Little's Law: L = 10,000 req                          ▼</div>
-              <div class="text-rose-400">  ▼                                            [Delai: 5000ms+ / Drop]</div>
-              <div class="text-rose-300 font-bold">[504 Gateway Timeout -&gt; Crash API]</div>
+              <div class="text-rose-400">  ▼                                            [Latency: 5000ms+ / Drop]</div>
+              <div class="text-rose-300 font-bold">[504 Gateway Timeout -&gt; Outage Cascades]</div>
             </div>
           </div>
 
@@ -1289,23 +1327,21 @@ curl "http://localhost:9099/v1/logs?trace_id=tr-42"</code></pre>
           <ul class="space-y-2 text-xs font-mono text-slate-300 pt-3 border-t border-white/[0.06]">
             <li class="flex items-start gap-2">
               <span class="text-rose-400 font-bold">[x]</span>
-              <span><strong>Little's Law Defeat:</strong> Si W passe de 2ms a 2s, la concurrence requise explose de 1000x.</span>
+              <span><strong>Little's Law Starvation:</strong> When downstream latency W surges from 2ms to 2s, required worker concurrency L increases 1000x, exhausting the application pool.</span>
             </li>
             <li class="flex items-start gap-2">
               <span class="text-rose-400 font-bold">[x]</span>
-              <span><strong>File Memoire Vulnerable:</strong> Tampon RAM saturable menant a l'OOM Killer ou perte silencieuse.</span>
+              <span><strong>Vulnerable Memory Queue:</strong> Process heap queues balloon under backpressure, triggering OOMKiller or silent data loss.</span>
             </li>
             <li class="flex items-start gap-2">
               <span class="text-rose-400 font-bold">[x]</span>
-              <span><strong>Rayon d'Impact Non Isole:</strong> L'indisponibilite du sink aval renverse le coeur de metier.</span>
+              <span><strong>Uncontained Blast Radius:</strong> Downstream outages cascade backward, taking down customer-facing checkout and auth flows.</span>
             </li>
           </ul>
         </div>
 
-        <!-- BLUEPRINT B: AVEC WALSPOOL (TOPOLOGIE ROBUSTE) -->
+        <!-- BLUEPRINT B: WITH WALSPOOL (ROBUST TOPOLOGY) -->
         <div class="p-6 rounded-2xl bg-[#0B0D12] border border-[#CCFF00]/30 shadow-xl space-y-5 flex flex-col justify-between relative overflow-hidden">
-          <div class="absolute -right-12 -top-12 w-32 h-32 bg-[#CCFF00]/5 rounded-full blur-2xl pointer-events-none"></div>
-
           <div>
             <div class="flex items-center justify-between mb-3">
               <span class="px-2.5 py-1 rounded bg-[#CCFF00]/10 text-[#CCFF00] text-xs font-mono font-bold border border-[#CCFF00]/30">
@@ -1316,9 +1352,9 @@ curl "http://localhost:9099/v1/logs?trace_id=tr-42"</code></pre>
                 Hardware Shock Absorber
               </span>
             </div>
-            <h4 class="text-base font-bold text-white mb-2">Total Decoupling &amp; Append-Only NVMe Buffer</h4>
+            <h4 class="text-base font-semibold text-white mb-2">Total Decoupling &amp; Append-Only NVMe Buffer</h4>
             <p class="text-xs text-slate-300 leading-relaxed mb-4">
-              The application hands events to the local Walspool sidecar via UDS/loopback in 0.47 µs and returns immediately. Walspool buffers and drains asynchronously.
+              The application hands events to the local Walspool sidecar in &lt; 0.5 µs (in-process) or loopback P99 &lt; 1.5 ms and returns immediately. Walspool buffers and drains asynchronously.
             </p>
 
             <!-- ASCII Diagram Robuste -->
@@ -1326,11 +1362,11 @@ curl "http://localhost:9099/v1/logs?trace_id=tr-42"</code></pre>
               <div class="text-slate-400">[Client Request]</div>
               <div class="text-[#CCFF00] font-bold">  │</div>
               <div class="text-[#CCFF00] font-bold">  ▼</div>
-              <div class="text-white font-bold">[App Web Workers] <span class="text-[#CCFF00]">──(UDS/Loopback &lt;0.5µs)──&gt;</span> [Walspool WAL Engine]</div>
-              <div class="text-[#CCFF00]">  │ (0 threads bloques)                               │</div>
-              <div class="text-[#CCFF00]">  ▼                                                   ▼ (Commit NVMe Castagnoli)</div>
-              <div class="text-emerald-300 font-bold">[Reponse 200 OK &lt; 1ms]              [Multi-Segment NVMe Storage]</div>
-              <div class="text-slate-400">                                                      │ (Drainage Asynchrone Paced)</div>
+              <div class="text-white font-bold">[App Web Workers] <span class="text-[#CCFF00]">──(Loopback Ingest &lt; 1.5ms)──&gt;</span> [Walspool NVMe Engine]</div>
+              <div class="text-[#CCFF00]">  │ (0 threads blocked)                               │</div>
+              <div class="text-[#CCFF00]">  ▼                                                   ▼ (Commit NVMe CRC32 IEEE)</div>
+              <div class="text-emerald-300 font-bold">[200 OK Client Response]            [Multi-Segment NVMe Storage]</div>
+              <div class="text-slate-400">                                                      │ (Paced Asynchronous Egress)</div>
               <div class="text-sky-300 font-bold">                                                      ▼</div>
               <div class="text-sky-300 font-bold">                                            [Destination (Kafka/OTel/DB)]</div>
             </div>
@@ -1340,15 +1376,15 @@ curl "http://localhost:9099/v1/logs?trace_id=tr-42"</code></pre>
           <ul class="space-y-2 text-xs font-mono text-slate-300 pt-3 border-t border-white/[0.06]">
             <li class="flex items-start gap-2">
               <span class="text-[#CCFF00] font-bold">[v]</span>
-              <span><strong>Little's Law Invariant:</strong> Temps de reponse app constant a 0.47 µs, concurrence nulle.</span>
+              <span><strong>Worker Concurrency Bounded:</strong> Client response time stays constant under 1ms; application concurrency L_app stays bounded regardless of downstream outages.</span>
             </li>
             <li class="flex items-start gap-2">
               <span class="text-[#CCFF00] font-bold">[v]</span>
-              <span><strong>Persistance NVMe Crash-Safe:</strong> Checkpoint metadata et validation CRC32 sur chaque segment.</span>
+              <span><strong>Hardware Crash Durability:</strong> Checkpointed metadata and 29-byte IEEE 802.3 CRC32 frame sealing on every NVMe segment.</span>
             </li>
             <li class="flex items-start gap-2">
               <span class="text-[#CCFF00] font-bold">[v]</span>
-              <span><strong>Drainage Auto-Adaptatif:</strong> Jitter decorrele et reprise fluide sans intervention humaine.</span>
+              <span><strong>Adaptive Resilient Drainage:</strong> Decorrelated jitter backoff and automated recovery without manual intervention.</span>
             </li>
           </ul>
         </div>
@@ -1356,7 +1392,7 @@ curl "http://localhost:9099/v1/logs?trace_id=tr-42"</code></pre>
       </div>
     </div>
 
-    <!-- POINT 3 STRATEGIE B: MATRICE COMPLETE D'INTEGRATION ECOSYSTEME -->
+    <!-- PRODUCTION ECOSYSTEM INTEGRATION MATRIX -->
     <div>
       <div class="text-center mb-8">
         <div class="text-xs uppercase font-mono tracking-widest text-[#CCFF00] font-bold mb-1">Production Matrix</div>
@@ -1367,15 +1403,15 @@ curl "http://localhost:9099/v1/logs?trace_id=tr-42"</code></pre>
       </div>
 
       <div class="rounded-2xl hairline-card bg-[#0B0D12] border border-white/[0.08] overflow-hidden shadow-2xl">
-        <div class="overflow-x-auto">
+        <div class="overflow-x-auto focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#CCFF00]" tabindex="0" role="region" aria-label="Production Ecosystem Integration Matrix">
           <table class="w-full text-left text-xs font-mono border-collapse">
             <thead>
               <tr class="bg-[#101218] border-b border-white/[0.08] text-slate-400">
-                <th class="py-3.5 px-4 font-bold text-white">Ecosystem Target</th>
-                <th class="py-3.5 px-4 font-bold text-white">Ingestion Vector</th>
-                <th class="py-3.5 px-4 font-bold text-white">Walspool Shock Absorber Role</th>
-                <th class="py-3.5 px-4 font-bold text-white">Throughput &amp; Latency</th>
-                <th class="py-3.5 px-4 font-bold text-white">Durability Guarantee</th>
+                <th scope="col" class="py-3.5 px-4 font-bold text-white">Ecosystem Target</th>
+                <th scope="col" class="py-3.5 px-4 font-bold text-white">Ingestion Vector</th>
+                <th scope="col" class="py-3.5 px-4 font-bold text-white">Walspool Shock Absorber Role</th>
+                <th scope="col" class="py-3.5 px-4 font-bold text-white">Throughput &amp; Latency</th>
+                <th scope="col" class="py-3.5 px-4 font-bold text-white">Durability Guarantee</th>
               </tr>
             </thead>
             <tbody class="divide-y divide-white/[0.06] text-slate-300">
@@ -1387,7 +1423,7 @@ curl "http://localhost:9099/v1/logs?trace_id=tr-42"</code></pre>
                 </td>
                 <td class="py-3 px-4 text-slate-300">UDS / HTTP REST (:9099)</td>
                 <td class="py-3 px-4 text-slate-400">Anti-rebalance shield, leader election isolation</td>
-                <td class="py-3 px-4 text-[#CCFF00] font-bold">350k+ ev/s (0.47 µs)</td>
+                <td class="py-3 px-4 text-[#CCFF00] font-bold">350k+ ev/s (&lt; 0.5 µs in-process)</td>
                 <td class="py-3 px-4"><span class="px-2 py-0.5 rounded bg-emerald-950/60 text-emerald-400 border border-emerald-500/30 text-[10px]">Zero message loss</span></td>
               </tr>
 
@@ -1429,8 +1465,8 @@ curl "http://localhost:9099/v1/logs?trace_id=tr-42"</code></pre>
                   <span class="w-2 h-2 rounded-full bg-blue-400"></span>
                   PostgreSQL &amp; MySQL Outbox
                 </td>
-                <td class="py-3 px-4 text-slate-300">Sidecar loopback UDS</td>
-                <td class="py-3 px-4 text-slate-400">Offloads outbox tables and eliminates autovacuum churn</td>
+                <td class="py-3 px-4 text-slate-300">Sidecar loopback HTTP / UDS</td>
+                <td class="py-3 px-4 text-slate-400">Secondary outbox buffer for telemetry and webhooks, eliminating autovacuum bloat</td>
                 <td class="py-3 px-4 text-[#CCFF00] font-bold">0 DB IOPS (0.48 µs)</td>
                 <td class="py-3 px-4"><span class="px-2 py-0.5 rounded bg-emerald-950/60 text-emerald-400 border border-emerald-500/30 text-[10px]">65% reduction in SQL IOPS</span></td>
               </tr>
@@ -1441,8 +1477,8 @@ curl "http://localhost:9099/v1/logs?trace_id=tr-42"</code></pre>
                   Kubernetes Fleets (EKS/GKE)
                 </td>
                 <td class="py-3 px-4 text-slate-300">Pod Sidecar / DaemonSet</td>
-                <td class="py-3 px-4 text-slate-400">Node-local network isolation & post-eviction recovery</td>
-                <td class="py-3 px-4 text-emerald-400 font-bold">Debit ligne conteneur</td>
+                <td class="py-3 px-4 text-slate-400">Node-local network isolation &amp; post-eviction recovery</td>
+                <td class="py-3 px-4 text-emerald-400 font-bold">Line-rate container throughput</td>
                 <td class="py-3 px-4"><span class="px-2 py-0.5 rounded bg-emerald-950/60 text-emerald-400 border border-emerald-500/30 text-[10px]">Container crash survivability</span></td>
               </tr>
 
@@ -1451,7 +1487,7 @@ curl "http://localhost:9099/v1/logs?trace_id=tr-42"</code></pre>
                   <span class="w-2 h-2 rounded-full bg-rose-400"></span>
                   Edge, IoT &amp; POS Devices
                 </td>
-                <td class="py-3 px-4 text-slate-300">Binaire statique (14 MB)</td>
+                <td class="py-3 px-4 text-slate-300">Static binary (14 MB)</td>
                 <td class="py-3 px-4 text-slate-400">Complete offline store-and-forward during network stalls</td>
                 <td class="py-3 px-4 text-rose-400 font-bold">100% local availability</td>
                 <td class="py-3 px-4"><span class="px-2 py-0.5 rounded bg-emerald-950/60 text-emerald-400 border border-emerald-500/30 text-[10px]">Multi-day NVMe retention</span></td>
@@ -1731,20 +1767,25 @@ curl "http://localhost:9099/v1/logs?trace_id=tr-42"</code></pre>
         linkRate.className = 'text-[10px] font-mono text-amber-400/80 mt-1 tabular-nums';
       }
 
-      const btnDrain = document.getElementById('btn-restore-drain');
-      if (btnDrain) btnDrain.classList.remove('hidden');
+      const outageBanner = document.getElementById('outage-alert-banner');
+      if (outageBanner) outageBanner.classList.remove('hidden');
 
       const btn503 = document.getElementById('btn-scenario-503');
-      if (btn503) btn503.setAttribute('aria-pressed', 'true');
+      if (btn503) {
+        btn503.setAttribute('aria-pressed', 'true');
+        btn503.className = 'px-3.5 py-2 rounded-lg bg-amber-500/20 border border-amber-400 text-amber-300 font-mono text-xs font-semibold flex items-center gap-1.5 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400 ring-2 ring-amber-400/50';
+      }
+
+      // Switch to stream mode so logs stay visible without monitor template wipe
+      switchSimMode('stream');
 
       logTerminalMessage('[DOWNSTREAM 503] HTTP POST https://api.datadoghq.com/v1/logs returned 503 Service Unavailable.', 'text-rose-400 font-bold pt-1');
       logTerminalMessage('[SHOCK ABSORBER] Downstream unreachable. Diverting traffic to durable local NVMe WAL.', 'text-amber-400 font-bold');
-      logTerminalMessage('[CLIENT UNBLOCKED] Incoming client requests acked in 0.46 µs (HTTP 200 OK). Zero caller backpressure, zero dropped events.', 'text-[#CCFF00] font-semibold');
+      logTerminalMessage('[CLIENT UNBLOCKED] Incoming client requests acked in &lt; 0.5 µs in-process (or loopback HTTP P99 &lt; 1.5ms). Zero caller backpressure, zero dropped events.', 'text-[#CCFF00] font-semibold');
       logTerminalMessage('[RETRY RUNNER] Worker paused. Scheduling retry #1 in 500ms (jittered exponential backoff)...', 'text-slate-400');
-      logTerminalMessage(`[SPOOL ACTIVE] 142 records safely buffered in seg-00000000000000001000.wal. Click "Restore Downstream" to flush.`, 'text-amber-400');
+      logTerminalMessage('[SPOOL ACTIVE] 142 records safely buffered in segment-000000001000.wal. Click "Restore &amp; Flush Buffer" to drain.', 'text-amber-400');
 
       updateGauges();
-      if (currentMode === 'monitor') renderMonitorScreen();
     }
 
     function restoreDownstreamSink() {
@@ -1778,11 +1819,16 @@ curl "http://localhost:9099/v1/logs?trace_id=tr-42"</code></pre>
         linkRate.className = 'text-[10px] font-mono text-slate-300 mt-1 tabular-nums';
       }
 
-      const btnDrain = document.getElementById('btn-restore-drain');
-      if (btnDrain) btnDrain.classList.add('hidden');
+      const outageBanner = document.getElementById('outage-alert-banner');
+      if (outageBanner) outageBanner.classList.add('hidden');
 
       const btn503 = document.getElementById('btn-scenario-503');
-      if (btn503) btn503.setAttribute('aria-pressed', 'false');
+      if (btn503) {
+        btn503.setAttribute('aria-pressed', 'false');
+        btn503.className = 'px-3.5 py-2 rounded-lg bg-[#161922] hover:bg-[#202430] border border-amber-500/30 text-amber-400 font-mono text-xs font-semibold flex items-center gap-1.5 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400';
+      }
+
+      switchSimMode('stream');
 
       logTerminalMessage('[DOWNSTREAM RESTORED] Health check passed (HTTP 200 OK). Connection to remote sink re-established.', 'text-[#CCFF00] font-bold pt-1');
       logTerminalMessage(`[DRAIN PIPELINE] Rapidly flushing ${simSpooledCount} spooled records from local NVMe using 128KB batch commits...`, 'text-sky-400 font-semibold');
@@ -1793,12 +1839,12 @@ curl "http://localhost:9099/v1/logs?trace_id=tr-42"</code></pre>
       scheduleTimer(() => {
         logTerminalMessage(`[DRAIN COMPLETE] Checkpoint advanced to Offset=${simOffset}. Zero data loss (100.00% delivered). Spool: 0 pending.`, 'text-[#CCFF00] font-bold');
         updateGauges();
-        if (currentMode === 'monitor') renderMonitorScreen();
       }, 400);
     }
 
     function triggerScenarioSIGKILL() {
       clearAllTimers();
+      switchSimMode('stream');
       if (terminal) {
         terminal.classList.add('terminal-crash-flash');
         scheduleTimer(() => terminal.classList.remove('terminal-crash-flash'), 350);
@@ -1811,8 +1857,8 @@ curl "http://localhost:9099/v1/logs?trace_id=tr-42"</code></pre>
       scheduleTimer(() => {
         logTerminalMessage('[BOOT] Walspool v1.1.0 starting in standalone mode on /data/spool...', 'text-slate-300');
         logTerminalMessage('[RECOVERY] Discovering local WAL segments in /data/spool:', 'text-slate-300');
-        logTerminalMessage('  -> seg-00000000000000001000.wal [SEALED, CRC32 VALID]', 'text-slate-400');
-        logTerminalMessage('  -> seg-00000000000000001001.wal [ACTIVE TAIL]', 'text-slate-400');
+        logTerminalMessage('  -> segment-000000001000.wal [SEALED, CRC32 VALID]', 'text-slate-400');
+        logTerminalMessage('  -> segment-000000001001.wal [ACTIVE TAIL]', 'text-slate-400');
       }, 180);
 
       scheduleTimer(() => {
@@ -1822,7 +1868,7 @@ curl "http://localhost:9099/v1/logs?trace_id=tr-42"</code></pre>
 
       scheduleTimer(() => {
         logTerminalMessage(`[ATOMIC REPAIR] os.Truncate: repairing segment end to offset ${simOffset}. Corrupted trailing bytes pruned.`, 'text-[#CCFF00] font-semibold');
-        logTerminalMessage(`[ZERO LOSS] All prior committed records validated via CRC32. Checkpoint restored at Offset=${simOffset}. Data loss: 0 bytes.`, 'text-[#CCFF00] font-bold');
+        logTerminalMessage(`[ZERO LOSS] All prior committed records validated via IEEE 802.3 CRC32. Checkpoint restored at Offset=${simOffset}. Data loss: 0 bytes.`, 'text-[#CCFF00] font-bold');
         logTerminalMessage('[DAEMON READY] HTTP sidecar listening on :9099. Ingestion resumed in 1.4ms.', 'text-white font-bold');
         
         const badge = document.getElementById('metric-preserved');
@@ -1835,6 +1881,7 @@ curl "http://localhost:9099/v1/logs?trace_id=tr-42"</code></pre>
 
     function triggerScenarioBurst() {
       clearAllTimers();
+      switchSimMode('stream');
       const burstCount = 50000;
       simIngested += burstCount;
       simOffset += burstCount;
@@ -1845,12 +1892,11 @@ curl "http://localhost:9099/v1/logs?trace_id=tr-42"</code></pre>
       scheduleTimer(() => {
         logTerminalMessage(`[THROUGHPUT] Processed ${burstCount.toLocaleString()} records in 160.2 ms -> Peak Ingestion Rate: 312,109 ev/s.`, 'text-[#CCFF00] font-bold');
         logTerminalMessage('[LATENCY SLA] p50: 0.44 µs | p90: 0.47 µs | p99: 0.51 µs | p99.9: 0.62 µs. CPU usage: 4.2%.', 'text-white font-semibold');
-        logTerminalMessage('[STORAGE SEAL] seg-00000000000000001000.wal reached 64MB limit -> Rotated to seg-00000000000000001001.wal.', 'text-amber-400');
+        logTerminalMessage('[STORAGE SEAL] segment-000000001000.wal reached 64MB limit -> Rotated to segment-000000001001.wal.', 'text-amber-400');
         
         const gs = document.getElementById('gauge-segment');
-        if (gs) gs.innerText = 'seg-00000000000000001001.wal';
+        if (gs) gs.innerText = 'segment-000000001001.wal';
         updateGauges();
-        if (currentMode === 'monitor') renderMonitorScreen();
       }, 250);
     }
 
@@ -1917,7 +1963,15 @@ curl "http://localhost:9099/v1/logs?trace_id=tr-42"</code></pre>
       await copyTextToClipboard(text, "Copied 'go install' command to clipboard!");
     }
 
+    async function copyCurlHeroCmd() {
+      const text = 'curl -X POST http://localhost:9099/ingest -d \'{"event":"checkout","amt":42}\'';
+      await copyTextToClipboard(text, "Copied cURL ingest command to clipboard!");
+    }
+
+    let toastTimer = null;
+
     async function copyTextToClipboard(text, successMsg) {
+      const previouslyFocused = document.activeElement;
       try {
         if (navigator.clipboard && window.isSecureContext) {
           await navigator.clipboard.writeText(text);
@@ -1929,6 +1983,7 @@ curl "http://localhost:9099/v1/logs?trace_id=tr-42"</code></pre>
         try {
           const textArea = document.createElement("textarea");
           textArea.value = text;
+          textArea.setAttribute("readonly", "");
           textArea.style.position = "fixed";
           textArea.style.left = "-999999px";
           textArea.style.top = "-999999px";
@@ -1937,6 +1992,9 @@ curl "http://localhost:9099/v1/logs?trace_id=tr-42"</code></pre>
           textArea.select();
           const successful = document.execCommand('copy');
           document.body.removeChild(textArea);
+          if (previouslyFocused && typeof previouslyFocused.focus === 'function') {
+            previouslyFocused.focus();
+          }
           if (successful) {
             showToast(successMsg);
             return;
@@ -1954,8 +2012,46 @@ curl "http://localhost:9099/v1/logs?trace_id=tr-42"</code></pre>
       if (!toast || !toastMsg) return;
       toastMsg.innerText = msg;
       toast.classList.remove('hidden');
-      setTimeout(() => toast.classList.add('hidden'), 2500);
+      if (toastTimer) clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => toast.classList.add('hidden'), 2500);
     }
+
+    // Keyboard navigation for Quickstart tablist (WCAG 2.1 AA)
+    document.addEventListener('DOMContentLoaded', function() {
+      const qsTabList = document.querySelector('[role="tablist"][aria-label="Quickstart integration examples"]');
+      if (!qsTabList) return;
+      const qsTabs = ['go', 'otel', 'docker', 'curl'];
+      qsTabList.addEventListener('keydown', function(e) {
+        const activeTab = document.querySelector('[role="tablist"][aria-label="Quickstart integration examples"] [aria-selected="true"]');
+        let currentId = activeTab ? activeTab.id.replace('tab-', '') : 'go';
+        let idx = qsTabs.indexOf(currentId);
+        if (idx === -1) idx = 0;
+
+        if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
+          e.preventDefault();
+          const next = (idx + 1) % qsTabs.length;
+          switchTab(qsTabs[next]);
+          const btn = document.getElementById('tab-' + qsTabs[next]);
+          if (btn) btn.focus();
+        } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
+          e.preventDefault();
+          const prev = (idx - 1 + qsTabs.length) % qsTabs.length;
+          switchTab(qsTabs[prev]);
+          const btn = document.getElementById('tab-' + qsTabs[prev]);
+          if (btn) btn.focus();
+        } else if (e.key === 'Home') {
+          e.preventDefault();
+          switchTab(qsTabs[0]);
+          const btn = document.getElementById('tab-' + qsTabs[0]);
+          if (btn) btn.focus();
+        } else if (e.key === 'End') {
+          e.preventDefault();
+          switchTab(qsTabs[qsTabs.length - 1]);
+          const btn = document.getElementById('tab-' + qsTabs[qsTabs.length - 1]);
+          if (btn) btn.focus();
+        }
+      });
+    });
 
     // Initialize terminal simulator
     renderInitialScreen();
@@ -1972,237 +2068,237 @@ curl "http://localhost:9099/v1/logs?trace_id=tr-42"</code></pre>
           name: "Kafka / Redpanda",
           target_name: "Kafka Broker",
           target_protocol: "Cluster TCP :9092",
-          category: "Kafka Partition Rebalance",
-          sans: {
+          category: "Kafka Partition Rebalance Outage",
+          without_walspool: {
             latency: "8,400 ms",
             latency_sub: "Broker election stall",
             threads: "100% Saturated",
             threads_sub: "100/100 workers locked",
-            throughput: "0 ev/s (Bloque)",
+            throughput: "0 ev/s (Halted)",
             throughput_sub: "Total request stall",
-            loss: "Critique",
-            loss_sub: "Queue RAM pleine -> Drop",
+            loss: "Critical",
+            loss_sub: "RAM queue full -> Drops",
             status_badge: "REBALANCE LOCKDOWN",
             app_latency: "8,400 ms (Freeze)",
             app_workers: "100/100 (100%)",
             app_status_tag: "504 Gateway Timeouts",
-            buffer_title: "Socket Reseau Direct",
+            buffer_title: "Direct Network Socket",
             buffer_type: "RAM Client Buffer",
-            buffer_io: "TCP Handshake Bloquant",
-            buffer_integrity: "Memoire Volatile",
-            buffer_status_tag: "File Memoire Saturee (OOM Hazard)",
-            target_drain: "Rebalance En Cours",
-            target_bp: "Propagation Amont Totale",
-            target_status_tag: "Broker En Panne / Rebalance",
-            headline: "Starvation immediate des workers lors des rebalances de partition Kafka",
-            desc: "Les SDKs Kafka producteurs classiques (librdkafka, sarama) accumulent les messages en memoire vive. Lors d'une repartition de partition ou d'une election de leader, les envois bloquent de maniere synchrone. Une fois le buffer plein, tous les threads applicatifs sont immobilises et l'API passerelle s'effondre en cascade avec des erreurs 504.",
-            protection_tag: "VULNERABILITE LITTLE'S LAW ACTIVE"
+            buffer_io: "Blocking TCP Handshake",
+            buffer_integrity: "Volatile Memory",
+            buffer_status_tag: "Heap Queue Full (OOM Hazard)",
+            target_drain: "Rebalance In Progress",
+            target_bp: "Full Upstream Propagation",
+            target_status_tag: "Broker Outage / Rebalance",
+            headline: "Immediate worker starvation during Kafka partition rebalances",
+            desc: "Standard Kafka producer SDKs buffer records in application RAM. When a partition rebalances or broker elections take place, batch flushes block synchronously. Once client buffers fill, all HTTP worker threads lock up, triggering cascading 504 Gateway Timeouts across your API gateway.",
+            protection_tag: "LITTLE'S LAW BACKPRESSURE HAZARD"
           },
-          avec: {
-            latency: "0.47 µs",
-            latency_sub: "Commit NVMe constant",
+          with_walspool: {
+            latency: "0.47 µs (in-process)",
+            latency_sub: "P99 < 1.5 ms over sidecar loopback",
             threads: "0% Blocked",
-            threads_sub: "Little's Law L ~ 0",
+            threads_sub: "Little's Law L_app ~ 0",
             throughput: "350,000+ ev/s",
-            throughput_sub: "Zero client slowdown",
+            throughput_sub: "Zero caller degradation",
             loss: "0.00% Loss",
-            loss_sub: "Segments NVMe crash-safe",
+            loss_sub: "Durable on NVMe disk",
             status_badge: "NVMe ABSORBER ACTIVE",
-            app_latency: "0.47 µs",
+            app_latency: "0.47 µs (in-process)",
             app_workers: "0 (0.0%)",
-            app_status_tag: "Instant 200 OK (< 0.5 µs)",
+            app_status_tag: "Instant 200 OK (< 0.5 µs in-process)",
             buffer_title: "Walspool Sidecar",
             buffer_type: "Append-Only NVMe",
             buffer_io: "O(1) Sequential Write",
-            buffer_integrity: "Castagnoli CRC32C",
-            buffer_status_tag: "Spool NVMe Actif (Zero Perte)",
+            buffer_integrity: "CRC32 IEEE 802.3",
+            buffer_status_tag: "Durable Spool Active (Zero Drops)",
             target_drain: "Paced Jitter Backoff",
-            target_bp: "Totalement Eliminee",
-            target_status_tag: "Drainage Lisse et Resilient",
-            headline: "Decouplage complet du producteur avec ecriture sub-microseconde sur NVMe",
-            desc: "Walspool acquitte la charge localement via socket UDS ou HTTP en 0.47 microseconde. Les enregistrements sont commites dans des segments de disque sequentiels proteges par Castagnoli CRC32C. Un worker asynchrone draine vers Kafka avec un backoff decorrele. Si Kafka s'interrompt pendant 30 minutes, l'application continue a pleine vitesse.",
-            protection_tag: "DECOUPLAGE LITTLE'S LAW ACTIF"
+            target_bp: "Completely Absorbed",
+            target_status_tag: "Smooth Resilient Draining",
+            headline: "Decouple producers entirely with sub-microsecond in-process writes",
+            desc: "Walspool acknowledges ingests locally in 0.47 µs (in-process) or under 1.5 ms via sidecar loopback. Records are committed to sequential 64 MB disk segments with CRC32 IEEE integrity. An asynchronous background forwarder feeds Kafka using decorrelated jitter backoff. If Kafka stalls for 30 minutes, your API continues serving at line rate.",
+            protection_tag: "LITTLE'S LAW DECOUPLING ACTIVE"
           },
-          config_file: "walspool-kafka.yaml",
-          config_raw: 'sink: "kafka://kafka-cluster.internal:9092/telemetry.events"\nbuffer: "nvme:///var/data/walspool/kafka-spool?max_size_gb=100"\npolicy: { retry: "decorrelated_jitter", acks: "local_nvme" }',
-          config_html: '<span class="text-[#CCFF00]">sink:</span> <span class="text-sky-300">"kafka://kafka-cluster.internal:9092/telemetry.events"</span>\n<span class="text-[#CCFF00]">buffer:</span> <span class="text-sky-300">"nvme:///var/data/walspool/kafka-spool?max_size_gb=100"</span>\n<span class="text-[#CCFF00]">policy:</span> <span class="text-slate-300">{</span> <span class="text-amber-300">retry:</span> <span class="text-emerald-300">"decorrelated_jitter"</span><span class="text-slate-300">,</span> <span class="text-amber-300">acks:</span> <span class="text-emerald-300">"local_nvme"</span> <span class="text-slate-300">}</span>'
+          config_file: "walspool-sidecar (CLI & Flags)",
+          config_raw: "./walspool-sidecar -addr :9099 -sink-url http://kafka-forwarder.internal:8080/records -batch-size 1000 -flush-ms 50",
+          config_html: '<span class="text-[#CCFF00]">./walspool-sidecar</span> \\\n  <span class="text-sky-300">-addr</span> <span class="text-emerald-300">":9099"</span> \\\n  <span class="text-sky-300">-sink-url</span> <span class="text-emerald-300">"http://kafka-forwarder.internal:8080/records"</span> \\\n  <span class="text-sky-300">-batch-size</span> <span class="text-amber-300">1000</span> \\\n  <span class="text-sky-300">-flush-ms</span> <span class="text-amber-300">50</span>'
         },
         postgres: {
           name: "PostgreSQL Outbox",
           target_name: "PostgreSQL Engine",
           target_protocol: "TCP :5432 / WAL Engine",
           category: "Transactional Outbox Bottleneck",
-          sans: {
+          without_walspool: {
             latency: "42.5 ms",
-            latency_sub: "Verrous lignes et WAL DB",
+            latency_sub: "Row locks and WAL engine churn",
             threads: "Pool Starved",
             threads_sub: "max_connections reached",
-            throughput: "1,800 ev/s (Max)",
+            throughput: "1,800 ev/s (Ceiling)",
             throughput_sub: "SQL bottleneck stall",
-            loss: "Risque Transaction",
-            loss_sub: "Rollbacks en cascade",
-            status_badge: "DB LOCK CONTENZIONE",
-            app_latency: "42.5 ms (Latence SQL)",
-            app_workers: "88/100 (Pool Starve)",
-            app_status_tag: "Files d'Attente Saturees",
-            buffer_title: "Table Outbox SQL",
-            buffer_type: "Stockage Relationnel",
+            loss: "Transaction Risk",
+            loss_sub: "Cascading aborts & timeouts",
+            status_badge: "DB LOCK CONTENTION",
+            app_latency: "42.5 ms (SQL latency)",
+            app_workers: "88/100 (Pool Starved)",
+            app_status_tag: "Connection Queues Saturated",
+            buffer_title: "SQL Outbox Table",
+            buffer_type: "Relational Table Storage",
             buffer_io: "Row-Lock & WAL Churn",
-            buffer_integrity: "ACID Local (Couteux)",
-            buffer_status_tag: "Autovacuum Churn & Bloat",
+            buffer_integrity: "Local ACID (High Overhead)",
+            buffer_status_tag: "Autovacuum Churn & Table Bloat",
             target_drain: "FOR UPDATE SKIP LOCKED",
-            target_bp: "Contention Verrous Elevée",
-            target_status_tag: "Saturation IOPS Base de Donnees",
-            headline: "Bloat des tables et verrous de ligne saturent le pool de connexions PostgreSQL",
-            desc: "L'ecriture d'evenements d'outbox transactionnelle au sein de la transaction metier entraine une amplification d'ecriture WAL colossale, un gonflement des tables et des gels autovacuum. Les pollers qui executent FOR UPDATE SKIP LOCKED entrent en concurrence directe avec les transactions de paiement, degradant toute la base.",
-            protection_tag: "CONTENTION SQL DETECTEE"
+            target_bp: "Severe Lock Contention",
+            target_status_tag: "Database IOPS Saturation",
+            headline: "Table bloat and row locks exhaust PostgreSQL connection pools",
+            desc: "Writing telemetry, audit events, or webhook triggers into an outbox table within the primary business transaction causes severe WAL write amplification and autovacuum freezes. Polling workers using FOR UPDATE SKIP LOCKED compete directly with user checkout queries, degrading relational performance across the board.",
+            protection_tag: "SQL LOCK CONTENTION DETECTED"
           },
-          avec: {
-            latency: "0.48 µs",
-            latency_sub: "Commit hors base de donnees",
+          with_walspool: {
+            latency: "0.48 µs (in-process)",
+            latency_sub: "Commit offloaded from primary DB",
             threads: "0% Blocked",
-            threads_sub: "Zero SQL locks",
+            threads_sub: "Zero SQL locks on hot path",
             throughput: "350,000+ ev/s",
-            throughput_sub: "SQL IOPS freed for core queries",
+            throughput_sub: "Primary IOPS reserved for OLTP",
             loss: "0.00% Loss",
-            loss_sub: "Crash-safe NVMe spool",
+            loss_sub: "Crash-safe NVMe disk spool",
             status_badge: "SQL CORE UNBURDENED",
-            app_latency: "0.48 µs",
+            app_latency: "0.48 µs (in-process)",
             app_workers: "0 (0.0%)",
-            app_status_tag: "Transaction ACID Epuree",
+            app_status_tag: "Clean ACID Transactions",
             buffer_title: "Walspool Sidecar",
             buffer_type: "Zero-Alloc Ring Buffer",
-            buffer_io: "O(1) Append Hors SQL",
-            buffer_integrity: "Castagnoli CRC32C",
-            buffer_status_tag: "Decharge Totale de la Base",
-            target_drain: "Drainage Asynchrone Paced",
-            target_bp: "Totalement Eliminee",
-            target_status_tag: "0 Verrou de Ligne Outbox",
-            headline: "Decharge transactionnelle hors SQL avec 65% de reduction des IOPS PostgreSQL",
-            desc: "Walspool extrait l'ensemble des pistes d'audit, de la telemetrie et des webhooks sortants de la base relationnelle. Vos transactions metier s'executent proprement sans colonnes d'outbox parasitaires. Les evenements auxiliaires s'ecrivent dans Walspool en 0.48 microseconde, eliminant le churn autovacuum.",
-            protection_tag: "BASE RELATIONNELLE PROTEGEE"
+            buffer_io: "O(1) Append Outside SQL",
+            buffer_integrity: "CRC32 IEEE 802.3",
+            buffer_status_tag: "Full Database Offload",
+            target_drain: "Paced Async Batch Delivery",
+            target_bp: "Completely Absorbed",
+            target_status_tag: "0 Outbox Row Contention",
+            headline: "Offload events outside SQL to eliminate up to 65% of database IOPS",
+            desc: "Walspool pulls auxiliary audit trails, analytics, and event streams out of the relational engine. Core business transactions remain fast and lightweight without bloated outbox tables. Auxiliary events commit to Walspool in under 0.5 µs in-process without generating database write amplification or lock churn.",
+            protection_tag: "PRIMARY DATABASE PROTECTED"
           },
-          config_file: "walspool-postgres.yaml",
-          config_raw: 'sink: "postgres://lakehouse.internal:5432/events_lake?batch=5000"\nbuffer: "nvme:///var/data/walspool/pg-outbox?segment_size_mb=64"\npolicy: { flush_interval: "100ms", on_db_down: "spool_indefinitely" }',
-          config_html: '<span class="text-[#CCFF00]">sink:</span> <span class="text-sky-300">"postgres://lakehouse.internal:5432/events_lake?batch=5000"</span>\n<span class="text-[#CCFF00]">buffer:</span> <span class="text-sky-300">"nvme:///var/data/walspool/pg-outbox?segment_size_mb=64"</span>\n<span class="text-[#CCFF00]">policy:</span> <span class="text-slate-300">{</span> <span class="text-amber-300">flush_interval:</span> <span class="text-emerald-300">"100ms"</span><span class="text-slate-300">,</span> <span class="text-amber-300">on_db_down:</span> <span class="text-emerald-300">"spool_indefinitely"</span> <span class="text-slate-300">}</span>'
+          config_file: "walspool-sidecar (CLI & Flags)",
+          config_raw: "./walspool-sidecar -addr :9099 -sink-url http://postgres-streamer.internal:8080/events -batch-size 2000 -flush-ms 100",
+          config_html: '<span class="text-[#CCFF00]">./walspool-sidecar</span> \\\n  <span class="text-sky-300">-addr</span> <span class="text-emerald-300">":9099"</span> \\\n  <span class="text-sky-300">-sink-url</span> <span class="text-emerald-300">"http://postgres-streamer.internal:8080/events"</span> \\\n  <span class="text-sky-300">-batch-size</span> <span class="text-amber-300">2000</span> \\\n  <span class="text-sky-300">-flush-ms</span> <span class="text-amber-300">100</span>'
         },
         datadog: {
           name: "Datadog / OTel",
           target_name: "Datadog HQ / OTel",
           target_protocol: "HTTPS OTLP /v1/logs",
-          category: "Telemetry Ingestion & HTTP 429",
-          sans: {
+          category: "Telemetry Ingestion & HTTP 429 Quotas",
+          without_walspool: {
             latency: "2,150 ms",
-            latency_sub: "Attente retry HTTP 429",
-            threads: "Fuite Memoire",
-            threads_sub: "Tampon OTel en debordement",
+            latency_sub: "HTTP 429 backoff waiting",
+            threads: "Memory Leak Risk",
+            threads_sub: "OTel buffer queue overflow",
             throughput: "Throttled to 50 req/s",
-            throughput_sub: "Rejected by rate-limits",
+            throughput_sub: "Rejected by SaaS rate-limits",
             loss: "Heavy Drops",
-            loss_sub: "drop_on_overflow actif",
+            loss_sub: "drop_on_overflow active",
             status_badge: "HTTP 429 QUOTA EXCEEDED",
             app_latency: "2,150 ms (Retries)",
             app_workers: "74/100 (OTel Queue)",
-            app_status_tag: "Pertes de Spans Silencieuses",
+            app_status_tag: "Silent Span & Metric Drops",
             buffer_title: "OTel In-Memory Batcher",
             buffer_type: "RAM Heap Process",
-            buffer_io: "Allocations GC Frequentes",
-            buffer_integrity: "Pertes lors des Crashes",
-            buffer_status_tag: "Eviction Silencieuse des Logs",
-            target_drain: "Rejet HTTP 429 Too Many Req",
-            target_bp: "Contre-Pression Amont Forte",
-            target_status_tag: "Quota SaaS Depasse",
-            headline: "Les limites de debit HTTP 429 provoquent des pertes de logs critiques en incident",
-            desc: "Lors d'une tempete de trafic ou d'une attaque, le volume de logs explose. Les collecteurs SaaS (Datadog, Grafana Loki, passerelles OTel distantes) appliquent un rate-limiting agressif avec HTTP 429. Les tampons memoire OTel saturent tres rapidement et purgent silencieusement les traces au moment exact ou elles sont indispensables.",
-            protection_tag: "PERTE DE VISIBILITE METIER"
+            buffer_io: "Frequent GC Allocations",
+            buffer_integrity: "Lost on Host Eviction / Crash",
+            buffer_status_tag: "Silent In-Flight Eviction",
+            target_drain: "Rejected: HTTP 429 Rate Limit",
+            target_bp: "Severe Upstream Pressure",
+            target_status_tag: "SaaS Quota Exhausted",
+            headline: "SaaS 429 rate limits cause silent telemetry drops right when incidents peak",
+            desc: "During traffic spikes or operational incidents, log and span volumes surge. Remote SaaS collectors (Datadog, Grafana Cloud, OTel collectors) enforce rate limits with HTTP 429 responses. In-memory OTel batchers quickly overflow their heap queues and silently drop critical diagnostic traces at the exact moment they are needed most.",
+            protection_tag: "CRITICAL TELEMETRY LOSS RISK"
           },
-          avec: {
-            latency: "11.8 µs",
-            latency_sub: "Decodeur OTLP sub-15µs",
+          with_walspool: {
+            latency: "11.8 µs (in-process OTLP)",
+            latency_sub: "Sub-15 µs Protobuf decoding",
             threads: "0% Blocked",
-            threads_sub: "Stable RAM < 15MB",
+            threads_sub: "Guaranteed RSS < 15 MB",
             throughput: "350,000+ ev/s",
-            throughput_sub: "100% burst absorption",
+            throughput_sub: "100% burst absorbed locally",
             loss: "0.00% Loss",
-            loss_sub: "Durable on NVMe disk",
+            loss_sub: "Durable on NVMe disk segments",
             status_badge: "OTLP SHOCK ABSORBER",
-            app_latency: "11.8 µs",
+            app_latency: "11.8 µs (in-process OTLP)",
             app_workers: "0 (0.0%)",
-            app_status_tag: "Acquittement OTLP Immediat",
+            app_status_tag: "Immediate OTLP Acknowledgment",
             buffer_title: "Walspool Native OTLP",
-            buffer_type: "Segment NVMe Direct",
-            buffer_io: "Decode Protobuf Zero-Alloc",
-            buffer_integrity: "Castagnoli CRC32C",
-            buffer_status_tag: "Tampon Matériel Garanti",
-            target_drain: "Jitter Backoff Adaptatif",
-            target_bp: "Totalement Eliminee",
-            target_status_tag: "Absorption Sans Perte",
-            headline: "Ingestion native OTLP sub-15µs absorbant 100% des pics sur NVMe sans perte",
-            desc: "Walspool integre un ecouteur natif OTLP/HTTP (:4318) capable de decoder et persister des lots Protobuf en 11.8 microsecondes. Lorsque Datadog renvoie un code 429, Walspool active son algorithme de backoff decorrele et conserve la totalite des logs sur NVMe. Zero trace perdue, zero consommation memoire supplementaire pour l'app.",
-            protection_tag: "INGESTION OTLP NATIVE SUB-15µS"
+            buffer_type: "Direct NVMe Segment Spool",
+            buffer_io: "Zero-Alloc Protobuf Decoder",
+            buffer_integrity: "CRC32 IEEE 802.3",
+            buffer_status_tag: "Hardware-Backed Spool Active",
+            target_drain: "Adaptive Jittered Backoff",
+            target_bp: "Completely Absorbed",
+            target_status_tag: "Zero-Drop Absorption",
+            headline: "Sub-15 µs OTLP ingestion absorbing 100% of telemetry bursts onto NVMe",
+            desc: "Walspool exposes a native OTLP/HTTP endpoint capable of decoding and committing Protobuf batches in 11.8 µs (in-process). When downstream collectors return HTTP 429, Walspool engages decorrelated backoff and holds the entire telemetry burst safely on NVMe. No dropped traces, no bloated application heap.",
+            protection_tag: "NATIVE OTLP DURABLE SPOOL"
           },
-          config_file: "walspool-otlp.yaml",
-          config_raw: 'listen_otlp: "0.0.0.0:4318/v1/logs"\nforward_url: "https://http-intake.logs.datadoghq.com/api/v2/logs"\npolicy: { on_status: [429, 500, 502, 503], backoff: "decorrelated" }',
-          config_html: '<span class="text-[#CCFF00]">listen_otlp:</span> <span class="text-sky-300">"0.0.0.0:4318/v1/logs"</span>\n<span class="text-[#CCFF00]">forward_url:</span> <span class="text-sky-300">"https://http-intake.logs.datadoghq.com/api/v2/logs"</span>\n<span class="text-[#CCFF00]">policy:</span> <span class="text-slate-300">{</span> <span class="text-amber-300">on_status:</span> <span class="text-slate-300">[</span><span class="text-emerald-300">429</span><span class="text-slate-300">,</span> <span class="text-emerald-300">500</span><span class="text-slate-300">,</span> <span class="text-emerald-300">502</span><span class="text-slate-300">,</span> <span class="text-emerald-300">503</span><span class="text-slate-300">],</span> <span class="text-amber-300">backoff:</span> <span class="text-emerald-300">"decorrelated"</span> <span class="text-slate-300">}</span>'
+          config_file: "walspool-sidecar (CLI & Flags)",
+          config_raw: "./walspool-sidecar -addr :4318 -sink-url https://http-intake.logs.datadoghq.com/api/v2/logs -batch-size 500 -flush-ms 200",
+          config_html: '<span class="text-[#CCFF00]">./walspool-sidecar</span> \\\n  <span class="text-sky-300">-addr</span> <span class="text-emerald-300">":4318"</span> \\\n  <span class="text-sky-300">-sink-url</span> <span class="text-emerald-300">"https://http-intake.logs.datadoghq.com/api/v2/logs"</span> \\\n  <span class="text-sky-300">-batch-size</span> <span class="text-amber-300">500</span> \\\n  <span class="text-sky-300">-flush-ms</span> <span class="text-amber-300">200</span>'
         },
         webhooks: {
-          name: "Webhooks Tiers",
-          target_name: "API Partenaire (Stripe/CRM)",
-          target_protocol: "HTTPS REST Externe",
-          category: "External Partner Latency & Jitter",
-          sans: {
+          name: "Third-Party Webhooks",
+          target_name: "Partner API (Stripe/CRM)",
+          target_protocol: "External HTTPS REST",
+          category: "Partner Latency & Tail Jitter",
+          without_walspool: {
             latency: "5,200 ms",
-            latency_sub: "Attente socket externe",
+            latency_sub: "Waiting on external TCP socket",
             threads: "Total Thread Starvation",
-            threads_sub: "100/100 HTTP clients figes",
+            threads_sub: "100/100 HTTP client workers locked",
             throughput: "8 req/s (Degraded)",
-            throughput_sub: "Ingest capacity crushed",
+            throughput_sub: "Ingest capacity collapsed",
             loss: "Client Dropouts",
             loss_sub: "Frontend 504 timeouts",
             status_badge: "PARTNER LATENCY STALL",
-            app_latency: "5,200 ms (Blocage)",
-            app_workers: "100/100 (Bloques)",
-            app_status_tag: "Effondrement Passerelle API",
-            buffer_title: "Client HTTP Bloquant",
-            buffer_type: "Attente Synchrone",
-            buffer_io: "Sockets Bloquantes TLS",
-            buffer_integrity: "Perte sur Timeout",
-            buffer_status_tag: "Total Thread Starvation du Serveur",
-            target_drain: "Reponse Lente Partenaire (5s)",
-            target_bp: "Contre-Pression Directe Utilisateur",
-            target_status_tag: "Partenaire Lenteur / Panne",
-            headline: "Les API externes lentes monopolisent les workers et font tomber votre passerelle",
-            desc: "L'appel synchrone de webhooks externes (Stripe, Twilio, Salesforce, Shopify) au sein du thread de requete utilisateur est une source d'incidents majeurs. Si le partenaire subit un ralentissement de 5000ms, l'ensemble des sockets HTTP de votre serveur sature, provoquant une cascade de timeouts 504 pour vos clients finaux.",
-            protection_tag: "EFFONDREMENT CASCADE DETECTE"
+            app_latency: "5,200 ms (Locked)",
+            app_workers: "100/100 (Starved)",
+            app_status_tag: "API Gateway Cascading Collapse",
+            buffer_title: "Synchronous HTTP Client",
+            buffer_type: "Blocking Caller Thread",
+            buffer_io: "Blocking TLS Sockets",
+            buffer_integrity: "Lost on Client Disconnect",
+            buffer_status_tag: "Full Server Thread Starvation",
+            target_drain: "Slow Partner Response (5s)",
+            target_bp: "Direct End-User Impact",
+            target_status_tag: "Partner Degradation / Outage",
+            headline: "Slow partner APIs monopolize server workers and crash your gateway",
+            desc: "Calling external partner webhooks (Stripe, Twilio, Salesforce, Shopify) directly inside incoming user HTTP request threads is a primary cause of major outages. If a third-party partner experiences a 5-second latency spike, your entire server thread pool starves, causing cascading 504 timeouts for your end users.",
+            protection_tag: "CASCADING FAILURE DETECTED"
           },
-          avec: {
-            latency: "0.46 µs",
-            latency_sub: "Offload local instantane",
+          with_walspool: {
+            latency: "0.46 µs (in-process)",
+            latency_sub: "Instant local offload to disk",
             threads: "0% Blocked",
-            threads_sub: "Workers 100% Available",
+            threads_sub: "Workers 100% available",
             throughput: "350,000+ ev/s",
-            throughput_sub: "Clients acked in < 1ms",
+            throughput_sub: "Callers acknowledged immediately",
             loss: "0.00% Loss",
             loss_sub: "Persistent replay spool",
             status_badge: "PARTNER LATENCY ISOLATED",
-            app_latency: "0.46 µs",
+            app_latency: "0.46 µs (in-process)",
             app_workers: "0 (0.0%)",
             app_status_tag: "Instant 202 Accepted",
             buffer_title: "Walspool Sidecar",
-            buffer_type: "Journal Materiel NVMe",
-            buffer_io: "Persistance Locale Atomique",
-            buffer_integrity: "Castagnoli CRC32C",
-            buffer_status_tag: "Isolation Partenaire Etanche",
-            target_drain: "Dispatcher Asynchrone Paced",
-            target_bp: "Totalement Eliminee",
-            target_status_tag: "Distribution Asynchrone Fiable",
-            headline: "Isolation complete de la latence partenaire avec rejeu persistant et circuit-breaker",
-            desc: "Walspool met votre coeur de metier a l'abri. Vos endpoints deposent les webhooks sortants dans Walspool en 0.46 microseconde et renvoient immediatement une reponse HTTP 202 au client. Le sidecar gere les fenetres de concurrence, les limites de debit partenaire, les retries persistants et le circuit breaker sans monopoliser aucun worker applicatif.",
-            protection_tag: "ISOLATION PARTENAIRE 100% ETANCHE"
+            buffer_type: "Append-Only NVMe Journal",
+            buffer_io: "Atomic Local Persistence",
+            buffer_integrity: "CRC32 IEEE 802.3",
+            buffer_status_tag: "Strict Partner Isolation",
+            target_drain: "Paced Async Dispatcher",
+            target_bp: "Completely Absorbed",
+            target_status_tag: "Reliable Async Forwarding",
+            headline: "Complete partner latency isolation with persistent disk replay",
+            desc: "Walspool insulates your core revenue flows. Your endpoints deposit outbound webhooks into Walspool in 0.46 µs (in-process) and return an immediate HTTP 202 to the user. The background forwarder handles rate limits, connection pools, and exponential retries without consuming any web worker threads.",
+            protection_tag: "PARTNER TAIL LATENCY SHIELDED"
           },
-          config_file: "walspool-webhooks.yaml",
-          config_raw: 'sink: "https://api.partner.com/v1/webhooks/incoming"\nbuffer: "nvme:///var/data/walspool/webhooks-outbox"\npolicy: { concurrency: 20, max_attempts: 15, timeout: "2500ms" }',
-          config_html: '<span class="text-[#CCFF00]">sink:</span> <span class="text-sky-300">"https://api.partner.com/v1/webhooks/incoming"</span>\n<span class="text-[#CCFF00]">buffer:</span> <span class="text-sky-300">"nvme:///var/data/walspool/webhooks-outbox"</span>\n<span class="text-[#CCFF00]">policy:</span> <span class="text-slate-300">{</span> <span class="text-amber-300">concurrency:</span> <span class="text-emerald-300">20</span><span class="text-slate-300">,</span> <span class="text-amber-300">max_attempts:</span> <span class="text-emerald-300">15</span><span class="text-slate-300">,</span> <span class="text-amber-300">timeout:</span> <span class="text-emerald-300">"2500ms"</span> <span class="text-slate-300">}</span>'
+          config_file: "walspool-sidecar (CLI & Flags)",
+          config_raw: "./walspool-sidecar -addr :9099 -sink-url https://api.partner.com/v1/webhooks/incoming -batch-size 100 -flush-ms 500",
+          config_html: '<span class="text-[#CCFF00]">./walspool-sidecar</span> \\\n  <span class="text-sky-300">-addr</span> <span class="text-emerald-300">":9099"</span> \\\n  <span class="text-sky-300">-sink-url</span> <span class="text-emerald-300">"https://api.partner.com/v1/webhooks/incoming"</span> \\\n  <span class="text-sky-300">-batch-size</span> <span class="text-amber-300">100</span> \\\n  <span class="text-sky-300">-flush-ms</span> <span class="text-amber-300">500</span>'
         }
       };
 
@@ -2261,7 +2357,7 @@ curl "http://localhost:9099/v1/logs?trace_id=tr-42"</code></pre>
         const scenario = SHOCK_DATA[activeTabKey];
         if (!scenario) return;
 
-        const data = isWalspoolActive ? scenario.avec : scenario.sans;
+        const data = isWalspoolActive ? scenario.with_walspool : scenario.without_walspool;
 
         // Pipeline Status Badge
         const badge = document.getElementById('pipeline-status-badge');
@@ -2307,7 +2403,7 @@ curl "http://localhost:9099/v1/logs?trace_id=tr-42"</code></pre>
         if (bufTitle) {
           bufTitle.innerHTML = isWalspoolActive
             ? '<svg class="w-3.5 h-3.5 text-[#CCFF00]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg> <span>Walspool Sidecar</span>'
-            : '<svg class="w-3.5 h-3.5 text-rose-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg> <span class="text-rose-400">Aucun Amortisseur</span>';
+            : '<svg class="w-3.5 h-3.5 text-rose-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg> <span class="text-rose-400">No Shock Absorber</span>';
         }
         if (bufType) {
           bufType.innerText = data.buffer_type;
@@ -2426,7 +2522,7 @@ curl "http://localhost:9099/v1/logs?trace_id=tr-42"</code></pre>
             }
             return;
           }
-          throw new Error("Clipboard API non disponible");
+          throw new Error("Clipboard API unavailable");
         } catch (e) {
           try {
             const ta = document.createElement('textarea');
