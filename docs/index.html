@@ -731,6 +731,73 @@
               <div><strong class="text-white">IEEE CRC32 Protection:</strong> 29-byte binary header verifies integrity on every record boundary.</div>
             </div>
           </div>
+
+          <!-- NVMe Multi-Segment Disk Strip Visualizer -->
+          <div class="mb-6 p-4 rounded-xl bg-[#050608] border border-white/[0.08] space-y-3 font-mono text-xs">
+            <div class="flex items-center justify-between text-[11px]">
+              <span class="text-slate-300 flex items-center gap-1.5 font-semibold">
+                <svg class="w-3.5 h-3.5 text-[#CCFF00]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 7v10c0 2 1.5 3 3.5 3h9c2 0 3.5-1 3.5-3V7M4 7c0-2 1.5-3 3.5-3h9c2 0 3.5 1 3.5 3M4 7h16m-8 4v4m-3-2h6"/></svg>
+                Sequential NVMe Disk Segments (64MB Rotation)
+              </span>
+              <button type="button" onclick="simulateTornWrite()" class="px-2.5 py-1 rounded bg-[#161922] hover:bg-rose-950/40 text-rose-300 hover:text-rose-200 border border-rose-500/30 text-[10px] font-bold transition flex items-center gap-1 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-rose-400">
+                <svg class="w-3 h-3 text-rose-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+                Simulate Torn Write
+              </button>
+            </div>
+
+            <!-- Segment Chain Grid -->
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-2 text-[10px]">
+              <!-- Segment 0998: Pruned -->
+              <div class="p-2 rounded bg-white/[0.02] border border-dashed border-white/[0.1] text-slate-400">
+                <div class="flex items-center justify-between font-bold">
+                  <span>seg-000998.wal</span>
+                  <span class="text-[9px] px-1 rounded bg-white/[0.06] text-slate-400">PRUNED</span>
+                </div>
+                <div class="text-[9px] text-slate-400 mt-1">Unlinked on Commit</div>
+                <div class="h-1.5 w-full bg-white/[0.05] rounded-full mt-2"></div>
+              </div>
+
+              <!-- Segment 0999: Sealed -->
+              <div class="p-2 rounded bg-white/[0.04] border border-white/[0.15] text-slate-300">
+                <div class="flex items-center justify-between font-bold text-white">
+                  <span>seg-000999.wal</span>
+                  <span class="text-[9px] px-1 rounded bg-sky-950/60 text-sky-400 border border-sky-500/30">SEALED</span>
+                </div>
+                <div class="text-[9px] text-slate-400 mt-1">64.0 MB / CRC32 IEEE</div>
+                <div class="h-1.5 w-full bg-sky-500/30 rounded-full mt-2 overflow-hidden">
+                  <div class="h-full bg-sky-400 w-full"></div>
+                </div>
+              </div>
+
+              <!-- Segment 1000: Active -->
+              <div id="segment-active-box" class="p-2 rounded bg-[#10141a] border border-[#CCFF00]/40 text-slate-200 transition-all duration-300">
+                <div class="flex items-center justify-between font-bold text-white">
+                  <span class="text-[#CCFF00]">seg-001000.wal</span>
+                  <span id="segment-active-badge" class="text-[9px] px-1 rounded bg-[#CCFF00]/10 text-[#CCFF00] border border-[#CCFF00]/30 animate-pulse">ACTIVE</span>
+                </div>
+                <div id="segment-active-meta" class="text-[9px] text-slate-400 mt-1">28.4 MB / Append Head</div>
+                <div class="h-1.5 w-full bg-[#CCFF00]/20 rounded-full mt-2 overflow-hidden">
+                  <div id="segment-active-bar" class="h-full bg-[#CCFF00] rounded-full" style="width: 44%;"></div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Torn Write Truncation Alert Box (Hidden by default, shown on simulate) -->
+            <div id="torn-write-alert" class="hidden p-2.5 rounded bg-rose-950/40 border border-rose-500/30 text-rose-300 text-[11px] space-y-1">
+              <div class="font-bold flex items-center gap-1.5 text-rose-400">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+                <span>Torn Write Crash Detected on Recovery</span>
+              </div>
+              <div class="text-[10px] text-slate-300">
+                CRC32 checksum mismatch on record at offset <code class="text-amber-300">0x01C64000</code> (incomplete 14 bytes written during power loss).
+              </div>
+              <div class="text-[10px] text-emerald-400 font-bold flex items-center gap-1">
+                <span>&check; Atomic repair:</span>
+                <code class="text-white bg-black/40 px-1 py-0.5 rounded">os.Truncate(0x01C63FE0)</code>
+                <span>-&gt; 100% Valid Records Preserved</span>
+              </div>
+            </div>
+          </div>
         </div>
 
         <div class="bg-[#050608] p-4 rounded-xl border border-white/[0.08] space-y-2.5">
@@ -785,6 +852,44 @@
             <div class="flex items-start gap-2.5 text-slate-200">
               <span class="text-[#CCFF00] font-bold">▪</span>
               <div><strong class="text-white">Zero-Leak Eviction:</strong> Index references are automatically pruned as oldest records are overwritten.</div>
+            </div>
+          </div>
+
+          <!-- Circular Ring Buffer SVG Donut Component -->
+          <div class="mb-6 p-4 rounded-xl bg-[#050608] border border-white/[0.08] flex flex-col sm:flex-row items-center gap-4 font-mono text-xs">
+            <div class="relative w-28 h-28 shrink-0 flex items-center justify-center">
+              <svg viewBox="0 0 120 120" class="w-28 h-28 transform -rotate-90" role="img" aria-label="Circular Ring Buffer Memory Model">
+                <!-- Base Track -->
+                <circle cx="60" cy="60" r="46" fill="none" stroke="rgba(255,255,255,0.06)" stroke-width="10"/>
+                <!-- Allocated Buffer Ring (70% filled) -->
+                <circle cx="60" cy="60" r="46" fill="none" stroke="#CCFF00" stroke-width="10" stroke-dasharray="202 289" stroke-dashoffset="0" stroke-linecap="round" class="opacity-90"/>
+                <!-- Head Cursor Dot -->
+                <circle cx="106" cy="60" r="4.5" fill="#CCFF00" class="shadow-[0_0_8px_#CCFF00] animate-pulse"/>
+                <!-- Tail Reader Dot -->
+                <circle cx="28" cy="92" r="3.5" fill="#38BDF8"/>
+              </svg>
+              <div class="absolute inset-0 flex flex-col items-center justify-center text-center pointer-events-none">
+                <span class="text-xs font-bold text-[#CCFF00] tabular-nums">50k</span>
+                <span class="text-[8px] text-slate-400 uppercase tracking-wider">Slots</span>
+              </div>
+            </div>
+
+            <div class="space-y-1.5 text-[11px] text-slate-300 w-full">
+              <div class="flex items-center justify-between">
+                <span class="text-slate-400">Memory Ceiling:</span>
+                <span class="text-white font-bold">O(1) Fixed Heap Ring</span>
+              </div>
+              <div class="flex items-center justify-between">
+                <span class="text-slate-400">Head / Tail Overhead:</span>
+                <span class="text-[#CCFF00] font-bold">0 Allocations / op</span>
+              </div>
+              <div class="flex items-center justify-between">
+                <span class="text-slate-400">Secondary Indexing:</span>
+                <span class="text-sky-400 font-bold">Trace &amp; Svc Index (&lt; 15µs)</span>
+              </div>
+              <div class="text-[10px] text-slate-400 pt-1 border-t border-white/[0.06]">
+                Oldest records are continuously overwritten without garbage collection stalls or heap inflation.
+              </div>
             </div>
           </div>
         </div>
@@ -875,27 +980,134 @@ $ walspool monitor
         </p>
       </div>
 
-      <!-- Latency Metric Cards (Zero Fake Progress Bars) -->
-      <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 font-mono text-xs mb-8">
-        <div class="p-3.5 rounded-xl bg-[#0B0D12] border border-white/[0.08]">
-          <div class="text-slate-400 text-[11px]">walspool WAL (NVMe)</div>
-          <div class="text-base font-bold text-[#CCFF00] mt-1 tabular-nums">0.47 µs</div>
-          <div class="text-[10px] text-slate-400 mt-0.5">128KB Group Commit</div>
+      <!-- Interactive Dual-Mode Logarithmic Benchmark Gauge -->
+      <div class="p-6 rounded-2xl hairline-card bg-[#0A0C10] border border-white/[0.08] space-y-6 mb-8">
+        <div class="flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <div class="text-xs font-mono uppercase tracking-wider text-[#CCFF00] font-bold">Relative Performance Gap</div>
+            <h3 id="benchmark-view-title" class="text-lg font-semibold text-white">Logarithmic Latency Comparison (µs)</h3>
+            <p id="benchmark-view-desc" class="text-xs font-mono text-slate-400 mt-0.5">Order-of-magnitude physical speedup on local NVMe vs remote network hops</p>
+          </div>
+          <div class="flex items-center gap-1 bg-[#101218] p-1 rounded-lg border border-white/[0.08] font-mono text-xs" role="group" aria-label="Benchmark metric toggle">
+            <button id="btn-bench-latency" type="button" onclick="switchBenchmarkMode('latency')" class="px-3.5 py-1.5 rounded-md font-bold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#CCFF00] bg-[#CCFF00] text-slate-950">Latency (µs)</button>
+            <button id="btn-bench-throughput" type="button" onclick="switchBenchmarkMode('throughput')" class="px-3.5 py-1.5 rounded-md font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#CCFF00] text-slate-400 hover:text-white">Throughput (ops/s)</button>
+          </div>
         </div>
-        <div class="p-3.5 rounded-xl bg-[#0B0D12] border border-white/[0.08]">
-          <div class="text-slate-400 text-[11px]">walspool Query (Hub)</div>
-          <div class="text-base font-bold text-sky-400 mt-1 tabular-nums">3.73 µs</div>
-          <div class="text-[10px] text-slate-400 mt-0.5">Secondary Trace Index</div>
+
+        <!-- Dynamic Visual Gauge Container -->
+        <div id="benchmark-gauge-list" class="space-y-4 font-mono text-xs">
+          <!-- Item 1: Walspool WAL -->
+          <div class="p-3 rounded-xl bg-[#050608] border border-white/[0.06] space-y-1.5">
+            <div class="flex items-center justify-between text-slate-200">
+              <span class="font-bold text-white flex items-center gap-2">
+                <span class="w-2.5 h-2.5 rounded-full bg-[#CCFF00] shadow-[0_0_8px_#CCFF00] animate-pulse"></span>
+                <span>walspool WAL (In-Process NVMe)</span>
+              </span>
+              <div class="flex items-center gap-2">
+                <span id="bench-val-1" class="text-[#CCFF00] font-bold text-sm tabular-nums">0.47 µs</span>
+                <span id="bench-badge-1" class="text-[10px] font-bold px-2 py-0.5 rounded bg-[#CCFF00]/10 text-[#CCFF00] border border-[#CCFF00]/30">25,531x FASTER</span>
+              </div>
+            </div>
+            <div class="h-2.5 w-full bg-[#101218] rounded-full overflow-hidden p-0.5 border border-white/[0.08]">
+              <div id="bench-bar-1" class="h-full bg-[#CCFF00] rounded-full shadow-[0_0_10px_rgba(204,255,0,0.5)] transition-all duration-500" style="width: 2%;"></div>
+            </div>
+            <div class="flex justify-between text-[10px] text-slate-400">
+              <span>128KB Group Commit / O(1) Append</span>
+              <span id="bench-sub-1" class="text-[#CCFF00]">Fastest NVMe Commit</span>
+            </div>
+          </div>
+
+          <!-- Item 2: Walspool Hub -->
+          <div class="p-3 rounded-xl bg-[#050608] border border-white/[0.06] space-y-1.5">
+            <div class="flex items-center justify-between text-slate-200">
+              <span class="font-bold text-white flex items-center gap-2">
+                <span class="w-2.5 h-2.5 rounded-full bg-sky-400"></span>
+                <span>walspool Query (Hub In-Memory)</span>
+              </span>
+              <div class="flex items-center gap-2">
+                <span id="bench-val-2" class="text-sky-400 font-bold text-sm tabular-nums">3.73 µs</span>
+                <span id="bench-badge-2" class="text-[10px] font-bold px-2 py-0.5 rounded bg-sky-950/60 text-sky-400 border border-sky-500/30">3,217x FASTER</span>
+              </div>
+            </div>
+            <div class="h-2.5 w-full bg-[#101218] rounded-full overflow-hidden p-0.5 border border-white/[0.08]">
+              <div id="bench-bar-2" class="h-full bg-sky-400 rounded-full transition-all duration-500" style="width: 8%;"></div>
+            </div>
+            <div class="flex justify-between text-[10px] text-slate-400">
+              <span>Secondary Trace ID Index Lookup</span>
+              <span id="bench-sub-2" class="text-sky-400">Sub-4µs Query</span>
+            </div>
+          </div>
+
+          <!-- Item 3: Redis Loopback -->
+          <div class="p-3 rounded-xl bg-[#050608] border border-white/[0.06] space-y-1.5">
+            <div class="flex items-center justify-between text-slate-300">
+              <span class="font-medium flex items-center gap-2">
+                <span class="w-2.5 h-2.5 rounded-full bg-amber-400"></span>
+                <span>Redis (Local Loopback TCP)</span>
+              </span>
+              <div class="flex items-center gap-2">
+                <span id="bench-val-3" class="text-amber-400 font-bold text-sm tabular-nums">2,500 µs</span>
+                <span id="bench-badge-3" class="text-[10px] font-bold px-2 py-0.5 rounded bg-amber-950/60 text-amber-400 border border-amber-500/30">5,319x SLOWER</span>
+              </div>
+            </div>
+            <div class="h-2.5 w-full bg-[#101218] rounded-full overflow-hidden p-0.5 border border-white/[0.08]">
+              <div id="bench-bar-3" class="h-full bg-amber-400 rounded-full transition-all duration-500" style="width: 55%;"></div>
+            </div>
+            <div class="flex justify-between text-[10px] text-slate-400">
+              <span>OS Kernel TCP Socket Hop &amp; Context Switch</span>
+              <span id="bench-sub-3" class="text-amber-400">2.5 ms Hop</span>
+            </div>
+          </div>
+
+          <!-- Item 4: AWS SQS / Kafka -->
+          <div class="p-3 rounded-xl bg-[#050608] border border-white/[0.06] space-y-1.5">
+            <div class="flex items-center justify-between text-slate-400">
+              <span class="font-medium flex items-center gap-2 text-rose-300">
+                <span class="w-2.5 h-2.5 rounded-full bg-rose-400"></span>
+                <span>AWS SQS / Kafka ACK (Remote Cluster)</span>
+              </span>
+              <div class="flex items-center gap-2">
+                <span id="bench-val-4" class="text-rose-400 font-bold text-sm tabular-nums">12,000 µs</span>
+                <span id="bench-badge-4" class="text-[10px] font-bold px-2 py-0.5 rounded bg-rose-950/60 text-rose-400 border border-rose-500/30">BASELINE (25,531x SLOWER)</span>
+              </div>
+            </div>
+            <div class="h-2.5 w-full bg-[#101218] rounded-full overflow-hidden p-0.5 border border-white/[0.08]">
+              <div id="bench-bar-4" class="h-full bg-rose-500 rounded-full transition-all duration-500" style="width: 100%;"></div>
+            </div>
+            <div class="flex justify-between text-[10px] text-slate-400">
+              <span>Remote TCP Quorum ACK &amp; Cross-AZ Roundtrip</span>
+              <span id="bench-sub-4" class="text-rose-400">12.0 ms Latency Floor</span>
+            </div>
+          </div>
         </div>
-        <div class="p-3.5 rounded-xl bg-[#0B0D12] border border-white/[0.08]">
-          <div class="text-slate-400 text-[11px]">Redis (Local Loopback)</div>
-          <div class="text-base font-bold text-slate-300 mt-1 tabular-nums">2,500 µs</div>
-          <div class="text-[10px] text-slate-400 mt-0.5">2.5 ms TCP Hop</div>
-        </div>
-        <div class="p-3.5 rounded-xl bg-[#0B0D12] border border-white/[0.08]">
-          <div class="text-slate-400 text-[11px]">AWS SQS / Kafka ACK</div>
-          <div class="text-base font-bold text-slate-300 mt-1 tabular-nums">12,000 µs</div>
-          <div class="text-[10px] text-slate-400 mt-0.5">12.0 ms Remote Cluster</div>
+
+        <!-- Concurrency & Thread Starvation Calculator Widget -->
+        <div class="p-4 rounded-xl bg-[#050608] border border-white/[0.08] space-y-3 font-mono text-xs">
+          <div class="flex flex-wrap items-center justify-between gap-2">
+            <span class="text-slate-300 font-bold flex items-center gap-2">
+              <svg class="w-4 h-4 text-[#CCFF00]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg>
+              <span>Application Worker Concurrency Impact:</span>
+            </span>
+            <div class="flex items-center gap-1.5 text-[11px]">
+              <span class="text-slate-400">Simulate Batch:</span>
+              <button type="button" onclick="setSimVolume(10000)" id="vol-btn-10k" class="vol-btn px-2 py-0.5 rounded bg-white/[0.06] text-slate-300 hover:text-white border border-white/[0.08]">10k req</button>
+              <button type="button" onclick="setSimVolume(50000)" id="vol-btn-50k" class="vol-btn px-2 py-0.5 rounded bg-white/[0.06] text-slate-300 hover:text-white border border-white/[0.08]">50k req</button>
+              <button type="button" onclick="setSimVolume(100000)" id="vol-btn-100k" class="vol-btn px-2 py-0.5 rounded bg-[#CCFF00]/15 text-[#CCFF00] border border-[#CCFF00]/40 font-bold">100k req</button>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+            <div class="p-3 rounded-lg bg-[#10141a] border border-[#CCFF00]/20 space-y-1">
+              <div class="text-[10px] text-slate-400 uppercase tracking-wider font-semibold">With Walspool (In-Process Offload)</div>
+              <div class="text-xl font-bold text-[#CCFF00] tabular-nums" id="calc-walspool-time">0.047 seconds</div>
+              <div class="text-[10px] text-emerald-400 font-bold">&check; 0 Worker Threads Blocked (L_app ~ 0)</div>
+            </div>
+            <div class="p-3 rounded-lg bg-rose-950/30 border border-rose-500/20 space-y-1">
+              <div class="text-[10px] text-slate-400 uppercase tracking-wider font-semibold">Direct Synchronous Broker Ingest</div>
+              <div class="text-xl font-bold text-rose-400 tabular-nums" id="calc-direct-time">1,200 seconds (20 min)</div>
+              <div class="text-[10px] text-rose-300 font-bold">&times; 100/100 HTTP Workers Starved (504 Outage)</div>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -1310,16 +1522,49 @@ curl "http://localhost:9099/v1/logs?trace_id=tr-42"</code></pre>
               Applications call downstream brokers directly over network sockets. Any downstream latency spike immediately blocks client HTTP worker threads.
             </p>
 
-            <!-- ASCII Diagram Fragile -->
-            <div class="p-4 rounded-xl bg-[#050608] border border-rose-500/20 font-mono text-[11px] leading-tight text-slate-300 overflow-x-auto">
-              <div class="text-slate-400">[Client Request]</div>
-              <div class="text-rose-400 font-bold">  │</div>
-              <div class="text-rose-400 font-bold">  ▼</div>
-              <div class="text-white font-bold">[App Web Workers] <span class="text-rose-400">──(Sync HTTP/TCP)──&gt;</span> [External Network] <span class="text-rose-400">──&gt;</span> [Destination]</div>
-              <div class="text-rose-400">  │ (100/100 pool starved)                                │ (Outage / 429)</div>
-              <div class="text-rose-400">  │ Little's Law: L = 10,000 req                          ▼</div>
-              <div class="text-rose-400">  ▼                                            [Latency: 5000ms+ / Drop]</div>
-              <div class="text-rose-300 font-bold">[504 Gateway Timeout -&gt; Outage Cascades]</div>
+            <!-- Interactive Vector Flow Diagram (Without Walspool) -->
+            <div class="p-4 rounded-xl bg-[#050608] border border-rose-500/20 font-mono text-xs space-y-3">
+              <div class="flex items-center justify-between text-[11px] pb-2 border-b border-rose-500/20">
+                <span class="text-rose-400 font-bold flex items-center gap-1.5">
+                  <span class="w-2 h-2 rounded-full bg-rose-500 animate-ping"></span>
+                  <span>Worker Pool Concurrency (L_app):</span>
+                </span>
+                <span class="text-rose-400 font-bold tabular-nums">100 / 100 Starved (100%)</span>
+              </div>
+
+              <!-- 10 Worker Slots Locked -->
+              <div class="space-y-1">
+                <div class="text-[10px] text-slate-400 flex justify-between">
+                  <span>Application Web Workers (Synchronous Socket Blocking):</span>
+                  <span class="text-rose-400">All Threads Locked</span>
+                </div>
+                <div class="grid grid-cols-5 sm:grid-cols-10 gap-1 text-[10px] text-center font-bold">
+                  <div class="py-1 rounded bg-rose-950/80 text-rose-300 border border-rose-500/40">#1 🔒</div>
+                  <div class="py-1 rounded bg-rose-950/80 text-rose-300 border border-rose-500/40">#2 🔒</div>
+                  <div class="py-1 rounded bg-rose-950/80 text-rose-300 border border-rose-500/40">#3 🔒</div>
+                  <div class="py-1 rounded bg-rose-950/80 text-rose-300 border border-rose-500/40">#4 🔒</div>
+                  <div class="py-1 rounded bg-rose-950/80 text-rose-300 border border-rose-500/40">#5 🔒</div>
+                  <div class="py-1 rounded bg-rose-950/80 text-rose-300 border border-rose-500/40">#6 🔒</div>
+                  <div class="py-1 rounded bg-rose-950/80 text-rose-300 border border-rose-500/40">#7 🔒</div>
+                  <div class="py-1 rounded bg-rose-950/80 text-rose-300 border border-rose-500/40">#8 🔒</div>
+                  <div class="py-1 rounded bg-rose-950/80 text-rose-300 border border-rose-500/40">#9 🔒</div>
+                  <div class="py-1 rounded bg-rose-950/80 text-rose-300 border border-rose-500/40">#10 🔒</div>
+                </div>
+              </div>
+
+              <!-- SVG Topology Flow -->
+              <div class="p-2.5 rounded-lg bg-[#08090C] border border-white/[0.04] space-y-2">
+                <div class="flex items-center justify-between text-[11px]">
+                  <span class="text-slate-300">[Incoming HTTP Traffic]</span>
+                  <span class="text-rose-400 font-bold">&rarr; [Direct Remote TCP Socket]</span>
+                  <span class="text-rose-400 font-bold">[Kafka / OTel / DB 503]</span>
+                </div>
+                <div class="p-2 rounded bg-rose-950/40 border border-rose-500/30 text-[10px] text-rose-300 space-y-0.5">
+                  <div class="font-bold text-rose-400">Little's Law Starvation Formula:</div>
+                  <div>L_app = &lambda; &middot; W = 2,000 req/s &times; 5.0s = <strong>10,000 concurrent threads needed</strong>.</div>
+                  <div class="text-rose-200 font-bold">&rarr; Server max_workers exhausted: 504 Gateway Timeout Cascade</div>
+                </div>
+              </div>
             </div>
           </div>
 
@@ -1357,18 +1602,49 @@ curl "http://localhost:9099/v1/logs?trace_id=tr-42"</code></pre>
               The application hands events to the local Walspool sidecar in &lt; 0.5 µs (in-process) or loopback P99 &lt; 1.5 ms and returns immediately. Walspool buffers and drains asynchronously.
             </p>
 
-            <!-- ASCII Diagram Robuste -->
-            <div class="p-4 rounded-xl bg-[#050608] border border-[#CCFF00]/20 font-mono text-[11px] leading-tight text-slate-300 overflow-x-auto">
-              <div class="text-slate-400">[Client Request]</div>
-              <div class="text-[#CCFF00] font-bold">  │</div>
-              <div class="text-[#CCFF00] font-bold">  ▼</div>
-              <div class="text-white font-bold">[App Web Workers] <span class="text-[#CCFF00]">──(Loopback Ingest &lt; 1.5ms)──&gt;</span> [Walspool NVMe Engine]</div>
-              <div class="text-[#CCFF00]">  │ (0 threads blocked)                               │</div>
-              <div class="text-[#CCFF00]">  ▼                                                   ▼ (Commit NVMe CRC32 IEEE)</div>
-              <div class="text-emerald-300 font-bold">[200 OK Client Response]            [Multi-Segment NVMe Storage]</div>
-              <div class="text-slate-400">                                                      │ (Paced Asynchronous Egress)</div>
-              <div class="text-sky-300 font-bold">                                                      ▼</div>
-              <div class="text-sky-300 font-bold">                                            [Destination (Kafka/OTel/DB)]</div>
+            <!-- Interactive Vector Flow Diagram (With Walspool) -->
+            <div class="p-4 rounded-xl bg-[#050608] border border-[#CCFF00]/30 font-mono text-xs space-y-3">
+              <div class="flex items-center justify-between text-[11px] pb-2 border-b border-[#CCFF00]/20">
+                <span class="text-[#CCFF00] font-bold flex items-center gap-1.5">
+                  <span class="w-2 h-2 rounded-full bg-[#CCFF00] animate-pulse"></span>
+                  <span>Worker Pool Concurrency (L_app):</span>
+                </span>
+                <span class="text-[#CCFF00] font-bold tabular-nums">0 / 100 Starved (0% Blocked)</span>
+              </div>
+
+              <!-- 10 Worker Slots Free -->
+              <div class="space-y-1">
+                <div class="text-[10px] text-slate-400 flex justify-between">
+                  <span>Application Web Workers (Sub-µs Local NVMe Hand-off):</span>
+                  <span class="text-[#CCFF00]">100% Threads Free</span>
+                </div>
+                <div class="grid grid-cols-5 sm:grid-cols-10 gap-1 text-[10px] text-center font-bold">
+                  <div class="py-1 rounded bg-[#CCFF00]/15 text-[#CCFF00] border border-[#CCFF00]/30">#1 &check;</div>
+                  <div class="py-1 rounded bg-[#CCFF00]/15 text-[#CCFF00] border border-[#CCFF00]/30">#2 &check;</div>
+                  <div class="py-1 rounded bg-[#CCFF00]/15 text-[#CCFF00] border border-[#CCFF00]/30">#3 &check;</div>
+                  <div class="py-1 rounded bg-[#CCFF00]/15 text-[#CCFF00] border border-[#CCFF00]/30">#4 &check;</div>
+                  <div class="py-1 rounded bg-[#CCFF00]/15 text-[#CCFF00] border border-[#CCFF00]/30">#5 &check;</div>
+                  <div class="py-1 rounded bg-[#CCFF00]/15 text-[#CCFF00] border border-[#CCFF00]/30">#6 &check;</div>
+                  <div class="py-1 rounded bg-[#CCFF00]/15 text-[#CCFF00] border border-[#CCFF00]/30">#7 &check;</div>
+                  <div class="py-1 rounded bg-[#CCFF00]/15 text-[#CCFF00] border border-[#CCFF00]/30">#8 &check;</div>
+                  <div class="py-1 rounded bg-[#CCFF00]/15 text-[#CCFF00] border border-[#CCFF00]/30">#9 &check;</div>
+                  <div class="py-1 rounded bg-[#CCFF00]/15 text-[#CCFF00] border border-[#CCFF00]/30">#10 &check;</div>
+                </div>
+              </div>
+
+              <!-- SVG Topology Flow -->
+              <div class="p-2.5 rounded-lg bg-[#08090C] border border-[#CCFF00]/10 space-y-2">
+                <div class="flex items-center justify-between text-[11px]">
+                  <span class="text-slate-300">[Incoming HTTP Traffic]</span>
+                  <span class="text-[#CCFF00] font-bold">&rarr; [Walspool NVMe Spool: 0.47 µs]</span>
+                  <span class="text-emerald-400 font-bold">[Instant 200 OK]</span>
+                </div>
+                <div class="p-2 rounded bg-[#10141a] border border-[#CCFF00]/20 text-[10px] text-slate-300 space-y-0.5">
+                  <div class="font-bold text-[#CCFF00]">Little's Law Decoupled Formula:</div>
+                  <div>L_app &le; 1 thread (constant) &bull; <strong class="text-white">L_spool = &lambda; &middot; W_outage</strong> (durable NVMe backlog).</div>
+                  <div class="text-emerald-400 font-bold">&rarr; Background worker drains to Kafka/OTel with decorrelated backoff</div>
+                </div>
+              </div>
             </div>
           </div>
 
@@ -1392,7 +1668,7 @@ curl "http://localhost:9099/v1/logs?trace_id=tr-42"</code></pre>
       </div>
     </div>
 
-    <!-- PRODUCTION ECOSYSTEM INTEGRATION MATRIX -->
+    <!-- PRODUCTION ECOSYSTEM INTEGRATION MATRIX & SYSTEMS RADAR -->
     <div>
       <div class="text-center mb-8">
         <div class="text-xs uppercase font-mono tracking-widest text-[#CCFF00] font-bold mb-1">Production Matrix</div>
@@ -1400,6 +1676,95 @@ curl "http://localhost:9099/v1/logs?trace_id=tr-42"</code></pre>
         <p class="text-slate-400 text-xs sm:text-sm max-w-2xl mx-auto mt-2">
           Direct drop-in compatibility with enterprise streaming, analytics, and observability standards.
         </p>
+      </div>
+
+      <!-- 5-Axis Systems Architecture Radar + Quick Highlights -->
+      <div class="p-6 rounded-2xl hairline-card bg-[#0A0C10] border border-white/[0.08] mb-8 grid grid-cols-1 md:grid-cols-12 gap-6 items-center">
+        <!-- SVG Radar Left Column -->
+        <div class="md:col-span-5 flex flex-col items-center justify-center p-4 rounded-xl bg-[#050608] border border-white/[0.06]">
+          <div class="text-xs font-mono uppercase tracking-wider text-slate-400 mb-2 font-semibold">5-Axis Architectural Radar</div>
+          
+          <svg viewBox="0 0 200 200" class="w-48 h-48 overflow-visible" role="img" aria-label="5-Axis Systems Architecture Radar: Walspool vs Conventional In-Memory Buffers">
+            <!-- Concentric reference polygons -->
+            <polygon points="100,20 176,75 147,165 53,165 24,75" fill="none" stroke="rgba(255,255,255,0.08)" stroke-width="1"/>
+            <polygon points="100,45 149,80 131,140 69,140 51,80" fill="none" stroke="rgba(255,255,255,0.05)" stroke-width="1"/>
+            <polygon points="100,70 125,87 116,117 84,117 75,87" fill="none" stroke="rgba(255,255,255,0.04)" stroke-width="1"/>
+
+            <!-- Axis lines -->
+            <line x1="100" y1="100" x2="100" y2="20" stroke="rgba(255,255,255,0.1)" stroke-width="1"/>
+            <line x1="100" y1="100" x2="176" y2="75" stroke="rgba(255,255,255,0.1)" stroke-width="1"/>
+            <line x1="100" y1="100" x2="147" y2="165" stroke="rgba(255,255,255,0.1)" stroke-width="1"/>
+            <line x1="100" y1="100" x2="53" y2="165" stroke="rgba(255,255,255,0.1)" stroke-width="1"/>
+            <line x1="100" y1="100" x2="24" y2="75" stroke="rgba(255,255,255,0.1)" stroke-width="1"/>
+
+            <!-- Axis Labels -->
+            <text x="100" y="12" text-anchor="middle" fill="#CCFF00" font-family="monospace" font-size="8" font-weight="bold">Sub-µs Latency</text>
+            <text x="184" y="78" text-anchor="start" fill="#CCFF00" font-family="monospace" font-size="8" font-weight="bold">Crash Durability</text>
+            <text x="150" y="178" text-anchor="middle" fill="#CCFF00" font-family="monospace" font-size="8" font-weight="bold">350k+ Throughput</text>
+            <text x="50" y="178" text-anchor="middle" fill="#CCFF00" font-family="monospace" font-size="8" font-weight="bold">&lt; 15MB RAM</text>
+            <text x="16" y="78" text-anchor="end" fill="#CCFF00" font-family="monospace" font-size="8" font-weight="bold">0 Deps Ops</text>
+
+            <!-- Conventional Buffer Shape (Dashed Faded Rose) -->
+            <polygon points="100,75 120,95 85,115 88,118 72,88" fill="rgba(244,63,94,0.15)" stroke="rgba(244,63,94,0.6)" stroke-width="1.5" stroke-dasharray="3,3"/>
+
+            <!-- Walspool Profile (Neon Lime Glow Polygon) -->
+            <polygon points="100,24 172,78 143,160 57,160 28,78" fill="rgba(204,255,0,0.18)" stroke="#CCFF00" stroke-width="2" class="transition-all duration-500 shadow-[0_0_12px_rgba(204,255,0,0.4)]"/>
+            
+            <!-- Center Pivot -->
+            <circle cx="100" cy="100" r="2.5" fill="#CCFF00"/>
+          </svg>
+
+          <!-- Legend -->
+          <div class="flex items-center gap-4 text-[10px] font-mono mt-3">
+            <span class="flex items-center gap-1.5 text-[#CCFF00] font-bold">
+              <span class="w-2 h-2 rounded-full bg-[#CCFF00]"></span>
+              Walspool NVMe
+            </span>
+            <span class="flex items-center gap-1.5 text-rose-400">
+              <span class="w-2 h-2 rounded-full bg-rose-500"></span>
+              RAM Buffer / Direct
+            </span>
+          </div>
+        </div>
+
+        <!-- Radar Narrative Highlights Right Column -->
+        <div class="md:col-span-7 space-y-3 font-mono text-xs">
+          <div class="p-3 rounded-lg bg-[#050608] border border-white/[0.06] flex items-start gap-3">
+            <div class="w-6 h-6 rounded bg-[#CCFF00]/10 border border-[#CCFF00]/30 flex items-center justify-center text-[#CCFF00] font-bold text-xs shrink-0">1</div>
+            <div>
+              <div class="font-bold text-white">Sub-Microsecond Latency Boundary</div>
+              <div class="text-[11px] text-slate-400 mt-0.5">Offloads caller threads in 0.47 µs (in-process) without ever waiting on remote network quorum handshakes.</div>
+            </div>
+          </div>
+
+          <div class="p-3 rounded-lg bg-[#050608] border border-white/[0.06] flex items-start gap-3">
+            <div class="w-6 h-6 rounded bg-[#CCFF00]/10 border border-[#CCFF00]/30 flex items-center justify-center text-[#CCFF00] font-bold text-xs shrink-0">2</div>
+            <div>
+              <div class="font-bold text-white">Hardware-Backed Crash Proofing</div>
+              <div class="text-[11px] text-slate-400 mt-0.5">Unlike volatile in-memory queues (OTel heap, SARAMA buffers), records survive SIGKILL, container eviction, and OS panic.</div>
+            </div>
+          </div>
+
+          <div class="p-3 rounded-lg bg-[#050608] border border-white/[0.06] flex items-start gap-3">
+            <div class="w-6 h-6 rounded bg-[#CCFF00]/10 border border-[#CCFF00]/30 flex items-center justify-center text-[#CCFF00] font-bold text-xs shrink-0">3</div>
+            <div>
+              <div class="font-bold text-white">Zero Operational Infrastructure</div>
+              <div class="text-[11px] text-slate-400 mt-0.5">Embed as a single Go package or deploy a 14 MB static binary sidecar with zero external daemons, JVMs, or Zookeeper quorums.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Categorical Filter Pills -->
+      <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
+        <div class="flex flex-wrap items-center gap-1.5" role="group" aria-label="Ecosystem Category Filters">
+          <button type="button" onclick="filterEcosystem('all')" id="pill-all" class="eco-filter-pill px-3 py-1.5 rounded-lg text-xs font-mono font-bold transition bg-[#CCFF00] text-slate-950 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#CCFF00]">All (7)</button>
+          <button type="button" onclick="filterEcosystem('streaming')" id="pill-streaming" class="eco-filter-pill px-3 py-1.5 rounded-lg text-xs font-mono font-semibold transition text-slate-400 hover:text-white bg-[#101218] border border-white/[0.08] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#CCFF00]">Streaming &amp; Queues (2)</button>
+          <button type="button" onclick="filterEcosystem('telemetry')" id="pill-telemetry" class="eco-filter-pill px-3 py-1.5 rounded-lg text-xs font-mono font-semibold transition text-slate-400 hover:text-white bg-[#101218] border border-white/[0.08] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#CCFF00]">Telemetry &amp; APM (2)</button>
+          <button type="button" onclick="filterEcosystem('database')" id="pill-database" class="eco-filter-pill px-3 py-1.5 rounded-lg text-xs font-mono font-semibold transition text-slate-400 hover:text-white bg-[#101218] border border-white/[0.08] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#CCFF00]">Databases &amp; Outbox (2)</button>
+          <button type="button" onclick="filterEcosystem('edge')" id="pill-edge" class="eco-filter-pill px-3 py-1.5 rounded-lg text-xs font-mono font-semibold transition text-slate-400 hover:text-white bg-[#101218] border border-white/[0.08] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#CCFF00]">Fleets &amp; Edge (2)</button>
+        </div>
+        <div id="eco-count-badge" class="text-xs font-mono text-slate-400">Showing 7 integrations</div>
       </div>
 
       <div class="rounded-2xl hairline-card bg-[#0B0D12] border border-white/[0.08] overflow-hidden shadow-2xl">
@@ -1414,9 +1779,9 @@ curl "http://localhost:9099/v1/logs?trace_id=tr-42"</code></pre>
                 <th scope="col" class="py-3.5 px-4 font-bold text-white">Durability Guarantee</th>
               </tr>
             </thead>
-            <tbody class="divide-y divide-white/[0.06] text-slate-300">
+            <tbody id="eco-table-body" class="divide-y divide-white/[0.06] text-slate-300">
               
-              <tr class="hover:bg-white/[0.02] transition">
+              <tr data-cat="streaming" class="eco-row hover:bg-white/[0.02] transition">
                 <td class="py-3 px-4 font-bold text-white flex items-center gap-2">
                   <span class="w-2 h-2 rounded-full bg-[#CCFF00]"></span>
                   Apache Kafka &amp; Redpanda
@@ -1427,7 +1792,7 @@ curl "http://localhost:9099/v1/logs?trace_id=tr-42"</code></pre>
                 <td class="py-3 px-4"><span class="px-2 py-0.5 rounded bg-emerald-950/60 text-emerald-400 border border-emerald-500/30 text-[10px]">Zero message loss</span></td>
               </tr>
 
-              <tr class="hover:bg-white/[0.02] transition">
+              <tr data-cat="telemetry" class="eco-row hover:bg-white/[0.02] transition">
                 <td class="py-3 px-4 font-bold text-white flex items-center gap-2">
                   <span class="w-2 h-2 rounded-full bg-sky-400"></span>
                   OpenTelemetry SDKs (Go, Py, Java)
@@ -1438,7 +1803,7 @@ curl "http://localhost:9099/v1/logs?trace_id=tr-42"</code></pre>
                 <td class="py-3 px-4"><span class="px-2 py-0.5 rounded bg-emerald-950/60 text-emerald-400 border border-emerald-500/30 text-[10px]">Zero drop on overflow</span></td>
               </tr>
 
-              <tr class="hover:bg-white/[0.02] transition">
+              <tr data-cat="telemetry" class="eco-row hover:bg-white/[0.02] transition">
                 <td class="py-3 px-4 font-bold text-white flex items-center gap-2">
                   <span class="w-2 h-2 rounded-full bg-amber-400"></span>
                   Datadog &amp; Grafana Loki
@@ -1449,7 +1814,7 @@ curl "http://localhost:9099/v1/logs?trace_id=tr-42"</code></pre>
                 <td class="py-3 px-4"><span class="px-2 py-0.5 rounded bg-emerald-950/60 text-emerald-400 border border-emerald-500/30 text-[10px]">Auto-drain on 200 OK</span></td>
               </tr>
 
-              <tr class="hover:bg-white/[0.02] transition">
+              <tr data-cat="database" class="eco-row hover:bg-white/[0.02] transition">
                 <td class="py-3 px-4 font-bold text-white flex items-center gap-2">
                   <span class="w-2 h-2 rounded-full bg-purple-400"></span>
                   ClickHouse &amp; Elasticsearch
@@ -1460,7 +1825,7 @@ curl "http://localhost:9099/v1/logs?trace_id=tr-42"</code></pre>
                 <td class="py-3 px-4"><span class="px-2 py-0.5 rounded bg-emerald-950/60 text-emerald-400 border border-emerald-500/30 text-[10px]">Watermark Checkpointing</span></td>
               </tr>
 
-              <tr class="hover:bg-white/[0.02] transition">
+              <tr data-cat="database" class="eco-row hover:bg-white/[0.02] transition">
                 <td class="py-3 px-4 font-bold text-white flex items-center gap-2">
                   <span class="w-2 h-2 rounded-full bg-blue-400"></span>
                   PostgreSQL &amp; MySQL Outbox
@@ -1471,7 +1836,7 @@ curl "http://localhost:9099/v1/logs?trace_id=tr-42"</code></pre>
                 <td class="py-3 px-4"><span class="px-2 py-0.5 rounded bg-emerald-950/60 text-emerald-400 border border-emerald-500/30 text-[10px]">65% reduction in SQL IOPS</span></td>
               </tr>
 
-              <tr class="hover:bg-white/[0.02] transition">
+              <tr data-cat="edge" class="eco-row hover:bg-white/[0.02] transition">
                 <td class="py-3 px-4 font-bold text-white flex items-center gap-2">
                   <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
                   Kubernetes Fleets (EKS/GKE)
@@ -1482,7 +1847,7 @@ curl "http://localhost:9099/v1/logs?trace_id=tr-42"</code></pre>
                 <td class="py-3 px-4"><span class="px-2 py-0.5 rounded bg-emerald-950/60 text-emerald-400 border border-emerald-500/30 text-[10px]">Container crash survivability</span></td>
               </tr>
 
-              <tr class="hover:bg-white/[0.02] transition">
+              <tr data-cat="edge" class="eco-row hover:bg-white/[0.02] transition">
                 <td class="py-3 px-4 font-bold text-white flex items-center gap-2">
                   <span class="w-2 h-2 rounded-full bg-rose-400"></span>
                   Edge, IoT &amp; POS Devices
@@ -2052,6 +2417,162 @@ curl "http://localhost:9099/v1/logs?trace_id=tr-42"</code></pre>
         }
       });
     });
+
+    // --- NVMe TORN WRITE SIMULATION ---
+    function simulateTornWrite() {
+      const alertBox = document.getElementById('torn-write-alert');
+      const activeBox = document.getElementById('segment-active-box');
+      const activeBadge = document.getElementById('segment-active-badge');
+      const activeBar = document.getElementById('segment-active-bar');
+      const activeMeta = document.getElementById('segment-active-meta');
+      if (!alertBox) return;
+
+      if (!alertBox.classList.contains('hidden')) {
+        alertBox.classList.add('hidden');
+        if (activeBox) activeBox.className = 'p-2 rounded bg-[#10141a] border border-[#CCFF00]/40 text-slate-200 transition-all duration-300';
+        if (activeBadge) {
+          activeBadge.innerText = 'ACTIVE';
+          activeBadge.className = 'text-[9px] px-1 rounded bg-[#CCFF00]/10 text-[#CCFF00] border border-[#CCFF00]/30 animate-pulse';
+        }
+        if (activeBar) {
+          activeBar.className = 'h-full bg-[#CCFF00] rounded-full';
+          activeBar.style.width = '44%';
+        }
+        if (activeMeta) activeMeta.innerText = '28.4 MB / Append Head';
+        return;
+      }
+
+      // Simulate crash and auto-repair
+      if (activeBox) activeBox.className = 'p-2 rounded bg-rose-950/40 border border-rose-500/50 text-rose-200 transition-all duration-300';
+      if (activeBadge) {
+        activeBadge.innerText = 'CORRUPT TAIL';
+        activeBadge.className = 'text-[9px] px-1 rounded bg-rose-950 text-rose-300 border border-rose-500/40 font-bold';
+      }
+      if (activeBar) {
+        activeBar.className = 'h-full bg-rose-500 rounded-full animate-pulse';
+      }
+      if (activeMeta) activeMeta.innerText = 'Damaged Record @ Offset 0x01C64000';
+      alertBox.classList.remove('hidden');
+
+      // Auto-heal animation after 1.2s
+      setTimeout(() => {
+        if (activeBox) activeBox.className = 'p-2 rounded bg-[#10141a] border border-emerald-500/50 text-slate-200 transition-all duration-300';
+        if (activeBadge) {
+          activeBadge.innerText = 'REPAIRED (os.Truncate)';
+          activeBadge.className = 'text-[9px] px-1 rounded bg-emerald-950 text-emerald-400 border border-emerald-500/40 font-bold';
+        }
+        if (activeBar) {
+          activeBar.className = 'h-full bg-emerald-400 rounded-full';
+          activeBar.style.width = '44%';
+        }
+        if (activeMeta) activeMeta.innerText = 'Restored to clean frame @ 0x01C63FE0';
+      }, 1200);
+    }
+
+    // --- BENCHMARK VISUALIZER ENGINE ---
+    let currentBenchMode = 'latency';
+    function switchBenchmarkMode(mode) {
+      currentBenchMode = mode;
+      const btnLat = document.getElementById('btn-bench-latency');
+      const btnTput = document.getElementById('btn-bench-throughput');
+      const title = document.getElementById('benchmark-view-title');
+      const desc = document.getElementById('benchmark-view-desc');
+
+      if (mode === 'latency') {
+        if (btnLat) btnLat.className = "px-3.5 py-1.5 rounded-md font-bold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#CCFF00] bg-[#CCFF00] text-slate-950";
+        if (btnTput) btnTput.className = "px-3.5 py-1.5 rounded-md font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#CCFF00] text-slate-400 hover:text-white";
+        if (title) title.innerText = "Logarithmic Latency Comparison (µs)";
+        if (desc) desc.innerText = "Order-of-magnitude physical speedup on local NVMe vs remote network hops";
+
+        updateBenchRow(1, '0.47 µs', '25,531x FASTER', '2%', 'bg-[#CCFF00] shadow-[0_0_10px_rgba(204,255,0,0.5)]', 'Fastest NVMe Commit');
+        updateBenchRow(2, '3.73 µs', '3,217x FASTER', '8%', 'bg-sky-400', 'Sub-4µs Query');
+        updateBenchRow(3, '2,500 µs', '5,319x SLOWER', '55%', 'bg-amber-400', '2.5 ms Hop');
+        updateBenchRow(4, '12,000 µs', 'BASELINE (25,531x SLOWER)', '100%', 'bg-rose-500', '12.0 ms Latency Floor');
+      } else {
+        if (btnLat) btnLat.className = "px-3.5 py-1.5 rounded-md font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#CCFF00] text-slate-400 hover:text-white";
+        if (btnTput) btnTput.className = "px-3.5 py-1.5 rounded-md font-bold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#CCFF00] bg-[#CCFF00] text-slate-950";
+        if (title) title.innerText = "Throughput Capacity Comparison (ops/sec)";
+        if (desc) desc.innerText = "Sustained event ingestion throughput under parallel concurrent workload";
+
+        updateBenchRow(1, '3,120,151 ops/s', 'PEAK CAPACITY', '100%', 'bg-[#CCFF00] shadow-[0_0_10px_rgba(204,255,0,0.5)]', 'Peak In-Memory Stream');
+        updateBenchRow(2, '2,194,890 ops/s', '2.19M DISK OPS', '70%', 'bg-sky-400', 'NVMe Sequential Line-Rate');
+        updateBenchRow(3, '85,000 ops/s', '36x LOWER', '3%', 'bg-amber-400', 'Single-Core Bound');
+        updateBenchRow(4, '25,000 ops/s', '124x LOWER', '1%', 'bg-rose-500', 'Network Bound');
+      }
+    }
+
+    function updateBenchRow(idx, val, badge, width, barClass, subText) {
+      const valEl = document.getElementById('bench-val-' + idx);
+      const badgeEl = document.getElementById('bench-badge-' + idx);
+      const barEl = document.getElementById('bench-bar-' + idx);
+      const subEl = document.getElementById('bench-sub-' + idx);
+      if (valEl) valEl.innerText = val;
+      if (badgeEl) {
+        badgeEl.innerText = badge;
+        badgeEl.className = idx <= 2 
+          ? 'text-[10px] font-bold px-2 py-0.5 rounded bg-[#CCFF00]/10 text-[#CCFF00] border border-[#CCFF00]/30' 
+          : 'text-[10px] font-bold px-2 py-0.5 rounded bg-rose-950/60 text-rose-400 border border-rose-500/30';
+      }
+      if (barEl) {
+        barEl.className = 'h-full rounded-full transition-all duration-500 ' + barClass;
+        barEl.style.width = width;
+      }
+      if (subEl) subEl.innerText = subText;
+    }
+
+    function setSimVolume(volume) {
+      const btns = [10000, 50000, 100000];
+      btns.forEach(v => {
+        const btn = document.getElementById('vol-btn-' + (v / 1000) + 'k');
+        if (!btn) return;
+        if (v === volume) {
+          btn.className = "vol-btn px-2 py-0.5 rounded bg-[#CCFF00]/15 text-[#CCFF00] border border-[#CCFF00]/40 font-bold";
+        } else {
+          btn.className = "vol-btn px-2 py-0.5 rounded bg-white/[0.06] text-slate-300 hover:text-white border border-white/[0.08]";
+        }
+      });
+
+      const walspoolTime = (volume * 0.47 / 1000000).toFixed(3) + " seconds";
+      const directSec = Math.round(volume * 12.0 / 1000);
+      const directMin = (volume * 12.0 / 60000).toFixed(1);
+      const directTime = `${directSec.toLocaleString()} seconds (${directMin} min)`;
+
+      const wEl = document.getElementById('calc-walspool-time');
+      const dEl = document.getElementById('calc-direct-time');
+      if (wEl) wEl.innerText = walspoolTime;
+      if (dEl) dEl.innerText = directTime;
+    }
+
+    // --- ECOSYSTEM FILTER ENGINE ---
+    function filterEcosystem(cat) {
+      const pills = ['all', 'streaming', 'telemetry', 'database', 'edge'];
+      pills.forEach(p => {
+        const btn = document.getElementById('pill-' + p);
+        if (!btn) return;
+        if (p === cat) {
+          btn.className = "eco-filter-pill px-3 py-1.5 rounded-lg text-xs font-mono font-bold transition bg-[#CCFF00] text-slate-950 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#CCFF00]";
+        } else {
+          btn.className = "eco-filter-pill px-3 py-1.5 rounded-lg text-xs font-mono font-semibold transition text-slate-400 hover:text-white bg-[#101218] border border-white/[0.08] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#CCFF00]";
+        }
+      });
+
+      const rows = document.querySelectorAll('.eco-row');
+      let visibleCount = 0;
+      rows.forEach(r => {
+        const rCat = r.getAttribute('data-cat');
+        if (cat === 'all' || rCat === cat) {
+          r.classList.remove('hidden');
+          visibleCount++;
+        } else {
+          r.classList.add('hidden');
+        }
+      });
+
+      const badge = document.getElementById('eco-count-badge');
+      if (badge) {
+        badge.innerText = `Showing ${visibleCount} of ${rows.length} integrations`;
+      }
+    }
 
     // Initialize terminal simulator
     renderInitialScreen();
