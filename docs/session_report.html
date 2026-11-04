@@ -1,0 +1,1277 @@
+<!DOCTYPE html>
+<html lang="en" class="scroll-smooth">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Walspool - Comprehensive Session Report &amp; Roadmap</title>
+  <meta name="description" content="Comprehensive report of Walspool engineering progress across 3,150+ steps, active state, v1.2/v2.0 roadmap, and session recommendations.">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>⚡</text></svg>">
+  <style>
+    :root {
+      --bg-base: #08090C;
+      --bg-surface: #101218;
+      --bg-elevated: #161922;
+      --bg-border: #232734;
+      --text-main: #E2E8F0;
+      --text-muted: #94A3B8;
+      --text-dim: #64748B;
+      --accent: #CCFF00;
+      --accent-glow: rgba(204, 255, 0, 0.15);
+      --cyan: #38BDF8;
+      --emerald: #34D399;
+      --amber: #FBBF24;
+      --rose: #F43F5E;
+      --code-bg: #0C0E14;
+      --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+    }
+
+    body.light-theme {
+      --bg-base: #F8FAFC;
+      --bg-surface: #FFFFFF;
+      --bg-elevated: #F1F5F9;
+      --bg-border: #E2E8F0;
+      --text-main: #0F172A;
+      --text-muted: #475569;
+      --text-dim: #64748B;
+      --accent: #15803D;
+      --accent-glow: rgba(21, 128, 61, 0.12);
+      --cyan: #0284C7;
+      --emerald: #059669;
+      --amber: #D97706;
+      --rose: #E11D48;
+      --code-bg: #E2E8F0;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background-color: var(--bg-base);
+      color: var(--text-main);
+      font-family: var(--font-sans);
+      line-height: 1.65;
+      font-size: 15px;
+      -webkit-font-smoothing: antialiased;
+      transition: background-color 0.25s ease, color 0.25s ease;
+    }
+
+    /* Top Reading Progress Bar */
+    #progress-container {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 3px;
+      background: transparent;
+      z-index: 100;
+    }
+    #progress-bar {
+      height: 100%;
+      width: 0%;
+      background: var(--accent);
+      box-shadow: 0 0 8px var(--accent);
+      transition: width 0.1s linear;
+    }
+
+    /* Header Nav */
+    header {
+      position: sticky;
+      top: 0;
+      background: rgba(8, 9, 12, 0.92);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--bg-border);
+      z-index: 50;
+      padding: 0.75rem 1.5rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    body.light-theme header {
+      background: rgba(255, 255, 255, 0.95);
+    }
+    .brand-title {
+      font-weight: 700;
+      font-size: 1.05rem;
+      letter-spacing: -0.02em;
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+    }
+    .brand-badge {
+      font-size: 0.7rem;
+      padding: 0.15rem 0.5rem;
+      background: var(--bg-surface);
+      border: 1px solid var(--bg-border);
+      border-radius: 9999px;
+      color: var(--accent);
+      font-family: var(--font-mono);
+      font-weight: 600;
+    }
+    .header-controls {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+    .btn-toggle {
+      background: var(--bg-surface);
+      border: 1px solid var(--bg-border);
+      color: var(--text-main);
+      padding: 0.4rem 0.8rem;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 0.8rem;
+      font-weight: 500;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      transition: all 0.2s;
+    }
+    .btn-toggle:hover {
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+
+    /* Layout */
+    .app-layout {
+      max-width: 1360px;
+      margin: 0 auto;
+      display: grid;
+      grid-template-columns: 280px 1fr;
+      gap: 2.5rem;
+      padding: 2rem 1.5rem 6rem;
+    }
+
+    /* Sidebar TOC */
+    aside {
+      position: sticky;
+      top: 5rem;
+      height: calc(100vh - 6rem);
+      overflow-y: auto;
+      padding-right: 1rem;
+    }
+    aside::-webkit-scrollbar { width: 4px; }
+    aside::-webkit-scrollbar-thumb { background: var(--bg-border); border-radius: 4px; }
+
+    .toc-title {
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--text-dim);
+      margin-bottom: 0.75rem;
+      font-weight: 700;
+    }
+    .toc-list {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 0.25rem;
+    }
+    .toc-link {
+      display: block;
+      padding: 0.45rem 0.75rem;
+      border-radius: 6px;
+      color: var(--text-muted);
+      text-decoration: none;
+      font-size: 0.85rem;
+      border-left: 2px solid transparent;
+      transition: all 0.15s;
+    }
+    .toc-link:hover {
+      color: var(--text-main);
+      background: var(--bg-surface);
+    }
+    .toc-link.active {
+      color: var(--accent);
+      background: var(--bg-surface);
+      border-left-color: var(--accent);
+      font-weight: 600;
+    }
+    .toc-sublist {
+      list-style: none;
+      margin-left: 0.75rem;
+      padding-left: 0.5rem;
+      border-left: 1px solid var(--bg-border);
+      display: flex;
+      flex-direction: column;
+      gap: 0.2rem;
+      margin-top: 0.2rem;
+    }
+    .toc-sublink {
+      display: block;
+      padding: 0.25rem 0.5rem;
+      font-size: 0.78rem;
+      color: var(--text-dim);
+      text-decoration: none;
+      border-radius: 4px;
+    }
+    .toc-sublink:hover, .toc-sublink.active {
+      color: var(--text-main);
+    }
+
+    /* Content Area */
+    main {
+      min-width: 0;
+      max-width: 860px;
+    }
+
+    /* Hero Banner */
+    .hero-banner {
+      background: linear-gradient(180deg, var(--bg-surface) 0%, var(--bg-base) 100%);
+      border: 1px solid var(--bg-border);
+      border-radius: 12px;
+      padding: 2.2rem;
+      margin-bottom: 2.5rem;
+      position: relative;
+      overflow: hidden;
+    }
+    .hero-banner::after {
+      content: "";
+      position: absolute;
+      top: 0;
+      right: 0;
+      width: 250px;
+      height: 100%;
+      background: radial-gradient(circle at top right, var(--accent-glow) 0%, transparent 70%);
+      pointer-events: none;
+    }
+    .hero-title {
+      font-size: 2.1rem;
+      font-weight: 800;
+      letter-spacing: -0.03em;
+      line-height: 1.2;
+      margin-bottom: 0.75rem;
+    }
+    .hero-subtitle {
+      font-size: 1.05rem;
+      color: var(--text-muted);
+      margin-bottom: 1.5rem;
+      line-height: 1.5;
+    }
+    .stat-strip {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+      gap: 0.75rem;
+      margin-top: 1.25rem;
+    }
+    .stat-card {
+      background: var(--bg-elevated);
+      border: 1px solid var(--bg-border);
+      border-radius: 8px;
+      padding: 0.75rem 1rem;
+    }
+    .stat-num {
+      font-family: var(--font-mono);
+      font-size: 1.35rem;
+      font-weight: 800;
+      color: var(--accent);
+      line-height: 1.2;
+    }
+    .stat-label {
+      font-size: 0.72rem;
+      color: var(--text-dim);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-top: 0.2rem;
+    }
+
+    /* Typography */
+    h2 {
+      font-size: 1.6rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      margin: 2.5rem 0 1rem;
+      padding-bottom: 0.5rem;
+      border-bottom: 1px solid var(--bg-border);
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+    }
+    h3 {
+      font-size: 1.2rem;
+      font-weight: 600;
+      letter-spacing: -0.01em;
+      margin: 1.8rem 0 0.75rem;
+      color: var(--text-main);
+    }
+    p {
+      margin-bottom: 1rem;
+      color: var(--text-muted);
+    }
+    strong {
+      color: var(--text-main);
+      font-weight: 600;
+    }
+    a {
+      color: var(--accent);
+      text-decoration: none;
+    }
+    a:hover {
+      text-decoration: underline;
+    }
+
+    /* Alert Boxes */
+    .alert-box {
+      border-radius: 8px;
+      padding: 1rem 1.25rem;
+      margin: 1.25rem 0;
+      border-left: 4px solid;
+      background: var(--bg-surface);
+      font-size: 0.92rem;
+    }
+    .alert-important {
+      border-left-color: var(--amber);
+      background: rgba(251, 191, 36, 0.05);
+    }
+    .alert-tip {
+      border-left-color: var(--emerald);
+      background: rgba(52, 211, 153, 0.05);
+    }
+    .alert-warning {
+      border-left-color: var(--rose);
+      background: rgba(244, 63, 94, 0.05);
+    }
+    .alert-header {
+      font-weight: 700;
+      margin-bottom: 0.35rem;
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+    }
+    .alert-important .alert-header { color: var(--amber); }
+    .alert-tip .alert-header { color: var(--emerald); }
+    .alert-warning .alert-header { color: var(--rose); }
+
+    /* Timeline Phase Cards */
+    .timeline {
+      display: flex;
+      flex-direction: column;
+      gap: 1.25rem;
+      margin: 1.5rem 0;
+    }
+    .phase-card {
+      background: var(--bg-surface);
+      border: 1px solid var(--bg-border);
+      border-radius: 10px;
+      padding: 1.25rem;
+      position: relative;
+      transition: border-color 0.2s;
+    }
+    .phase-card:hover {
+      border-color: var(--accent);
+    }
+    .phase-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      font-family: var(--font-mono);
+      font-size: 0.72rem;
+      font-weight: 700;
+      color: var(--accent);
+      background: var(--bg-elevated);
+      padding: 0.2rem 0.5rem;
+      border-radius: 4px;
+      margin-bottom: 0.5rem;
+      border: 1px solid var(--bg-border);
+    }
+    .phase-title {
+      font-size: 1.1rem;
+      font-weight: 700;
+      margin-bottom: 0.5rem;
+      color: var(--text-main);
+    }
+    .phase-list {
+      margin-left: 1.2rem;
+      color: var(--text-muted);
+      font-size: 0.9rem;
+    }
+    .phase-list li {
+      margin-bottom: 0.4rem;
+    }
+
+    /* Filter Pills */
+    .filter-bar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.4rem;
+      margin: 1.25rem 0 1rem;
+    }
+    .pill {
+      background: var(--bg-surface);
+      border: 1px solid var(--bg-border);
+      color: var(--text-muted);
+      font-size: 0.78rem;
+      padding: 0.35rem 0.75rem;
+      border-radius: 9999px;
+      cursor: pointer;
+      font-weight: 500;
+      transition: all 0.15s;
+    }
+    .pill:hover {
+      border-color: var(--accent);
+      color: var(--text-main);
+    }
+    .pill.active {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: #000;
+      font-weight: 700;
+    }
+
+    /* Issues Grid */
+    .issues-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+      gap: 0.75rem;
+      margin-top: 1rem;
+    }
+    .issue-card {
+      background: var(--bg-surface);
+      border: 1px solid var(--bg-border);
+      border-radius: 8px;
+      padding: 1rem;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      transition: transform 0.15s, border-color 0.15s;
+    }
+    .issue-card:hover {
+      transform: translateY(-2px);
+      border-color: var(--cyan);
+    }
+    .issue-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 0.4rem;
+    }
+    .issue-id {
+      font-family: var(--font-mono);
+      font-size: 0.8rem;
+      font-weight: 700;
+      color: var(--accent);
+    }
+    .issue-p-tag {
+      font-size: 0.65rem;
+      font-weight: 700;
+      padding: 0.1rem 0.4rem;
+      border-radius: 4px;
+      text-transform: uppercase;
+    }
+    .tag-p0 {
+      background: rgba(244, 63, 94, 0.15);
+      color: var(--rose);
+      border: 1px solid rgba(244, 63, 94, 0.3);
+    }
+    .tag-p1 {
+      background: rgba(56, 189, 248, 0.15);
+      color: var(--cyan);
+      border: 1px solid rgba(56, 189, 248, 0.3);
+    }
+    .issue-title {
+      font-size: 0.88rem;
+      font-weight: 600;
+      color: var(--text-main);
+      margin-bottom: 0.5rem;
+      line-height: 1.35;
+    }
+    .issue-cat {
+      font-size: 0.7rem;
+      color: var(--text-dim);
+      font-family: var(--font-mono);
+    }
+
+    /* Code & Pre */
+    code {
+      font-family: var(--font-mono);
+      background: var(--code-bg);
+      border: 1px solid var(--bg-border);
+      padding: 0.15rem 0.35rem;
+      border-radius: 4px;
+      font-size: 0.82rem;
+      color: var(--accent);
+    }
+    pre {
+      background: var(--code-bg);
+      border: 1px solid var(--bg-border);
+      border-radius: 8px;
+      padding: 1rem;
+      overflow-x: auto;
+      font-family: var(--font-mono);
+      font-size: 0.82rem;
+      margin: 1rem 0;
+    }
+
+    /* Print View */
+    @media print {
+      body {
+        background: #FFFFFF !important;
+        color: #000000 !important;
+      }
+      #progress-container, header, aside, .filter-bar, .btn-toggle {
+        display: none !important;
+      }
+      .app-layout {
+        display: block !important;
+        padding: 0 !important;
+      }
+      main {
+        max-width: 100% !important;
+      }
+      .hero-banner, .phase-card, .issue-card, .alert-box {
+        border-color: #CCCCCC !important;
+        background: #FAFAFA !important;
+        color: #000 !important;
+        break-inside: avoid;
+      }
+      a {
+        color: #000 !important;
+        text-decoration: underline !important;
+      }
+    }
+
+    /* Mobile Responsive */
+    @media (max-width: 900px) {
+      .app-layout {
+        grid-template-columns: 1fr;
+      }
+      aside {
+        display: none;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Reading Progress Bar -->
+  <div id="progress-container">
+    <div id="progress-bar"></div>
+  </div>
+
+  <!-- Header -->
+  <header>
+    <div class="brand-title">
+      <span>⚡ Walspool</span>
+      <span class="brand-badge">v1.1.0 Status &amp; Roadmap</span>
+    </div>
+    <div class="header-controls">
+      <button id="themeToggleBtn" class="btn-toggle" aria-label="Toggle theme">
+        <span id="themeIcon">☀️</span>
+        <span id="themeLabel">Light Mode</span>
+      </button>
+      <a href="https://yohannhommet.github.io/walspool/" target="_blank" rel="noopener" class="btn-toggle" style="text-decoration: none;">
+        <span>🌐 Live Site</span>
+      </a>
+      <a href="https://github.com/YohannHommet/walspool" target="_blank" rel="noopener" class="btn-toggle" style="text-decoration: none;">
+        <span>📦 GitHub</span>
+      </a>
+    </div>
+  </header>
+
+  <!-- Main Container -->
+  <div class="app-layout">
+
+    <!-- Sticky Table of Contents -->
+    <aside aria-label="Document navigation">
+      <div class="toc-title">Table of Contents</div>
+      <ul class="toc-list">
+        <li>
+          <a href="#summary" class="toc-link">Executive Summary</a>
+        </li>
+        <li>
+          <a href="#history" class="toc-link">1. Ce Que Nous Avons Fait</a>
+          <ul class="toc-sublist">
+            <li><a href="#phase1" class="toc-sublink">Phase 1: Concurrence &amp; Durabilité</a></li>
+            <li><a href="#phase2" class="toc-sublink">Phase 2: Moteur Multi-Segments</a></li>
+            <li><a href="#phase3" class="toc-sublink">Phase 3: Ingestion OTLP &amp; Sidecar</a></li>
+            <li><a href="#phase4" class="toc-sublink">Phase 4: CLI walspool &amp; Stress Harness</a></li>
+            <li><a href="#phase5" class="toc-sublink">Phase 5: Release v1.1.0 &amp; Anti-Slop</a></li>
+            <li><a href="#phase6" class="toc-sublink">Phase 6: Audits Multi-Agents P0/P1/P2</a></li>
+            <li><a href="#phase7" class="toc-sublink">Phase 7: Distillation Graphique Native</a></li>
+          </ul>
+        </li>
+        <li>
+          <a href="#active-state" class="toc-link">2. Travaux en Cours &amp; État Actuel</a>
+        </li>
+        <li>
+          <a href="#roadmap" class="toc-link">3. Ce Qu'il Reste à Faire (Roadmap)</a>
+          <ul class="toc-sublist">
+            <li><a href="#issues-p0" class="toc-sublink">Priorité P0 (Sprint v1.2)</a></li>
+            <li><a href="#issues-p1" class="toc-sublink">Priorité P1 (v1.3 - v2.0)</a></li>
+          </ul>
+        </li>
+        <li>
+          <a href="#recommendations" class="toc-link">4. Recommandations de Session</a>
+        </li>
+        <li>
+          <a href="#decisions" class="toc-link">5. Décisions Soumises</a>
+        </li>
+      </ul>
+    </aside>
+
+    <!-- Content Reading Column -->
+    <main>
+
+      <!-- Hero Banner -->
+      <section id="summary" class="hero-banner">
+        <h1 class="hero-title">Walspool : Rapport Complet de Session &amp; Roadmap</h1>
+        <p class="hero-subtitle">
+          Rétrospective exhaustive des 7 phases d'ingénierie, état des lieux des capteurs opérationnels, backlog structuré des 20 issues GitHub et recommandations pour notre session.
+        </p>
+
+        <div class="stat-strip">
+          <div class="stat-card">
+            <div class="stat-num">3,150+</div>
+            <div class="stat-label">Étapes de Session</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-num">v1.1.0</div>
+            <div class="stat-label">Version Publiée</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-num">0 KB</div>
+            <div class="stat-label">Dépendances UI</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-num">20</div>
+            <div class="stat-label">Issues Roadmap</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Section 1: Retrospective -->
+      <section id="history">
+        <h2>1. Ce Que Nous Avons Fait (Rétrospective par Phases)</h2>
+        <p>
+          Au cours de cette session approfondie, le projet <strong>Walspool</strong> est passé d'un prototype de Write-Ahead Logging (WAL) en Go avec plusieurs anomalies de synchronisation et de blocage à un moteur de spooling résilient, documenté et pourvu d'une interface graphique vectorielle de référence.
+        </p>
+
+        <!-- Vector Flowchart SVG -->
+        <div style="background: var(--bg-surface); border: 1px solid var(--bg-border); border-radius: 10px; padding: 1.25rem; margin: 1.5rem 0; overflow-x: auto;">
+          <div style="font-size: 0.75rem; text-transform: uppercase; font-family: var(--font-mono); color: var(--text-dim); margin-bottom: 0.75rem; font-weight: 700;">
+            Architecture du Pipeline Historique des 7 Phases
+          </div>
+          <svg viewBox="0 0 800 240" style="width: 100%; min-width: 650px; height: auto;" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+              <linearGradient id="glowGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+                <stop offset="0%" stop-color="#38BDF8"/>
+                <stop offset="100%" stop-color="#CCFF00"/>
+              </linearGradient>
+            </defs>
+            <!-- Background paths -->
+            <path d="M 60 70 L 260 70 L 460 70 L 660 70 L 660 170 L 460 170 L 260 170 L 100 170" fill="none" stroke="var(--bg-border)" stroke-width="3" stroke-dasharray="4 4" />
+            
+            <!-- Phase 1 -->
+            <g transform="translate(40, 45)">
+              <rect width="160" height="50" rx="8" fill="var(--bg-elevated)" stroke="var(--bg-border)" stroke-width="1.5"/>
+              <text x="80" y="22" fill="var(--text-main)" font-size="11" font-weight="700" text-anchor="middle" font-family="sans-serif">Phase 1 : Fix v1.0</text>
+              <text x="80" y="37" fill="var(--emerald)" font-size="9" font-family="monospace" text-anchor="middle">PR #2 &amp; #5 Merged</text>
+            </g>
+            <!-- Phase 2 -->
+            <g transform="translate(240, 45)">
+              <rect width="160" height="50" rx="8" fill="var(--bg-elevated)" stroke="var(--bg-border)" stroke-width="1.5"/>
+              <text x="80" y="22" fill="var(--text-main)" font-size="11" font-weight="700" text-anchor="middle" font-family="sans-serif">Phase 2 : Multi-Segments</text>
+              <text x="80" y="37" fill="var(--emerald)" font-size="9" font-family="monospace" text-anchor="middle">PR #6 Rotation</text>
+            </g>
+            <!-- Phase 3 -->
+            <g transform="translate(440, 45)">
+              <rect width="160" height="50" rx="8" fill="var(--bg-elevated)" stroke="var(--bg-border)" stroke-width="1.5"/>
+              <text x="80" y="22" fill="var(--text-main)" font-size="11" font-weight="700" text-anchor="middle" font-family="sans-serif">Phase 3 : OTLP &amp; Sidecar</text>
+              <text x="80" y="37" fill="var(--cyan)" font-size="9" font-family="monospace" text-anchor="middle">HTTP /v1/logs</text>
+            </g>
+            <!-- Phase 4 -->
+            <g transform="translate(640, 45)">
+              <rect width="140" height="50" rx="8" fill="var(--bg-elevated)" stroke="var(--bg-border)" stroke-width="1.5"/>
+              <text x="70" y="22" fill="var(--text-main)" font-size="11" font-weight="700" text-anchor="middle" font-family="sans-serif">Phase 4 : CLI</text>
+              <text x="70" y="37" fill="var(--cyan)" font-size="9" font-family="monospace" text-anchor="middle">stream &amp; monitor</text>
+            </g>
+            <!-- Phase 7 -->
+            <g transform="translate(40, 145)">
+              <rect width="170" height="50" rx="8" fill="var(--bg-elevated)" stroke="var(--accent)" stroke-width="2"/>
+              <text x="85" y="22" fill="var(--accent)" font-size="11" font-weight="800" text-anchor="middle" font-family="sans-serif">Phase 7 : Distillation UI</text>
+              <text x="85" y="37" fill="var(--text-muted)" font-size="9" font-family="monospace" text-anchor="middle">100% Native SVG/CSS</text>
+            </g>
+            <!-- Phase 6 -->
+            <g transform="translate(250, 145)">
+              <rect width="160" height="50" rx="8" fill="var(--bg-elevated)" stroke="var(--bg-border)" stroke-width="1.5"/>
+              <text x="80" y="22" fill="var(--text-main)" font-size="11" font-weight="700" text-anchor="middle" font-family="sans-serif">Phase 6 : 5 Auditeurs</text>
+              <text x="80" y="37" fill="var(--amber)" font-size="9" font-family="monospace" text-anchor="middle">P0/P1/P2 Remediation</text>
+            </g>
+            <!-- Phase 5 -->
+            <g transform="translate(450, 145)">
+              <rect width="160" height="50" rx="8" fill="var(--bg-elevated)" stroke="var(--bg-border)" stroke-width="1.5"/>
+              <text x="80" y="22" fill="var(--text-main)" font-size="11" font-weight="700" text-anchor="middle" font-family="sans-serif">Phase 5 : Release v1.1.0</text>
+              <text x="80" y="37" fill="var(--emerald)" font-size="9" font-family="monospace" text-anchor="middle">Anti-Slop Identity</text>
+            </g>
+          </svg>
+        </div>
+
+        <div class="timeline">
+
+          <div id="phase1" class="phase-card">
+            <div class="phase-badge">PHASE 1</div>
+            <div class="phase-title">Remédiation v1.0 &amp; Durabilité du Moteur</div>
+            <ul class="phase-list">
+              <li><strong>Clamping du Checkpoint Post-Crash</strong> : Alignement du pointeur de lecture sur la fin valide du WAL en cas d'arrêt brutal pour éliminer tout risque de dépassement.</li>
+              <li><strong>Tolérance aux Enregistrements Corrompus</strong> : Détection par CRC32 IEEE et saut tracé des entrées invalides au lieu de paralyser la livraison des événements.</li>
+              <li><strong>Dispatcher Anti-Stall</strong> : Implémentation d'un backoff exponentiel avec logs explicites sur chaque échec de vidange vers le sink aval.</li>
+              <li><strong>Résolution des Alertes Linters</strong> : Correction de <code>staticcheck SA1012</code> dans <code>runDispatcher</code> et stabilisation des tests sous Windows CI.</li>
+            </ul>
+          </div>
+
+          <div id="phase2" class="phase-card">
+            <div class="phase-badge">PHASE 2</div>
+            <div class="phase-title">Moteur de Stockage Multi-Segments &amp; Rotation (PR #6)</div>
+            <ul class="phase-list">
+              <li><strong>Découpage Actif / Scellé</strong> : Partitionnement du journal d'écriture en fichiers <code>.wal</code> atomiques avec bascule instantanée sans blocage des producteurs.</li>
+              <li><strong>Auto-Pruning en Arrière-Plan</strong> : Purge automatique des segments scellés selon les seuils configurables <code>MaxDiskUsageBytes</code> et <code>MaxSegments</code>.</li>
+              <li><strong>Lectures Séquentielles Robustes</strong> : Parcours transparent à travers plusieurs segments scellés pour le dispatcher aval.</li>
+              <li><strong>Validation Exhaustive</strong> : Suite de tests couvrant les coupures réseau, corruptions partielles et benchmarks multi-goroutines.</li>
+            </ul>
+          </div>
+
+          <div id="phase3" class="phase-card">
+            <div class="phase-badge">PHASE 3</div>
+            <div class="phase-title">Ingestion Native OTLP &amp; Conteneurisation Sidecar</div>
+            <ul class="phase-list">
+              <li><strong>Endpoint Protobuf /v1/logs</strong> : Décodage direct des payloads OpenTelemetry HTTP logs sans SDK lourd.</li>
+              <li><strong>Variables d'Environnement Kubernetes</strong> : Normalisation des variables <code>WALSPOOL_PORT</code>, <code>WALSPOOL_WAL_DIR</code>, <code>WALSPOOL_TARGET_URL</code> pour le mode sidecar conteneurisé.</li>
+              <li><strong>Modernisation de la Toolchain</strong> : Support complet de Go 1.23+ et compatibilité ascendante avec l'environnement d'exécution Go 1.25.</li>
+              <li><strong>Exemples Polyglottes</strong> : Guides concrets pour émetteurs Go, Python et Node.js.</li>
+            </ul>
+          </div>
+
+          <div id="phase4" class="phase-card">
+            <div class="phase-badge">PHASE 4</div>
+            <div class="phase-title">CLI walspool Autonome, Moniteur TUI &amp; Stress Harness</div>
+            <ul class="phase-list">
+              <li><strong>Commande walspool stream</strong> : Tailing et inspection en temps réel des enregistrements écrits sur disque.</li>
+              <li><strong>Commande walspool monitor</strong> : Tableau de bord TUI affichant le débit instantané (ops/s), l'état des segments, le lag du dispatcher et l'occupation mémoire.</li>
+              <li><strong>Scripts Multi-Terminaux</strong> : Démonstration interactive à 2 terminaux dans <code>scripts/</code> pour observer la saturation et le drainage.</li>
+              <li><strong>Générateur de Charge Haute Fréquence</strong> : <code>scripts/loadgen</code> capable d'injecter des centaines de milliers de requêtes/s.</li>
+            </ul>
+          </div>
+
+          <div id="phase5" class="phase-card">
+            <div class="phase-badge">PHASE 5</div>
+            <div class="phase-title">Publication de la Release Officielle v1.1.0</div>
+            <ul class="phase-list">
+              <li><strong>Tag Officiel v1.1.0</strong> : Commit <code>7e74d1c</code> certifiant la stabilité de l'API et du stockage.</li>
+              <li><strong>Refonte Anti-Slop du README</strong> : Élimination du langage commercial, focus sur la sympathie mécanique (alignement mémoire, <code>O_DIRECT</code>, zéro allocation inutile).</li>
+              <li><strong>Alignement des Décisions d'Architecture</strong> : Rédaction formelle des Architecture Decision Records (ADRs).</li>
+            </ul>
+          </div>
+
+          <div id="phase6" class="phase-card">
+            <div class="phase-badge">PHASE 6</div>
+            <div class="phase-title">Audits Multi-Agents &amp; Remédiation P0/P1/P2</div>
+            <ul class="phase-list">
+              <li><strong>Panel de 5 Sous-Agents Spécialisés</strong> : Évaluation croisée par des experts Systèmes &amp; Fiabilité, DevRel &amp; Adoption, Goût Visuel &amp; Typographie, Ergonomie &amp; Sandbox, et Accessibilité &amp; DOM.</li>
+              <li><strong>Purge Linguistique Homogène</strong> : Suppression intégrale de tous les fragments français restants dans les fichiers publics anglophones.</li>
+              <li><strong>Intégrité DOM &amp; WCAG 2.1 AA</strong> : Élimination de 100% des collisions d'identifiants (130 IDs uniques vérifiés) et correction des balises imbriquées invalides.</li>
+            </ul>
+          </div>
+
+          <div id="phase7" class="phase-card">
+            <div class="phase-badge">PHASE 7</div>
+            <div class="phase-title">Distillation Graphique Native (0 KB Dépendance Externe)</div>
+            <ul class="phase-list">
+              <li><strong>Jauge Logarithmique des Latences</strong> : Bascule instantanée entre latence logarithmique (0.47 µs vs 12,000 µs, badge 25,531x FASTER) et débit en ops/s, avec calculateur d'épuisement des threads.</li>
+              <li><strong>Topologie Vectorielle de Little's Law</strong> : Remplacement des schémas ASCII par 10 slots applicatifs dynamiques illustrant la famine de threads face au découplage NVMe.</li>
+              <li><strong>Micro-Radar 5 Axes &amp; Matrice Facettée</strong> : Radar SVG inline (&lt; 1.5 KB) et filtres thématiques pour naviguer sans fatigue cognitive dans l'écosystème.</li>
+              <li><strong>Simulateur de Torn-Write Atomique</strong> : Démonstration visuelle de corruption simulée d'un segment <code>.wal</code> et auto-troncature automatique par CRC32.</li>
+              <li><strong>Déploiement en Production</strong> : Pipeline GitHub Actions exécuté avec succès sur <a href="https://yohannhommet.github.io/walspool/" target="_blank" rel="noopener">yohannhommet.github.io/walspool</a>.</li>
+            </ul>
+          </div>
+
+        </div>
+      </section>
+
+      <!-- Section 2: Active State -->
+      <section id="active-state">
+        <h2>2. Travaux en Cours &amp; État Actuel du Projet</h2>
+        <p>
+          L'espace de travail est sain et rigoureusement synchronisé entre le dépôt local et la forge GitHub distante.
+        </p>
+
+        <div style="background: var(--bg-surface); border: 1px solid var(--bg-border); border-radius: 8px; padding: 1.25rem; margin: 1rem 0;">
+          <ul style="list-style: none; display: flex; flex-direction: column; gap: 0.6rem; font-size: 0.92rem;">
+            <li><strong>Branche Active :</strong> <code style="color: var(--accent);">main</code> (commit <code>0ca4edd</code>), synchronisée avec <code>origin/main</code>.</li>
+            <li><strong>Branche Fonctionnelle :</strong> <code>feature/cli-stream-monitor</code> strictement synchronisée et à jour avec <code>main</code>.</li>
+            <li><strong>Capteurs Autonomes :</strong> <code>./scripts/verify.sh</code> passe à 100% (Go vet + tests unitaires propres).</li>
+            <li><strong>Validation DOM &amp; Accessibilité :</strong> 0 erreur de syntaxe HTML, 130/130 identifiants uniques, 0 tiret cadratin ou demi-cadratin.</li>
+            <li><strong>Site en Production :</strong> Déployé avec statut HTTP 200 sur GitHub Pages.</li>
+          </ul>
+        </div>
+      </section>
+
+      <!-- Section 3: Roadmap -->
+      <section id="roadmap">
+        <h2>3. Ce Qu'il Reste à Faire (Roadmap v1.2 / v2.0)</h2>
+        <p>
+          Le projet compte <strong>20 issues GitHub documentées</strong> qui forment le backlog technique pour les versions v1.2 et v2.0. Utilisez les filtres ci-dessous pour explorer les tâches par domaine.
+        </p>
+
+        <!-- Category Filters -->
+        <div class="filter-bar">
+          <button class="pill active" onclick="filterIssues('all')">All (20)</button>
+          <button class="pill" onclick="filterIssues('storage')">Storage (5)</button>
+          <button class="pill" onclick="filterIssues('ingest')">Ingest (4)</button>
+          <button class="pill" onclick="filterIssues('dispatcher')">Dispatcher (3)</button>
+          <button class="pill" onclick="filterIssues('memory')">Memory &amp; Hub (3)</button>
+          <button class="pill" onclick="filterIssues('cli')">CLI &amp; Sidecar (2)</button>
+          <button class="pill" onclick="filterIssues('p0')">Priorité P0 (Sprint v1.2)</button>
+        </div>
+
+        <div id="issuesContainer" class="issues-grid">
+
+          <!-- Issue #12 -->
+          <div class="issue-card" data-cat="dispatcher" data-priority="p0">
+            <div>
+              <div class="issue-header">
+                <span class="issue-id">#12</span>
+                <span class="issue-p-tag tag-p0">P0 - Sprint v1.2</span>
+              </div>
+              <div class="issue-title">
+                <a href="https://github.com/YohannHommet/walspool/issues/12" target="_blank" rel="noopener">fix(dispatcher): full decorrelated jitter backoff &amp; reusable timer</a>
+              </div>
+              <p style="font-size: 0.78rem; margin: 0; color: var(--text-dim);">Éliminer la fuite mémoire de time.After et le thundering herd lors des pannes de sink.</p>
+            </div>
+            <div class="issue-cat">area/dispatcher &bull; reliability</div>
+          </div>
+
+          <!-- Issue #13 -->
+          <div class="issue-card" data-cat="ingest" data-priority="p0">
+            <div>
+              <div class="issue-header">
+                <span class="issue-id">#13</span>
+                <span class="issue-p-tag tag-p0">P0 - Sprint v1.2</span>
+              </div>
+              <div class="issue-title">
+                <a href="https://github.com/YohannHommet/walspool/issues/13" target="_blank" rel="noopener">feat(ingest): add unix domain socket (UDS) listener for sub-3µs IPC</a>
+              </div>
+              <p style="font-size: 0.78rem; margin: 0; color: var(--text-dim);">Bypass de la pile TCP Linux nf_conntrack pour les conteneurs sidecar colocalisés.</p>
+            </div>
+            <div class="issue-cat">area/ingest &bull; performance</div>
+          </div>
+
+          <!-- Issue #21 -->
+          <div class="issue-card" data-cat="memory" data-priority="p0">
+            <div>
+              <div class="issue-header">
+                <span class="issue-id">#21</span>
+                <span class="issue-p-tag tag-p0">P0 - Sprint v1.2</span>
+              </div>
+              <div class="issue-title">
+                <a href="https://github.com/YohannHommet/walspool/issues/21" target="_blank" rel="noopener">perf(hub): cache-line padding (64-byte alignment) against false sharing</a>
+              </div>
+              <p style="font-size: 0.78rem; margin: 0; color: var(--text-dim);">Isolation des pointeurs atomiques de lecture/écriture sur les lignes de cache CPU L1/L2.</p>
+            </div>
+            <div class="issue-cat">area/memory &bull; performance</div>
+          </div>
+
+          <!-- Issue #16 -->
+          <div class="issue-card" data-cat="storage" data-priority="p1">
+            <div>
+              <div class="issue-header">
+                <span class="issue-id">#16</span>
+                <span class="issue-p-tag tag-p1">P1 - Moyen terme</span>
+              </div>
+              <div class="issue-title">
+                <a href="https://github.com/YohannHommet/walspool/issues/16" target="_blank" rel="noopener">perf(storage): hardware-accelerated CRC32 using PCLMULQDQ instruction</a>
+              </div>
+              <p style="font-size: 0.78rem; margin: 0; color: var(--text-dim);">Calcul vectoriel de checksum sans coût CPU pour le thread principal.</p>
+            </div>
+            <div class="issue-cat">area/storage &bull; performance</div>
+          </div>
+
+          <!-- Issue #7 -->
+          <div class="issue-card" data-cat="ingest" data-priority="p1">
+            <div>
+              <div class="issue-header">
+                <span class="issue-id">#7</span>
+                <span class="issue-p-tag tag-p1">P1 - Moyen terme</span>
+              </div>
+              <div class="issue-title">
+                <a href="https://github.com/YohannHommet/walspool/issues/7" target="_blank" rel="noopener">feat(ingest): add batch ingest endpoint (/v1/batch)</a>
+              </div>
+              <p style="font-size: 0.78rem; margin: 0; color: var(--text-dim);">Écriture atomique de lots d'enregistrements en un seul appel système.</p>
+            </div>
+            <div class="issue-cat">area/ingest &bull; enhancement</div>
+          </div>
+
+          <!-- Issue #20 -->
+          <div class="issue-card" data-cat="storage" data-priority="p1">
+            <div>
+              <div class="issue-header">
+                <span class="issue-id">#20</span>
+                <span class="issue-p-tag tag-p1">P1 - Moyen terme</span>
+              </div>
+              <div class="issue-title">
+                <a href="https://github.com/YohannHommet/walspool/issues/20" target="_blank" rel="noopener">feat(storage): circular pre-allocated fixed-size WAL segments</a>
+              </div>
+              <p style="font-size: 0.78rem; margin: 0; color: var(--text-dim);">Pré-allocation fallocate pour éliminer la fragmentation et les délais de métadonnées.</p>
+            </div>
+            <div class="issue-cat">area/storage &bull; enhancement</div>
+          </div>
+
+          <!-- Issue #25 -->
+          <div class="issue-card" data-cat="dispatcher" data-priority="p1">
+            <div>
+              <div class="issue-header">
+                <span class="issue-id">#25</span>
+                <span class="issue-p-tag tag-p1">P1 - Moyen terme</span>
+              </div>
+              <div class="issue-title">
+                <a href="https://github.com/YohannHommet/walspool/issues/25" target="_blank" rel="noopener">feat(dispatcher): pipelined HTTP/2 multiplexing for downstream drains</a>
+              </div>
+              <p style="font-size: 0.78rem; margin: 0; color: var(--text-dim);">Multiplication du débit de vidange vers Kafka/Datadog sur connexion persistante.</p>
+            </div>
+            <div class="issue-cat">area/dispatcher &bull; performance</div>
+          </div>
+
+          <!-- Issue #14 -->
+          <div class="issue-card" data-cat="ingest" data-priority="p1">
+            <div>
+              <div class="issue-header">
+                <span class="issue-id">#14</span>
+                <span class="issue-p-tag tag-p1">P1 - Moyen terme</span>
+              </div>
+              <div class="issue-title">
+                <a href="https://github.com/YohannHommet/walspool/issues/14" target="_blank" rel="noopener">perf(otlp): direct zero-copy protobuf parsing for batch logs</a>
+              </div>
+              <p style="font-size: 0.78rem; margin: 0; color: var(--text-dim);">Suppression des copies de mémoire intermédiaires lors de l'ingestion OTLP.</p>
+            </div>
+            <div class="issue-cat">area/ingest &bull; performance</div>
+          </div>
+
+          <!-- Issue #22 -->
+          <div class="issue-card" data-cat="memory" data-priority="p1">
+            <div>
+              <div class="issue-header">
+                <span class="issue-id">#22</span>
+                <span class="issue-p-tag tag-p1">P1 - Moyen terme</span>
+              </div>
+              <div class="issue-title">
+                <a href="https://github.com/YohannHommet/walspool/issues/22" target="_blank" rel="noopener">perf(hub): O(log N) binary search index over sequential timestamps</a>
+              </div>
+              <p style="font-size: 0.78rem; margin: 0; color: var(--text-dim);">Recherche temporelle instantanée sans balayage linéaire du journal.</p>
+            </div>
+            <div class="issue-cat">area/memory &bull; performance</div>
+          </div>
+
+          <!-- Issue #23 -->
+          <div class="issue-card" data-cat="memory" data-priority="p1">
+            <div>
+              <div class="issue-header">
+                <span class="issue-id">#23</span>
+                <span class="issue-p-tag tag-p1">P1 - Moyen terme</span>
+              </div>
+              <div class="issue-title">
+                <a href="https://github.com/YohannHommet/walspool/issues/23" target="_blank" rel="noopener">perf(hub): string interning for high-cardinality metadata tags</a>
+              </div>
+              <p style="font-size: 0.78rem; margin: 0; color: var(--text-dim);">Mutualisation des chaînes de caractères répétées pour réduire l'empreinte RAM.</p>
+            </div>
+            <div class="issue-cat">area/memory &bull; performance</div>
+          </div>
+
+          <!-- Issue #18 -->
+          <div class="issue-card" data-cat="storage" data-priority="p1">
+            <div>
+              <div class="issue-header">
+                <span class="issue-id">#18</span>
+                <span class="issue-p-tag tag-p1">P1 - Moyen terme</span>
+              </div>
+              <div class="issue-title">
+                <a href="https://github.com/YohannHommet/walspool/issues/18" target="_blank" rel="noopener">perf(storage): memory-efficient zero-copy mmap reader for cold segments</a>
+              </div>
+              <p style="font-size: 0.78rem; margin: 0; color: var(--text-dim);">Relecture des segments historiques par projection mmap sans allocation heap.</p>
+            </div>
+            <div class="issue-cat">area/storage &bull; performance</div>
+          </div>
+
+          <!-- Issue #19 -->
+          <div class="issue-card" data-cat="storage" data-priority="p1">
+            <div>
+              <div class="issue-header">
+                <span class="issue-id">#19</span>
+                <span class="issue-p-tag tag-p1">P1 - Moyen terme</span>
+              </div>
+              <div class="issue-title">
+                <a href="https://github.com/YohannHommet/walspool/issues/19" target="_blank" rel="noopener">perf(storage): decouple disk syncer into asynchronous worker pool</a>
+              </div>
+              <p style="font-size: 0.78rem; margin: 0; color: var(--text-dim);">Délégation de l'opération fsync à un pool dédié sans freiner les requêtes.</p>
+            </div>
+            <div class="issue-cat">area/storage &bull; performance</div>
+          </div>
+
+          <!-- Issue #17 -->
+          <div class="issue-card" data-cat="storage" data-priority="p1">
+            <div>
+              <div class="issue-header">
+                <span class="issue-id">#17</span>
+                <span class="issue-p-tag tag-p1">P1 - Moyen terme</span>
+              </div>
+              <div class="issue-title">
+                <a href="https://github.com/YohannHommet/walspool/issues/17" target="_blank" rel="noopener">feat(storage): fault-tolerant segment repair and truncation tool</a>
+              </div>
+              <p style="font-size: 0.78rem; margin: 0; color: var(--text-dim);">Utilitaire CLI autonome pour diagnostiquer et tronquer un segment altéré.</p>
+            </div>
+            <div class="issue-cat">area/storage &bull; reliability</div>
+          </div>
+
+          <!-- Issue #15 -->
+          <div class="issue-card" data-cat="storage" data-priority="p1">
+            <div>
+              <div class="issue-header">
+                <span class="issue-id">#15</span>
+                <span class="issue-p-tag tag-p1">P1 - Moyen terme</span>
+              </div>
+              <div class="issue-title">
+                <a href="https://github.com/YohannHommet/walspool/issues/15" target="_blank" rel="noopener">feat(storage): implement pre-allocated disk fallocate pool</a>
+              </div>
+              <p style="font-size: 0.78rem; margin: 0; color: var(--text-dim);">Création d'un pool de fichiers de 64 Mo pré-alloués en réserve.</p>
+            </div>
+            <div class="issue-cat">area/storage &bull; enhancement</div>
+          </div>
+
+          <!-- Issue #26 -->
+          <div class="issue-card" data-cat="cli" data-priority="p1">
+            <div>
+              <div class="issue-header">
+                <span class="issue-id">#26</span>
+                <span class="issue-p-tag tag-p1">P1 - Moyen terme</span>
+              </div>
+              <div class="issue-title">
+                <a href="https://github.com/YohannHommet/walspool/issues/26" target="_blank" rel="noopener">feat(cli): client-side streaming filter and jq syntax support</a>
+              </div>
+              <p style="font-size: 0.78rem; margin: 0; color: var(--text-dim);">Filtrage direct en ligne de commande dans <code>walspool stream</code> via sélecteurs JSON.</p>
+            </div>
+            <div class="issue-cat">area/cli &bull; dx</div>
+          </div>
+
+          <!-- Issue #24 -->
+          <div class="issue-card" data-cat="dispatcher" data-priority="p1">
+            <div>
+              <div class="issue-header">
+                <span class="issue-id">#24</span>
+                <span class="issue-p-tag tag-p1">P1 - Moyen terme</span>
+              </div>
+              <div class="issue-title">
+                <a href="https://github.com/YohannHommet/walspool/issues/24" target="_blank" rel="noopener">feat(dispatcher): adaptive backoff controller with loss-based congestion</a>
+              </div>
+              <p style="font-size: 0.78rem; margin: 0; color: var(--text-dim);">Ajustement dynamique du débit d'envoi selon le temps de réponse du récepteur.</p>
+            </div>
+            <div class="issue-cat">area/dispatcher &bull; enhancement</div>
+          </div>
+
+          <!-- Issue #11 -->
+          <div class="issue-card" data-cat="memory" data-priority="p1">
+            <div>
+              <div class="issue-header">
+                <span class="issue-id">#11</span>
+                <span class="issue-p-tag tag-p1">P1 - Moyen terme</span>
+              </div>
+              <div class="issue-title">
+                <a href="https://github.com/YohannHommet/walspool/issues/11" target="_blank" rel="noopener">fix(hub): eliminate O(N) allocation in concurrent subscriber fan-out</a>
+              </div>
+              <p style="font-size: 0.78rem; margin: 0; color: var(--text-dim);">Optimisation des boucles de diffusion pour éviter les allocations de tranches.</p>
+            </div>
+            <div class="issue-cat">area/memory &bull; performance</div>
+          </div>
+
+          <!-- Issue #10 -->
+          <div class="issue-card" data-cat="cli" data-priority="p1">
+            <div>
+              <div class="issue-header">
+                <span class="issue-id">#10</span>
+                <span class="issue-p-tag tag-p1">P1 - Moyen terme</span>
+              </div>
+              <div class="issue-title">
+                <a href="https://github.com/YohannHommet/walspool/issues/10" target="_blank" rel="noopener">fix(sidecar): standardize graceful shutdown timeout and drain signal</a>
+              </div>
+              <p style="font-size: 0.78rem; margin: 0; color: var(--text-dim);">Coordination des signaux SIGTERM/SIGINT pour garantir la vidange intégrale avant l'arrêt.</p>
+            </div>
+            <div class="issue-cat">area/cli &bull; dx</div>
+          </div>
+
+          <!-- Issue #9 -->
+          <div class="issue-card" data-cat="ingest" data-priority="p1">
+            <div>
+              <div class="issue-header">
+                <span class="issue-id">#9</span>
+                <span class="issue-p-tag tag-p1">P1 - Moyen terme</span>
+              </div>
+              <div class="issue-title">
+                <a href="https://github.com/YohannHommet/walspool/issues/9" target="_blank" rel="noopener">perf(ingest): implement sync.Pool recycling for incoming payload buffers</a>
+              </div>
+              <p style="font-size: 0.78rem; margin: 0; color: var(--text-dim);">Recyclage des tableaux d'octets d'entrée pour réduire la sollicitation du GC.</p>
+            </div>
+            <div class="issue-cat">area/ingest &bull; performance</div>
+          </div>
+
+          <!-- Issue #8 -->
+          <div class="issue-card" data-cat="ingest" data-priority="p1">
+            <div>
+              <div class="issue-header">
+                <span class="issue-id">#8</span>
+                <span class="issue-p-tag tag-p1">P1 - Moyen terme</span>
+              </div>
+              <div class="issue-title">
+                <a href="https://github.com/YohannHommet/walspool/issues/8" target="_blank" rel="noopener">feat(ingest): add streaming chunked HTTP transfer-encoding support</a>
+              </div>
+              <p style="font-size: 0.78rem; margin: 0; color: var(--text-dim);">Ingestion en flux continu continu sans spécifier Content-Length à l'avance.</p>
+            </div>
+            <div class="issue-cat">area/ingest &bull; enhancement</div>
+          </div>
+
+        </div>
+      </section>
+
+      <!-- Section 4: Recommendations -->
+      <section id="recommendations">
+        <h2>4. Recommandations sur Notre Session</h2>
+
+        <div class="alert-box alert-important">
+          <div class="alert-header">
+            <span>⚡ Action Recommandée : Compaction du Contexte via /compact</span>
+          </div>
+          <div>
+            Cette session totalise plus de 3 150 étapes et a couvert l'ensemble des chantiers fondateurs du projet. Exécuter la commande <code>/compact</code> dans le chat permettra de résumer fidèlement cet historique tout en libérant un volume majeur de tokens d'attention, garantissant des réponses rapides et sans interférences pour la phase v1.2.
+          </div>
+        </div>
+
+        <div class="alert-box alert-tip">
+          <div class="alert-header">
+            <span>🧹 Hygiène Git &amp; Élagage des Branches Distantes</span>
+          </div>
+          <div>
+            Plusieurs branches de fonctionnalités sur <code>origin</code> sont désormais obsolètes car intégrées dans <code>main</code> :
+            <ul style="margin: 0.5rem 0 0 1.2rem; font-family: var(--font-mono); font-size: 0.8rem;">
+              <li>origin/feature/segment-rotation (fusionnée dans PR #6)</li>
+              <li>origin/fix/review-durability-bugs (fusionnée dans PR #5)</li>
+              <li>origin/fix/v1.0-remediation (fusionnée dans PR #2)</li>
+              <li>origin/imgbot</li>
+              <li>origin/feature/cli-stream-monitor (identique à main)</li>
+            </ul>
+            Supprimer ces branches nettoiera l'arborescence distante du dépôt.
+          </div>
+        </div>
+
+        <div class="alert-box alert-warning">
+          <div class="alert-header">
+            <span>🔒 Remédiation des Vulnérabilités de Sécurité Dependabot</span>
+          </div>
+          <div>
+            8 alertes de sécurité ont été identifiées sur les dépendances indirectes <code>golang.org/x/net</code> et <code>google.golang.org/grpc</code> héritées du protocole OpenTelemetry. Une mise à jour ciblée dans <code>go.mod</code> permettra de solder ces alertes avant d'entamer les prochains développements.
+          </div>
+        </div>
+      </section>
+
+      <!-- Section 5: Decisions -->
+      <section id="decisions">
+        <h2>5. Décisions Soumises à Votre Validation</h2>
+        <p>Pour engager la suite dans les meilleures conditions, voici les trois choix opérationnels :</p>
+
+        <div style="background: var(--bg-surface); border: 1px solid var(--bg-border); border-radius: 8px; padding: 1.25rem;">
+          <ol style="margin-left: 1.25rem; display: flex; flex-direction: column; gap: 0.75rem; font-size: 0.95rem;">
+            <li>
+              <strong>Compaction Immédiate :</strong> Souhaitez-vous lancer la commande <code>/compact</code> dès maintenant ?
+            </li>
+            <li>
+              <strong>Nettoyage Git &amp; Sécurité :</strong> Devons-nous purger les branches distantes obsolètes et mettre à niveau <code>go.mod</code> pour solder les alertes Dependabot ?
+            </li>
+            <li>
+              <strong>Cible du Sprint v1.2 :</strong> Quelle issue prioritaire souhaitez-vous que nous implémentions en premier dans le moteur Go ?
+              <ul style="margin: 0.35rem 0 0 1.2rem; font-size: 0.88rem; color: var(--text-muted);">
+                <li><strong>Option A (Recommandée) :</strong> <a href="https://github.com/YohannHommet/walspool/issues/12" target="_blank" rel="noopener">Issue #12</a> (Jitter Backoff et suppression des fuites de timers du Dispatcher).</li>
+                <li><strong>Option B :</strong> <a href="https://github.com/YohannHommet/walspool/issues/13" target="_blank" rel="noopener">Issue #13</a> (Listener Unix Domain Socket pour IPC ultra-rapide sub-3µs).</li>
+                <li><strong>Option C :</strong> <a href="https://github.com/YohannHommet/walspool/issues/21" target="_blank" rel="noopener">Issue #21</a> (Cache-line padding 64 octets pour annuler le faux partage CPU).</li>
+              </ul>
+            </li>
+          </ol>
+        </div>
+      </section>
+
+    </main>
+  </div>
+
+  <!-- Vanilla JS Client Logic -->
+  <script>
+    // 1. Reading Progress Bar
+    window.addEventListener('scroll', () => {
+      const winScroll = document.documentElement.scrollTop || document.body.scrollTop;
+      const height = document.documentElement.scrollHeight - document.documentElement.clientHeight;
+      const scrolled = (winScroll / height) * 100;
+      document.getElementById('progress-bar').style.width = scrolled + '%';
+    });
+
+    // 2. Active Scroll-Spy
+    const sections = document.querySelectorAll('section[id], div[id^="phase"]');
+    const navLinks = document.querySelectorAll('.toc-link, .toc-sublink');
+
+    window.addEventListener('scroll', () => {
+      let current = '';
+      sections.forEach(section => {
+        const sectionTop = section.offsetTop;
+        if (pageYOffset >= sectionTop - 120) {
+          current = section.getAttribute('id');
+        }
+      });
+
+      navLinks.forEach(link => {
+        link.classList.remove('active');
+        if (link.getAttribute('href') === '#' + current) {
+          link.classList.add('active');
+        }
+      });
+    });
+
+    // 3. Theme Toggle with LocalStorage
+    const themeBtn = document.getElementById('themeToggleBtn');
+    const themeIcon = document.getElementById('themeIcon');
+    const themeLabel = document.getElementById('themeLabel');
+
+    function applyTheme(isLight) {
+      if (isLight) {
+        document.body.classList.add('light-theme');
+        themeIcon.textContent = '🌙';
+        themeLabel.textContent = 'Dark Mode';
+      } else {
+        document.body.classList.remove('light-theme');
+        themeIcon.textContent = '☀️';
+        themeLabel.textContent = 'Light Mode';
+      }
+    }
+
+    const savedTheme = localStorage.getItem('walspool-report-theme');
+    if (savedTheme === 'light') {
+      applyTheme(true);
+    }
+
+    themeBtn.addEventListener('click', () => {
+      const isLight = document.body.classList.toggle('light-theme');
+      localStorage.setItem('walspool-report-theme', isLight ? 'light' : 'dark');
+      applyTheme(isLight);
+    });
+
+    // 4. Issue Category Filter
+    function filterIssues(cat) {
+      const cards = document.querySelectorAll('.issue-card');
+      const pills = document.querySelectorAll('.filter-bar .pill');
+      
+      pills.forEach(p => p.classList.remove('active'));
+      event.target.classList.add('active');
+
+      cards.forEach(card => {
+        if (cat === 'all') {
+          card.style.display = 'flex';
+        } else if (cat === 'p0') {
+          card.style.display = card.dataset.priority === 'p0' ? 'flex' : 'none';
+        } else {
+          card.style.display = card.dataset.cat === cat ? 'flex' : 'none';
+        }
+      });
+    }
+  </script>
+</body>
+</html>
