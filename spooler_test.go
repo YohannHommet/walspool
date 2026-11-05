@@ -819,3 +819,75 @@ func TestDispatcher_UnclassifiedSinkError_BacksOff(t *testing.T) {
 		t.Fatalf("expected exponential backoff (<=5 attempts in 250ms), got %d", calls)
 	}
 }
+
+// Closing the spooler during backoff must wake up the dispatcher immediately.
+func TestDispatcher_BackoffImmediateStop(t *testing.T) {
+	sink := &recordingSink{
+		failureCount: 1000,
+		failErr:      walspool.ErrSinkUnavailable,
+	}
+	cfg := walspool.DefaultConfig()
+	cfg.FlushInterval = time.Millisecond
+	cfg.InitialBackoff = 5 * time.Second
+	cfg.MaxBackoff = 10 * time.Second
+
+	spool, err := walspool.New(cfg, walspool.NewMemoryStorageEngine(100), sink, nil)
+	if err != nil {
+		t.Fatalf("spooler init failed: %v", err)
+	}
+
+	if err := spool.Enqueue(context.Background(), "t", []byte("payload")); err != nil {
+		t.Fatalf("enqueue failed: %v", err)
+	}
+
+	// Give the dispatcher a moment to attempt delivery, fail, and enter 5s backoff
+	time.Sleep(50 * time.Millisecond)
+
+	start := time.Now()
+	if err := spool.Close(); err != nil {
+		t.Fatalf("spool.Close failed: %v", err)
+	}
+	elapsed := time.Since(start)
+
+	if elapsed >= 1*time.Second {
+		t.Fatalf("spool.Close took %v, expected immediate shutdown (< 1s)", elapsed)
+	}
+}
+
+// Canceling the flush context during backoff must abort drainAll immediately.
+func TestFlush_ContextCancellationDuringBackoff(t *testing.T) {
+	sink := &recordingSink{
+		failureCount: 1000,
+		failErr:      walspool.ErrSinkUnavailable,
+	}
+	cfg := walspool.DefaultConfig()
+	cfg.FlushInterval = time.Millisecond
+	cfg.InitialBackoff = 5 * time.Second
+	cfg.MaxBackoff = 10 * time.Second
+
+	spool, err := walspool.New(cfg, walspool.NewMemoryStorageEngine(100), sink, nil)
+	if err != nil {
+		t.Fatalf("spooler init failed: %v", err)
+	}
+	defer spool.Close()
+
+	if err := spool.Enqueue(context.Background(), "t", []byte("payload")); err != nil {
+		t.Fatalf("enqueue failed: %v", err)
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
+	defer cancel()
+
+	start := time.Now()
+	err = spool.Flush(ctx)
+	elapsed := time.Since(start)
+
+	if !errors.Is(err, context.DeadlineExceeded) && !errors.Is(err, context.Canceled) {
+		t.Fatalf("expected context cancellation error, got %v", err)
+	}
+
+	if elapsed >= 1*time.Second {
+		t.Fatalf("Flush took %v, expected context abort (< 1s)", elapsed)
+	}
+}
+

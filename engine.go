@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"math/rand/v2"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -219,6 +220,13 @@ func (e *Engine) runDispatcher() {
 	defer e.doneWg.Done()
 
 	currentBackoff := e.cfg.InitialBackoff
+	var backoffTimer *time.Timer
+	defer func() {
+		if backoffTimer != nil {
+			backoffTimer.Stop()
+		}
+	}()
+
 	for {
 		// Drain all available records up to BatchSize
 		drained, err := e.drainPendingBatches(context.Background())
@@ -227,10 +235,15 @@ func (e *Engine) runDispatcher() {
 			if !IsTransient(err) {
 				slog.Error("walspool: dispatcher drain failed", "error", err, "retry_in", currentBackoff)
 			}
+			if backoffTimer == nil {
+				backoffTimer = time.NewTimer(currentBackoff)
+			} else {
+				resetTimer(backoffTimer, currentBackoff)
+			}
 			select {
 			case <-e.stopCh:
 				return
-			case <-e.clock.After(currentBackoff):
+			case <-backoffTimer.C:
 				currentBackoff = e.calculateNextBackoff(currentBackoff)
 				continue
 			}
@@ -316,26 +329,83 @@ func (e *Engine) drainPendingBatches(ctx context.Context) (bool, error) {
 	return true, nil
 }
 
-func (e *Engine) calculateNextBackoff(current time.Duration) time.Duration {
-	next := current * 2
-	if next > e.cfg.MaxBackoff {
-		return e.cfg.MaxBackoff
+// resetTimer desactive le timer t, vide son canal de maniere non-bloquante
+// si un tick est deja emis, puis le rearme avec la nouvelle duree d.
+// Garantit zero allocation et zero blocage sur runtime Go.
+func resetTimer(t *time.Timer, d time.Duration) {
+	if !t.Stop() {
+		select {
+		case <-t.C:
+		default:
+		}
 	}
-	return next
+	t.Reset(d)
+}
+
+func (e *Engine) calculateNextBackoff(current time.Duration) time.Duration {
+	initialBackoff := e.cfg.InitialBackoff
+	if initialBackoff <= 0 {
+		initialBackoff = DefaultConfig().InitialBackoff
+		if initialBackoff <= 0 {
+			initialBackoff = 1 * time.Millisecond
+		}
+	}
+	maxBackoff := e.cfg.MaxBackoff
+	if maxBackoff < initialBackoff {
+		maxBackoff = initialBackoff
+	}
+	if current < initialBackoff {
+		current = initialBackoff
+	}
+
+	high := current * 3
+	if high < current {
+		// Protection contre le depassement arithmetique int64
+		high = maxBackoff
+	}
+	if high < initialBackoff {
+		high = initialBackoff
+	}
+
+	delta := high - initialBackoff
+	var sleep time.Duration
+	if delta <= 0 {
+		sleep = initialBackoff
+	} else {
+		// math/rand/v2.Int64N garantit 0 alloc et zero contention globale de verrou
+		sleep = initialBackoff + time.Duration(rand.Int64N(int64(delta)+1))
+	}
+
+	if sleep > maxBackoff {
+		sleep = maxBackoff
+	}
+	return sleep
 }
 
 func (e *Engine) drainAll(ctx context.Context) error {
 	currentBackoff := e.cfg.InitialBackoff
+	var backoffTimer *time.Timer
+	defer func() {
+		if backoffTimer != nil {
+			backoffTimer.Stop()
+		}
+	}()
+
 	for {
 		drained, err := e.drainPendingBatches(ctx)
 		if err != nil {
 			if IsTransient(err) {
+				if backoffTimer == nil {
+					backoffTimer = time.NewTimer(currentBackoff)
+				} else {
+					resetTimer(backoffTimer, currentBackoff)
+				}
 				select {
 				case <-e.stopCh:
 					return ErrSpoolerClosed
 				case <-ctx.Done():
 					return ctx.Err()
-				case <-e.clock.After(currentBackoff):
+				case <-backoffTimer.C:
 					currentBackoff = e.calculateNextBackoff(currentBackoff)
 					continue
 				}
