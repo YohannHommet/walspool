@@ -18,6 +18,7 @@ import sys
 
 EPIC_ISSUE_NUMBER = 27
 SQUAD_DIR = ".walspool/squad"
+HARNESS_DIR = "/home/yohann/Labs/.harness/walspool"
 
 def run_cmd(cmd, check=True, text=True):
     """Executes a command and returns stdout."""
@@ -130,10 +131,13 @@ def cmd_start(args):
         print(f"[Orchestrator] Creating and switching to branch: {branch_name}")
         run_cmd(["git", "checkout", "-b", branch_name])
 
-    # Create session workspace
+    # Create session workspace and global harness directory
     session_dir = os.path.join(SQUAD_DIR, f"issue-{issue_num}")
     os.makedirs(session_dir, exist_ok=True)
+    harness_feature_dir = os.path.join(HARNESS_DIR, f"issue-{issue_num}-{slug}")
+    os.makedirs(harness_feature_dir, exist_ok=True)
     print(f"[Orchestrator] Session artifact directory ready: {session_dir}")
+    print(f"[Orchestrator] Harness global artifact directory ready: {harness_feature_dir}")
 
 def cmd_verify(args):
     """Executes the verification sensor."""
@@ -196,6 +200,19 @@ def cmd_complete(args):
         print(f"[Orchestrator] Epic #{EPIC_ISSUE_NUMBER} checkbox successfully marked [x] for #{issue_num}.")
     else:
         print(f"[Orchestrator] Warning: checkbox for #{issue_num} was not found or already checked.")
+
+    # 4b. Sync artifacts to global harness directory
+    session_dir = os.path.join(SQUAD_DIR, f"issue-{issue_num}")
+    if os.path.exists(session_dir) and os.path.exists(HARNESS_DIR):
+        for item in os.listdir(HARNESS_DIR):
+            if item.startswith(f"issue-{issue_num}"):
+                dest = os.path.join(HARNESS_DIR, item)
+                for f in os.listdir(session_dir):
+                    src_f = os.path.join(session_dir, f)
+                    if os.path.isfile(src_f):
+                        import shutil
+                        shutil.copy2(src_f, os.path.join(dest, f))
+                print(f"[Orchestrator] Synced artifacts to {dest}")
 
     # 5. Merge branch into main and push
     print(f"[Orchestrator] Merging {current_branch} into main...")
