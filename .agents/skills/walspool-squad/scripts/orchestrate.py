@@ -202,7 +202,13 @@ def cmd_complete(args):
         print(f"[Orchestrator] Warning: checkbox for #{issue_num} was not found or already checked.")
 
     # 4b. Sync artifacts to global harness directory
-    session_dir = os.path.join(SQUAD_DIR, f"issue-{issue_num}")
+    git_dir = run_cmd(["git", "rev-parse", "--git-dir"])
+    is_worktree = "worktrees" in git_dir
+    common_git_dir = run_cmd(["git", "rev-parse", "--git-common-dir"])
+    main_repo_dir = os.path.dirname(os.path.abspath(common_git_dir))
+    worktree_root = run_cmd(["git", "rev-parse", "--show-toplevel"])
+
+    session_dir = os.path.join(main_repo_dir, SQUAD_DIR, f"issue-{issue_num}")
     if os.path.exists(session_dir) and os.path.exists(HARNESS_DIR):
         for item in os.listdir(HARNESS_DIR):
             if item.startswith(f"issue-{issue_num}"):
@@ -215,16 +221,27 @@ def cmd_complete(args):
                 print(f"[Orchestrator] Synced artifacts to {dest}")
 
     # 5. Merge branch into main and push
-    print(f"[Orchestrator] Merging {current_branch} into main...")
-    run_cmd(["git", "checkout", "main"])
-    run_cmd(["git", "merge", "--no-ff", current_branch, "-m", f"merge: issue #{issue_num} from {current_branch}"])
-    
-    print("[Orchestrator] Pushing main to origin...")
-    run_cmd(["git", "push", "origin", "main"])
+    if is_worktree:
+        print(f"[Orchestrator] Merging {current_branch} into main (via main repo {main_repo_dir})...")
+        run_cmd(["git", "-C", main_repo_dir, "merge", "--no-ff", current_branch, "-m", f"merge: issue #{issue_num} from {current_branch}"])
+        print("[Orchestrator] Pushing main to origin...")
+        run_cmd(["git", "-C", main_repo_dir, "push", "origin", "main"])
 
-    # 6. Delete local feature branch
-    print(f"[Orchestrator] Deleting feature branch {current_branch}...")
-    run_cmd(["git", "branch", "-d", current_branch])
+        # 6. Delete local feature branch
+        print(f"[Orchestrator] Cleaning up worktree and deleting feature branch {current_branch}...")
+        run_cmd(["git", "-C", main_repo_dir, "worktree", "remove", "--force", worktree_root])
+        run_cmd(["git", "-C", main_repo_dir, "branch", "-d", current_branch])
+    else:
+        print(f"[Orchestrator] Merging {current_branch} into main...")
+        run_cmd(["git", "checkout", "main"])
+        run_cmd(["git", "merge", "--no-ff", current_branch, "-m", f"merge: issue #{issue_num} from {current_branch}"])
+        
+        print("[Orchestrator] Pushing main to origin...")
+        run_cmd(["git", "push", "origin", "main"])
+
+        # 6. Delete local feature branch
+        print(f"[Orchestrator] Deleting feature branch {current_branch}...")
+        run_cmd(["git", "branch", "-d", current_branch])
 
     print(f"\n[Orchestrator] SUCCESS: Issue #{issue_num} fully closed, checked in Epic #{EPIC_ISSUE_NUMBER}, and merged to main!")
 
