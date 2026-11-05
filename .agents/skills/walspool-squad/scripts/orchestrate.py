@@ -17,6 +17,7 @@ import subprocess
 import sys
 
 EPIC_ISSUE_NUMBER = 27
+REPO_NAME = "YohannHommet/walspool"
 SQUAD_DIR = ".walspool/squad"
 HARNESS_DIR = "/home/yohann/Labs/.harness/walspool"
 
@@ -30,7 +31,7 @@ def run_cmd(cmd, check=True, text=True):
 
 def get_epic_body():
     """Fetches the full markdown body of Epic #27."""
-    cmd = ["gh", "issue", "view", str(EPIC_ISSUE_NUMBER), "--json", "body", "-q", ".body"]
+    cmd = ["gh", "issue", "view", str(EPIC_ISSUE_NUMBER), "--repo", REPO_NAME, "--json", "body", "-q", ".body"]
     return run_cmd(cmd)
 
 def parse_epic_tasks(body):
@@ -93,7 +94,7 @@ def cmd_next(args):
         sys.exit(0)
 
     # Fetch issue details
-    cmd = ["gh", "issue", "view", str(next_task["number"]), "--json", "number,title,body,labels"]
+    cmd = ["gh", "issue", "view", str(next_task["number"]), "--repo", REPO_NAME, "--json", "number,title,body,labels"]
     raw = run_cmd(cmd)
     data = json.loads(raw)
     labels = ", ".join([l["name"] for l in data.get("labels", [])])
@@ -108,7 +109,7 @@ def cmd_next(args):
 def cmd_start(args):
     """Prepares feature branch and session directory for an issue."""
     issue_num = args.issue
-    cmd = ["gh", "issue", "view", str(issue_num), "--json", "number,title"]
+    cmd = ["gh", "issue", "view", str(issue_num), "--repo", REPO_NAME, "--json", "number,title"]
     raw = run_cmd(cmd)
     data = json.loads(raw)
 
@@ -183,7 +184,7 @@ def cmd_complete(args):
 
     # 3. Close the GitHub issue
     print(f"[Orchestrator] Closing GitHub Issue #{issue_num}...")
-    run_cmd(["gh", "issue", "close", str(issue_num), "--comment", f"Resolved via multi-agent squad on branch `{current_branch}`."])
+    run_cmd(["gh", "issue", "close", str(issue_num), "--repo", REPO_NAME, "--comment", f"Resolved via multi-agent squad on branch `{current_branch}`."])
 
     # 4. Check off the issue in Epic #27
     print(f"[Orchestrator] Updating task checkbox in Epic #{EPIC_ISSUE_NUMBER}...")
@@ -194,7 +195,7 @@ def cmd_complete(args):
         tmp_path = f"/tmp/epic_{EPIC_ISSUE_NUMBER}_update.md"
         with open(tmp_path, "w", encoding="utf-8") as f:
             f.write(new_body)
-        run_cmd(["gh", "issue", "edit", str(EPIC_ISSUE_NUMBER), "--body-file", tmp_path])
+        run_cmd(["gh", "issue", "edit", str(EPIC_ISSUE_NUMBER), "--repo", REPO_NAME, "--body-file", tmp_path])
         if os.path.exists(tmp_path):
             os.remove(tmp_path)
         print(f"[Orchestrator] Epic #{EPIC_ISSUE_NUMBER} checkbox successfully marked [x] for #{issue_num}.")
