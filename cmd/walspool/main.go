@@ -14,7 +14,7 @@ var (
 	BuildDate = "unknown"
 )
 
-const usageText = `walspool — high-performance WAL telemetry streaming and monitoring CLI
+const usageText = `walspool: high-performance WAL telemetry streaming and monitoring CLI
 
 Usage:
   walspool <command> [arguments]
@@ -26,7 +26,7 @@ Commands:
   help       Show help for any command
 
 Flags:
-  -a, --addr string   Target walspool-sidecar address (default "http://127.0.0.1:8080" or $WALSPOOL_ADDR)
+  -a, --addr string   Target walspool-sidecar address (default "http://127.0.0.1:9099" or $WALSPOOL_ADDR)
   -h, --help          Show this help message
 
 Run 'walspool <command> --help' for details on a specific command.
@@ -70,5 +70,5 @@ func defaultAddr() string {
 	if env := os.Getenv("WALSPOOL_ADDR"); env != "" {
 		return env
 	}
-	return "http://127.0.0.1:8080"
+	return "http://127.0.0.1:9099"
 }
