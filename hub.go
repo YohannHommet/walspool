@@ -77,6 +77,26 @@ type subscriber struct {
 	closed bool
 }
 
+// slotLinks stores bidirectional integral cursors for each slot of the ring buffer.
+// Memory size: exactly 16 bytes (4 x int32).
+// Optimal cache density: exactly 4 structures per 64-byte CPU cache line (64 / 16 = 4).
+// Sentinel value: -1 (identifying absence of link or chain boundary).
+type slotLinks struct {
+	prevTrace   int32
+	nextTrace   int32
+	prevService int32
+	nextService int32
+}
+
+// indexSpan maintains navigation boundaries (head and tail) and active count for a key.
+// Memory size: exactly 12 bytes (3 x int32), aligned on 4/8 bytes.
+// Stored directly by value in Go hash map buckets without heap escape pointer.
+type indexSpan struct {
+	head  int32
+	tail  int32
+	count int32
+}
+
 // MemoryLogHub is the high-performance in-memory implementation of LogHub.
 // It maintains a fixed-size ring buffer with O(1) append and eviction,
 // alongside secondary indices by trace_id and service with zero-leak pruning.
@@ -110,8 +130,9 @@ type MemoryLogHub struct {
 	// Ligne de cache 6+ : Metadonnees de configuration et structures froides / dominante lecture
 	capacity    int
 	entries     []*LogEntry
-	byTraceID   map[string][]*LogEntry
-	byService   map[string][]*LogEntry
+	links       []slotLinks
+	byTraceID   map[string]indexSpan
+	byService   map[string]indexSpan
 	subscribers map[uint64]*subscriber
 	nextSubID   uint64
 	closed      bool
@@ -125,11 +146,21 @@ func NewMemoryLogHub(capacity int) *MemoryLogHub {
 	if capacity <= 0 {
 		capacity = DefaultHubCapacity
 	}
+	links := make([]slotLinks, capacity)
+	for i := range links {
+		links[i] = slotLinks{
+			prevTrace:   -1,
+			nextTrace:   -1,
+			prevService: -1,
+			nextService: -1,
+		}
+	}
 	return &MemoryLogHub{
 		capacity:    capacity,
 		entries:     make([]*LogEntry, capacity),
-		byTraceID:   make(map[string][]*LogEntry),
-		byService:   make(map[string][]*LogEntry),
+		links:       links,
+		byTraceID:   make(map[string]indexSpan),
+		byService:   make(map[string]indexSpan),
 		subscribers: make(map[uint64]*subscriber),
 	}
 }
@@ -141,6 +172,124 @@ func copyEntry(item *LogEntry) LogEntry {
 		copy(cp.Payload, item.Payload)
 	}
 	return cp
+}
+
+func (h *MemoryLogHub) linkTrace(pos int32, traceID string) {
+	if traceID == "" {
+		h.links[pos].prevTrace = -1
+		h.links[pos].nextTrace = -1
+		return
+	}
+	span, exists := h.byTraceID[traceID]
+	if !exists {
+		h.links[pos].prevTrace = -1
+		h.links[pos].nextTrace = -1
+		h.byTraceID[traceID] = indexSpan{head: pos, tail: pos, count: 1}
+		return
+	}
+	oldTail := span.tail
+	h.links[oldTail].nextTrace = pos
+	h.links[pos].prevTrace = oldTail
+	h.links[pos].nextTrace = -1
+	span.tail = pos
+	span.count++
+	h.byTraceID[traceID] = span
+}
+
+func (h *MemoryLogHub) linkService(pos int32, service string) {
+	if service == "" {
+		h.links[pos].prevService = -1
+		h.links[pos].nextService = -1
+		return
+	}
+	span, exists := h.byService[service]
+	if !exists {
+		h.links[pos].prevService = -1
+		h.links[pos].nextService = -1
+		h.byService[service] = indexSpan{head: pos, tail: pos, count: 1}
+		return
+	}
+	oldTail := span.tail
+	h.links[oldTail].nextService = pos
+	h.links[pos].prevService = oldTail
+	h.links[pos].nextService = -1
+	span.tail = pos
+	span.count++
+	h.byService[service] = span
+}
+
+func (h *MemoryLogHub) unlinkTrace(pos int32, traceID string) {
+	if traceID == "" {
+		return
+	}
+	span, ok := h.byTraceID[traceID]
+	if !ok {
+		return
+	}
+	if span.count <= 1 || (span.head == pos && span.tail == pos) {
+		delete(h.byTraceID, traceID)
+		h.links[pos].prevTrace = -1
+		h.links[pos].nextTrace = -1
+		return
+	}
+
+	prev := h.links[pos].prevTrace
+	next := h.links[pos].nextTrace
+
+	if prev != -1 {
+		h.links[prev].nextTrace = next
+	} else {
+		span.head = next
+	}
+
+	if next != -1 {
+		h.links[next].prevTrace = prev
+	} else {
+		span.tail = prev
+	}
+
+	span.count--
+	h.byTraceID[traceID] = span
+
+	h.links[pos].prevTrace = -1
+	h.links[pos].nextTrace = -1
+}
+
+func (h *MemoryLogHub) unlinkService(pos int32, service string) {
+	if service == "" {
+		return
+	}
+	span, ok := h.byService[service]
+	if !ok {
+		return
+	}
+	if span.count <= 1 || (span.head == pos && span.tail == pos) {
+		delete(h.byService, service)
+		h.links[pos].prevService = -1
+		h.links[pos].nextService = -1
+		return
+	}
+
+	prev := h.links[pos].prevService
+	next := h.links[pos].nextService
+
+	if prev != -1 {
+		h.links[prev].nextService = next
+	} else {
+		span.head = next
+	}
+
+	if next != -1 {
+		h.links[next].prevService = prev
+	} else {
+		span.tail = prev
+	}
+
+	span.count--
+	h.byService[service] = span
+
+	h.links[pos].prevService = -1
+	h.links[pos].nextService = -1
 }
 
 // Ingest indexes a log entry into the ring buffer and distributes to matching SSE subscribers.
@@ -186,75 +335,35 @@ func (h *MemoryLogHub) Ingest(entry LogEntry) error {
 	item := &entry
 	h.totalIngested++
 
-	// Circular Ring Buffer Eviction: O(1)
+	// Circular Ring Buffer Eviction: O(1) strict, zero copy, zero allocation
+	var pos int32
 	if h.count == h.capacity {
-		oldItem := h.entries[h.head]
-		h.entries[h.head] = nil // Release pointer for immediate GC eligibility
+		pos = int32(h.head)
+		oldItem := h.entries[pos]
+		h.entries[pos] = nil // Immediate pointer release for GC
 
-		// Prune from byTraceID index without memory leak
+		// Prune secondary indices without slice copy or reallocation
 		if oldItem != nil && oldItem.TraceID != "" {
-			traceList := h.byTraceID[oldItem.TraceID]
-			if len(traceList) > 0 && traceList[0] == oldItem {
-				// O(1) head advance: the evicted pointer is nil'd for GC, avoiding an O(n) sliding copy on this hot path.
-				traceList[0] = nil
-				traceList = traceList[1:]
-			} else {
-				for i, it := range traceList {
-					if it == oldItem {
-						traceList[i] = nil
-						copy(traceList[i:], traceList[i+1:])
-						traceList[len(traceList)-1] = nil
-						traceList = traceList[:len(traceList)-1]
-						break
-					}
-				}
-			}
-			if len(traceList) == 0 {
-				delete(h.byTraceID, oldItem.TraceID)
-			} else {
-				h.byTraceID[oldItem.TraceID] = traceList
-			}
+			h.unlinkTrace(pos, oldItem.TraceID)
 		}
-
-		// Prune from byService index without memory leak
 		if oldItem != nil && oldItem.Service != "" {
-			svcList := h.byService[oldItem.Service]
-			if len(svcList) > 0 && svcList[0] == oldItem {
-				// O(1) head advance (see byTraceID above); no O(n) sliding copy on the hot path.
-				svcList[0] = nil
-				svcList = svcList[1:]
-			} else {
-				for i, it := range svcList {
-					if it == oldItem {
-						svcList[i] = nil
-						copy(svcList[i:], svcList[i+1:])
-						svcList[len(svcList)-1] = nil
-						svcList = svcList[:len(svcList)-1]
-						break
-					}
-				}
-			}
-			if len(svcList) == 0 {
-				delete(h.byService, oldItem.Service)
-			} else {
-				h.byService[oldItem.Service] = svcList
-			}
+			h.unlinkService(pos, oldItem.Service)
 		}
 
-		h.entries[h.head] = item
+		h.entries[pos] = item
 		h.head = (h.head + 1) % h.capacity
 	} else {
-		pos := (h.head + h.count) % h.capacity
+		pos = int32((h.head + h.count) % h.capacity)
 		h.entries[pos] = item
 		h.count++
 	}
 
-	// Update secondary indices
+	// Update secondary indices in O(1)
 	if item.TraceID != "" {
-		h.byTraceID[item.TraceID] = append(h.byTraceID[item.TraceID], item)
+		h.linkTrace(pos, item.TraceID)
 	}
 	if item.Service != "" {
-		h.byService[item.Service] = append(h.byService[item.Service], item)
+		h.linkService(pos, item.Service)
 	}
 
 	// Copy subscriber snapshot under lock
@@ -316,12 +425,20 @@ func (h *MemoryLogHub) Query(q LogQuery) []LogEntry {
 	// Determine bounded allocation capacity based on available candidate count and limit
 	allocCap := limit
 	if qTraceID != "" {
-		if c := len(h.byTraceID[qTraceID]); c < allocCap {
-			allocCap = c
+		if span, ok := h.byTraceID[qTraceID]; ok {
+			if int(span.count) < allocCap {
+				allocCap = int(span.count)
+			}
+		} else {
+			return make([]LogEntry, 0)
 		}
 	} else if qService != "" {
-		if c := len(h.byService[qService]); c < allocCap {
-			allocCap = c
+		if span, ok := h.byService[qService]; ok {
+			if int(span.count) < allocCap {
+				allocCap = int(span.count)
+			}
+		} else {
+			return make([]LogEntry, 0)
 		}
 	} else {
 		if h.count < allocCap {
@@ -329,7 +446,7 @@ func (h *MemoryLogHub) Query(q LogQuery) []LogEntry {
 		}
 	}
 
-	// Stack buffer for bounded candidate matching (avoids swapping large LogEntry structs)
+	// Stack buffer for bounded candidate matching (avoids heap allocation for limit <= 128)
 	var stackBuf [128]*LogEntry
 	var matched []*LogEntry
 	if allocCap <= len(stackBuf) {
@@ -339,9 +456,9 @@ func (h *MemoryLogHub) Query(q LogQuery) []LogEntry {
 	}
 
 	if qTraceID != "" {
-		candidates := h.byTraceID[qTraceID]
-		for i := len(candidates) - 1; i >= 0 && len(matched) < limit; i-- {
-			item := candidates[i]
+		span := h.byTraceID[qTraceID]
+		for curr := span.tail; curr != -1 && len(matched) < limit; curr = h.links[curr].prevTrace {
+			item := h.entries[curr]
 			if item == nil {
 				continue
 			}
@@ -354,9 +471,9 @@ func (h *MemoryLogHub) Query(q LogQuery) []LogEntry {
 			matched = append(matched, item)
 		}
 	} else if qService != "" {
-		candidates := h.byService[qService]
-		for i := len(candidates) - 1; i >= 0 && len(matched) < limit; i-- {
-			item := candidates[i]
+		span := h.byService[qService]
+		for curr := span.tail; curr != -1 && len(matched) < limit; curr = h.links[curr].prevService {
+			item := h.entries[curr]
 			if item == nil {
 				continue
 			}
@@ -636,7 +753,7 @@ func scanString(b []byte, i int) (start, end, next int, hasEscape, ok bool) {
 
 // materializeString turns a scanned string range [start,end) into a Go string. The common escape-free
 // case is a single copy; an escaped value is decoded via strconv.Unquote on the full quoted token
-// b[start-1:end+1] — start-1/end index the opening/closing quotes, which scanString guarantees exist.
+// b[start-1:end+1]: start-1/end index the opening/closing quotes, which scanString guarantees exist.
 func materializeString(b []byte, start, end int, hasEscape bool) string {
 	if !hasEscape {
 		return string(b[start:end])

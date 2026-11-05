@@ -662,3 +662,144 @@ func TestHub_ConcurrentHighContention(t *testing.T) {
 	}
 }
 
+func TestHub_RingBufferOrderAfterEviction(t *testing.T) {
+	const capacity = 10
+	hub := walspool.NewMemoryLogHub(capacity)
+	defer hub.Close()
+
+	baseTime := time.Date(2026, 11, 5, 12, 0, 0, 0, time.UTC)
+	const totalEvents = 25
+
+	// Ingest 25 events interleaved between 2 services and 3 traces
+	for i := 1; i <= totalEvents; i++ {
+		svc := "billing"
+		if i%2 == 0 {
+			svc = "auth"
+		}
+		tr := fmt.Sprintf("tr-%d", (i%3)+1)
+		err := hub.Ingest(walspool.LogEntry{
+			ID:        uint64(i),
+			Topic:     "events",
+			Service:   svc,
+			TraceID:   tr,
+			Level:     "INFO",
+			Timestamp: baseTime.Add(time.Duration(i) * time.Second),
+			Payload:   json.RawMessage(fmt.Sprintf(`{"seq":%d}`, i)),
+		})
+		if err != nil {
+			t.Fatalf("failed to ingest event %d: %v", i, err)
+		}
+	}
+
+	stats := hub.Stats()
+	if stats.CurrentSize != capacity {
+		t.Fatalf("expected hub size %d, got %d", capacity, stats.CurrentSize)
+	}
+
+	// 15 elements evicted, leaving items 16 to 25
+	globalRes := hub.Query(walspool.LogQuery{Limit: 50})
+	if len(globalRes) != capacity {
+		t.Fatalf("expected %d results, got %d", capacity, len(globalRes))
+	}
+	for i, entry := range globalRes {
+		expectedID := uint64(16 + i)
+		if entry.ID != expectedID {
+			t.Fatalf("globalRes[%d] expected ID %d, got %d", i, expectedID, entry.ID)
+		}
+	}
+
+	// Query by trace tr-1: elements 16 to 25 with (i%3)+1 == 1: IDs 18, 21, 24
+	tr1Res := hub.Query(walspool.LogQuery{TraceID: "tr-1"})
+	if len(tr1Res) != 3 {
+		t.Fatalf("expected 3 entries for tr-1, got %d", len(tr1Res))
+	}
+	expectedTr1IDs := []uint64{18, 21, 24}
+	for i, entry := range tr1Res {
+		if entry.ID != expectedTr1IDs[i] {
+			t.Fatalf("tr-1 result[%d] expected ID %d, got %d", i, expectedTr1IDs[i], entry.ID)
+		}
+	}
+
+	// Query by service auth: even IDs in [16..25]: [16, 18, 20, 22, 24]
+	authRes := hub.Query(walspool.LogQuery{Service: "auth"})
+	if len(authRes) != 5 {
+		t.Fatalf("expected 5 entries for service auth, got %d", len(authRes))
+	}
+	expectedAuthIDs := []uint64{16, 18, 20, 22, 24}
+	for i, entry := range authRes {
+		if entry.ID != expectedAuthIDs[i] {
+			t.Fatalf("auth result[%d] expected ID %d, got %d", i, expectedAuthIDs[i], entry.ID)
+		}
+	}
+
+	// Test isolated key eviction
+	err := hub.Ingest(walspool.LogEntry{
+		ID:        999,
+		Topic:     "isolated",
+		Service:   "isolated-svc",
+		TraceID:   "isolated-tr",
+		Level:     "WARN",
+		Timestamp: baseTime.Add(100 * time.Second),
+	})
+	if err != nil {
+		t.Fatalf("failed to ingest isolated entry: %v", err)
+	}
+
+	isoRes := hub.Query(walspool.LogQuery{TraceID: "isolated-tr"})
+	if len(isoRes) != 1 {
+		t.Fatalf("expected 1 result for isolated-tr, got %d", len(isoRes))
+	}
+
+	// Overwrite ring buffer completely with capacity entries
+	for i := 1; i <= capacity; i++ {
+		_ = hub.Ingest(walspool.LogEntry{
+			ID:        uint64(1000 + i),
+			Topic:     "flood",
+			Service:   "flood-svc",
+			TraceID:   "flood-tr",
+			Level:     "INFO",
+			Timestamp: baseTime.Add(time.Duration(100+i) * time.Second),
+		})
+	}
+
+	// Isolated trace and service must now be completely evicted
+	isoResAfter := hub.Query(walspool.LogQuery{TraceID: "isolated-tr"})
+	if len(isoResAfter) != 0 {
+		t.Fatalf("expected 0 results for isolated-tr after eviction, got %d", len(isoResAfter))
+	}
+	isoSvcResAfter := hub.Query(walspool.LogQuery{Service: "isolated-svc"})
+	if len(isoSvcResAfter) != 0 {
+		t.Fatalf("expected 0 results for isolated-svc after eviction, got %d", len(isoSvcResAfter))
+	}
+}
+
+func TestHub_EvictionAllocationEfficiency(t *testing.T) {
+	const capacity = 1000
+	hub := walspool.NewMemoryLogHub(capacity)
+	defer hub.Close()
+
+	entry := walspool.LogEntry{
+		Topic:   "bench",
+		Service: "service-perf",
+		TraceID: "trace-perf",
+		Level:   "INFO",
+	}
+
+	// Pre-fill to 100% capacity
+	for i := 0; i < capacity; i++ {
+		_ = hub.Ingest(entry)
+	}
+
+	// Under saturation with existing trace and service keys,
+	// eviction must be O(1) with zero slice reallocations.
+	// Only the pointer to LogEntry (&entry) may allocate (1 alloc).
+	// With the legacy s[1:] slicing, append triggered growslice (3 allocs/op).
+	allocs := testing.AllocsPerRun(200, func() {
+		_ = hub.Ingest(entry)
+	})
+
+	if allocs > 1.0 {
+		t.Fatalf("expected at most 1 alloc per ingest on saturated buffer, got %f (slice reallocation detected)", allocs)
+	}
+}
+
