@@ -221,3 +221,48 @@ func BenchmarkHub_Ingest_SaturationWrapAround(b *testing.B) {
 		_ = hub.Ingest(entry)
 	}
 }
+
+// BenchmarkHubIngestSaturated measures sustained ingestion throughput and memory allocations
+// when the ring buffer is completely saturated across a realistic multi-service and multi-trace distribution.
+func BenchmarkHubIngestSaturated(b *testing.B) {
+	const ringCapacity = 10000
+	hub := walspool.NewMemoryLogHub(ringCapacity)
+	defer hub.Close()
+
+	const numServices = 10
+	const numTraces = 100
+
+	services := make([]string, numServices)
+	for i := range services {
+		services[i] = fmt.Sprintf("service-%d", i)
+	}
+	traces := make([]string, numTraces)
+	for i := range traces {
+		traces[i] = fmt.Sprintf("trace-%03d", i)
+	}
+
+	// Pre-fill to 100% capacity
+	for i := 0; i < ringCapacity; i++ {
+		svc := services[i%numServices]
+		tr := traces[i%numTraces]
+		_ = hub.Ingest(walspool.LogEntry{
+			Topic:   "bench.saturated",
+			Service: svc,
+			TraceID: tr,
+			Level:   "INFO",
+		})
+	}
+
+	b.ResetTimer()
+	b.ReportAllocs()
+	for i := 0; i < b.N; i++ {
+		svc := services[i%numServices]
+		tr := traces[i%numTraces]
+		_ = hub.Ingest(walspool.LogEntry{
+			Topic:   "bench.saturated",
+			Service: svc,
+			TraceID: tr,
+			Level:   "INFO",
+		})
+	}
+}
