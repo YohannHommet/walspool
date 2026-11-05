@@ -25,7 +25,7 @@ type Client struct {
 func NewClient(rawURL string) (*Client, error) {
 	addr := strings.TrimSpace(rawURL)
 	if addr == "" {
-		addr = "http://127.0.0.1:8080"
+		addr = "http://127.0.0.1:9099"
 	}
 	if !strings.Contains(addr, "://") {
 		addr = "http://" + addr

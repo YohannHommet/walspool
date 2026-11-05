@@ -17,7 +17,7 @@ func TestNewClient_URLNormalization(t *testing.T) {
 		{"127.0.0.1:8080", "http://127.0.0.1:8080", false},
 		{"localhost:9090/", "http://localhost:9090", false},
 		{"https://logs.internal:443", "https://logs.internal:443", false},
-		{"", "http://127.0.0.1:8080", false},
+		{"", "http://127.0.0.1:9099", false},
 		{"ftp://invalid.com", "", true},
 		{"file:///etc/passwd", "", true},
 	}
@@ -89,4 +89,18 @@ func containsSubstr(s, substr string) bool {
 		}
 	}
 	return false
+}
+
+func TestDefaultAddr(t *testing.T) {
+	// Without env override
+	t.Setenv("WALSPOOL_ADDR", "")
+	if got := defaultAddr(); got != "http://127.0.0.1:9099" {
+		t.Fatalf("expected defaultAddr() without env to be %q, got %q", "http://127.0.0.1:9099", got)
+	}
+
+	// With env override
+	t.Setenv("WALSPOOL_ADDR", "http://custom-sidecar:9199")
+	if got := defaultAddr(); got != "http://custom-sidecar:9199" {
+		t.Fatalf("expected defaultAddr() with env to be %q, got %q", "http://custom-sidecar:9199", got)
+	}
 }

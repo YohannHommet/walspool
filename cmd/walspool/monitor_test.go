@@ -120,7 +120,7 @@ func TestRenderFrame_HealthyAndDegraded(t *testing.T) {
 	var buf bytes.Buffer
 
 	// 1. Degraded when statsErr != nil
-	renderFrame(&buf, cfg, "http://localhost:8080", time.Now(), nil, errors.New("connection refused"), nil, 0, 0, nil, false, 80)
+	renderFrame(&buf, cfg, "http://localhost:9099", time.Now(), nil, errors.New("connection refused"), nil, 0, 0, nil, false, 80)
 	outDegraded := buf.String()
 	if !strings.Contains(outDegraded, "DISCONNECTED") || !strings.Contains(outDegraded, "Cannot connect to sidecar") {
 		t.Fatalf("expected disconnected state in degraded frame, got: %s", outDegraded)
@@ -142,7 +142,7 @@ func TestRenderFrame_HealthyAndDegraded(t *testing.T) {
 		sinkFlushesTotal:   210,
 	}
 	samples := []float64{100, 200, 300, 400}
-	renderFrame(&buf, cfg, "http://localhost:8080", time.Now(), stats, nil, snap, 350.5, 345.0, samples, false, 80)
+	renderFrame(&buf, cfg, "http://localhost:9099", time.Now(), stats, nil, snap, 350.5, 345.0, samples, false, 80)
 	outHealthy := buf.String()
 
 	if !strings.Contains(outHealthy, "HEALTHY") {
