@@ -19,3 +19,4 @@ __pycache__/
 
 # Local review/plan scratch (never committed)
 .sdlc/
+.walspool/squad/
