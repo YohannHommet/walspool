@@ -26,7 +26,7 @@ func makeRaw(f *os.File) (*rawTerminalState, error) {
 	}
 	fd := int(f.Fd())
 	var oldState syscall.Termios
-	if _, _, err := syscall.Syscall(syscall.SYS_IOCTL, uintptr(fd), uintptr(syscall.TCGETS), uintptr(unsafe.Pointer(&oldState))); err != 0 {
+	if _, _, err := syscall.Syscall(syscall.SYS_IOCTL, uintptr(fd), uintptr(ioTCGETS), uintptr(unsafe.Pointer(&oldState))); err != 0 {
 		return nil, err
 	}
 
@@ -35,7 +35,7 @@ func makeRaw(f *os.File) (*rawTerminalState, error) {
 	newState.Cc[syscall.VMIN] = 0  // non-blocking read
 	newState.Cc[syscall.VTIME] = 0 // immediate return
 
-	if _, _, err := syscall.Syscall(syscall.SYS_IOCTL, uintptr(fd), uintptr(syscall.TCSETS), uintptr(unsafe.Pointer(&newState))); err != 0 {
+	if _, _, err := syscall.Syscall(syscall.SYS_IOCTL, uintptr(fd), uintptr(ioTCSETS), uintptr(unsafe.Pointer(&newState))); err != 0 {
 		return nil, err
 	}
 
@@ -46,7 +46,7 @@ func restoreTerminal(state *rawTerminalState) {
 	if state == nil {
 		return
 	}
-	_, _, _ = syscall.Syscall(syscall.SYS_IOCTL, uintptr(state.fd), uintptr(syscall.TCSETS), uintptr(unsafe.Pointer(&state.termios)))
+	_, _, _ = syscall.Syscall(syscall.SYS_IOCTL, uintptr(state.fd), uintptr(ioTCSETS), uintptr(unsafe.Pointer(&state.termios)))
 }
 
 func getTerminalSize(f *os.File) (int, int) {

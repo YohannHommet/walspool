@@ -1,10 +1,6 @@
 ---
 name: walspool-squad
-description: >-
-  Orchestrates a dedicated crew of 6 specialized AI agents (Spec Analyst,
-  Architect Planner, TDD Craftsman, Sensor Verifier, Quality Validator, and
-  Retro Specialist) to sequentially implement roadmap issues for Walspool
-  tracked in GitHub Epic #27.
+description: Orchestrates a dedicated crew of 6 specialized AI agents (Spec Analyst, Architect Planner, TDD Craftsman, Sensor Verifier, Quality Validator, and Retro Specialist) to sequentially implement roadmap issues for Walspool tracked in GitHub Epic #27. Use when implementing Walspool roadmap issues.
 ---
 
 # Walspool Squad : Équipe Multi-Agents d'Ingénierie Autonome
@@ -121,3 +117,31 @@ python3 .agents/skills/walspool-squad/scripts/orchestrate.py complete <ISSUE_NUM
 - [agents_manifest.md](./references/agents_manifest.md) : Fiches complètes des 6 sous-agents.
 - [prompts_templates.md](./references/prompts_templates.md) : Prompts prêts à l'emploi pour chaque sous-agent.
 - [issue_10_dry_run.md](./examples/issue_10_dry_run.md) : Exemple pas à pas de l'Issue #10.
+
+---
+
+## Common Rationalizations
+
+| Rationalization | Reality |
+|---|---|
+| "I can skip the human validation gate for small issues" | The Human Gate before TDD implementation is mandatory. Skipping it risks architectural rework and wasted tokens. |
+| "I will write the implementation and then add tests" | Strict TDD (Red -> Green -> Refactor) is non-negotiable. Tests prove the bug/feature before code is modified. |
+| "A full test suite pass is enough; I don't need the quality checker" | Tests only check logic; `quality_checker.py` catches forbidden moves, t.Skip, and architectural leaks. |
+
+## Red Flags
+
+- Modifying code before the user has explicitly confirmed "Go" at the Human Validation Gate
+- Bypassing `orchestrate.py verify` or ignoring `./scripts/verify.sh`
+- Introducing third-party dependencies into the Walspool core engine (`ports.go` / `engine.go`)
+- Committing code with skipped tests (`t.Skip`) or unresolved `TODO` comments
+- Iterating more than 3 times on a failed TDD cycle without stopping to consult the user
+
+## Verification
+
+Before declaring an issue complete:
+
+- [ ] Issue specification and architectural plan approved by the user
+- [ ] Failing test written first (Red) and observed failing
+- [ ] Implementation passes all unit tests and benchmarks (`verify.sh`)
+- [ ] `quality_checker.py` reports zero forbidden moves
+- [ ] Issue closed and branch cleanly merged into `main` via `orchestrate.py complete`

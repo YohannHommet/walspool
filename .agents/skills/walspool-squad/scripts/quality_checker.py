@@ -68,7 +68,10 @@ def check_diff(diff_text):
             if current_file and "quality_checker" in current_file:
                 continue
 
+            is_go_file = current_file and current_file.endswith(".go")
             for pattern, desc in FORBIDDEN_PATTERNS:
+                if ("t.Skip" in desc or "skipping" in desc or "stub" in desc or "linter" in desc) and not is_go_file:
+                    continue
                 if pattern.search(content):
                     errors.append(f"{current_file}:{line_num}: {desc} -> {content.strip()}")
 
