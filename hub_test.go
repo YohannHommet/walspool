@@ -609,3 +609,56 @@ func TestHub_OnIngested_ObserverContract(t *testing.T) {
 		t.Fatalf("expected entry ID 99, got %d", res[0].ID)
 	}
 }
+
+func TestHub_ConcurrentHighContention(t *testing.T) {
+	hub := walspool.NewMemoryLogHub(1000)
+	defer hub.Close()
+
+	// Saturated subscriber without reader to trigger droppedEvents (buffer is 256)
+	_, subCh, unsub := hub.Subscribe(walspool.StreamFilter{})
+	defer unsub()
+
+	const numWorkers = 32
+	const itersPerWorker = 500
+
+	var wg sync.WaitGroup
+	wg.Add(numWorkers)
+
+	for w := 0; w < numWorkers; w++ {
+		go func(workerID int) {
+			defer wg.Done()
+			for i := 0; i < itersPerWorker; i++ {
+				entry := walspool.LogEntry{
+					Topic:   "bench.contention",
+					Service: fmt.Sprintf("svc-%d", workerID%4),
+					TraceID: fmt.Sprintf("tr-%d-%d", workerID, i),
+					Payload: json.RawMessage(`{"status":"ok"}`),
+				}
+				if err := hub.Ingest(entry); err != nil {
+					t.Errorf("worker %d ingest failed: %v", workerID, err)
+					return
+				}
+			}
+		}(w)
+	}
+
+	wg.Wait()
+
+	stats := hub.Stats()
+	if stats.TotalIngested != numWorkers*itersPerWorker {
+		t.Fatalf("expected TotalIngested %d, got %d", numWorkers*itersPerWorker, stats.TotalIngested)
+	}
+	if stats.DroppedEvents == 0 {
+		t.Fatalf("expected DroppedEvents > 0 under saturated subscriber, got 0")
+	}
+
+	// Drain subscriber channel to prevent leaks
+	for {
+		select {
+		case <-subCh:
+		default:
+			return
+		}
+	}
+}
+

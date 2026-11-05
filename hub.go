@@ -80,21 +80,38 @@ type subscriber struct {
 // MemoryLogHub is the high-performance in-memory implementation of LogHub.
 // It maintains a fixed-size ring buffer with O(1) append and eviction,
 // alongside secondary indices by trace_id and service with zero-leak pruning.
+// Hot atomic counters, cursors, and synchronization primitives are explicitly
+// padded to 64-byte boundaries to eliminate multi-core CPU false sharing.
 type MemoryLogHub struct {
+	// Ligne de cache 0 (64 octets) : Verrou RWMutex de synchronisation
 	mu sync.RWMutex
+	_  [40]byte // Padding: 24 + 40 = 64 octets
 
-	capacity int
-	entries  []*LogEntry
-	head     int
-	count    int
+	// Ligne de cache 1 (64 octets) : Curseur de tete du tampon circulaire
+	head int
+	_    [56]byte // Padding: 8 + 56 = 64 octets
 
-	seqID         uint64
+	// Ligne de cache 2 (64 octets) : Nombre d'elements actifs dans le tampon
+	count int
+	_     [56]byte // Padding: 8 + 56 = 64 octets
+
+	// Ligne de cache 3 (64 octets) : Compteur de sequence d'evenements (atomique)
+	seqID uint64
+	_     [56]byte // Padding: 8 + 56 = 64 octets
+
+	// Ligne de cache 4 (64 octets) : Compteur cumulatif d'evenements ingeres
 	totalIngested uint64
+	_             [56]byte // Padding: 8 + 56 = 64 octets
+
+	// Ligne de cache 5 (64 octets) : Compteur cumulatif d'evenements SSE abandonnes (atomique)
 	droppedEvents uint64
+	_             [56]byte // Padding: 8 + 56 = 64 octets
 
-	byTraceID map[string][]*LogEntry
-	byService map[string][]*LogEntry
-
+	// Ligne de cache 6+ : Metadonnees de configuration et structures froides / dominante lecture
+	capacity    int
+	entries     []*LogEntry
+	byTraceID   map[string][]*LogEntry
+	byService   map[string][]*LogEntry
 	subscribers map[uint64]*subscriber
 	nextSubID   uint64
 	closed      bool
