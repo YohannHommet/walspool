@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"encoding/json"
@@ -333,6 +334,55 @@ func (s *SidecarServer) IsShuttingDown() bool {
 	return s.shuttingDown.Load()
 }
 
+const (
+	// maxNDJSONLineBytes plafonne strictement chaque ligne a 1 Mo pour eliminer tout risque d'attaque DoS OOM.
+	maxNDJSONLineBytes = 1024 * 1024 // 1 MiB
+
+	// ndjsonReaderSize definit la taille du tampon interne du bufio.Reader pour le fast path zero-alloc.
+	ndjsonReaderSize = 64 * 1024 // 64 KiB
+)
+
+// ndjsonReaderPool mutualise les instances de bufio.Reader dimensionnees a 64 Ko.
+var ndjsonReaderPool = sync.Pool{
+	New: func() any {
+		return bufio.NewReaderSize(nil, ndjsonReaderSize)
+	},
+}
+
+// ndjsonBufferPool mutualise les accumulateurs pour les lignes longues (> 64 Ko et <= 1 Mo).
+var ndjsonBufferPool = sync.Pool{
+	New: func() any {
+		b := make([]byte, 0, ndjsonReaderSize)
+		return &b
+	},
+}
+
+// ndjsonLineEnvelope represente les attributs optionnels extraits a la racine d'une ligne JSON.
+type ndjsonLineEnvelope struct {
+	Topic    string          `json:"topic"`
+	Payload  json.RawMessage `json:"payload"`
+	TraceID  string          `json:"trace_id"`
+	TraceId  string          `json:"traceId"`
+	Service  string          `json:"service"`
+	Level    string          `json:"level"`
+	Severity string          `json:"severity"`
+}
+
+// EnqueueNDJSONResponse definit le format de reponse JSON final du endpoint streaming.
+type EnqueueNDJSONResponse struct {
+	Status   string `json:"status"`
+	Ingested int    `json:"ingested"`
+	Enqueued int    `json:"enqueued"`
+	Errors   int    `json:"errors"`
+	Bytes    int    `json:"bytes"`
+}
+
+// isNDJSON detecte si le Content-Type indique un flux Newline Delimited JSON ou JSON Lines.
+func isNDJSON(contentType string) bool {
+	ct := strings.ToLower(strings.TrimSpace(contentType))
+	return strings.Contains(ct, "ndjson") || strings.Contains(ct, "jsonl")
+}
+
 type EnqueueRequest struct {
 	Topic   string          `json:"topic"`
 	Payload json.RawMessage `json:"payload"`
@@ -491,9 +541,57 @@ func (s *SidecarServer) handleMetrics(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// enrichPayloadMetadata injects trace_id, service, and level metadata into an existing JSON object payload
+// if those keys are not already present. If the payload is not a JSON object or if no metadata
+// is supplied, the payload is returned unchanged.
+func enrichPayloadMetadata(payload []byte, traceID, service, level string) []byte {
+	if traceID == "" && service == "" && level == "" {
+		return payload
+	}
+	trimmed := bytes.TrimSpace(payload)
+	if len(trimmed) == 0 || trimmed[0] != '{' {
+		return payload
+	}
+	// UseNumber avoids float64 rounding of 64-bit trace IDs / nanosecond timestamps on re-marshal.
+	decoder := json.NewDecoder(bytes.NewReader(trimmed))
+	decoder.UseNumber()
+	var obj map[string]any
+	if err := decoder.Decode(&obj); err != nil || obj == nil {
+		return payload
+	}
+	modified := false
+	if traceID != "" && obj["trace_id"] == nil && obj["traceId"] == nil {
+		obj["trace_id"] = traceID
+		modified = true
+	}
+	if service != "" && obj["service"] == nil {
+		obj["service"] = service
+		modified = true
+	}
+	if level != "" && obj["level"] == nil && obj["severity"] == nil {
+		obj["level"] = level
+		modified = true
+	}
+	if modified {
+		if merged, err := json.Marshal(obj); err == nil {
+			return merged
+		}
+	}
+	return payload
+}
+
+// enrichJSONPayload is an alias for backward compatibility within sidecar.
+var enrichJSONPayload = enrichPayloadMetadata
+
 func (s *SidecarServer) handleEnqueue(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	contentType := r.Header.Get("Content-Type")
+	if isNDJSON(contentType) {
+		s.handleEnqueueNDJSON(w, r)
 		return
 	}
 
@@ -573,44 +671,254 @@ func (s *SidecarServer) handleEnqueue(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// enrichPayloadMetadata injects trace_id, service, and level metadata into an existing JSON object payload
-// if those keys are not already present.
-func enrichPayloadMetadata(payload []byte, traceID, service, level string) []byte {
-	if traceID == "" && service == "" && level == "" {
-		return payload
-	}
-	trimmed := bytes.TrimSpace(payload)
-	if len(trimmed) == 0 || trimmed[0] != '{' {
-		return payload
-	}
+func (s *SidecarServer) handleEnqueueNDJSON(w http.ResponseWriter, r *http.Request) {
+	strictMode := strings.EqualFold(r.URL.Query().Get("strict"), "true") || strings.EqualFold(r.Header.Get("X-Strict"), "true")
 
-	decoder := json.NewDecoder(bytes.NewReader(trimmed))
-	decoder.UseNumber()
-	var obj map[string]any
-	if err := decoder.Decode(&obj); err != nil || obj == nil {
-		return payload
-	}
+	headerTopic := strings.TrimSpace(r.Header.Get("X-Topic"))
+	headerService := strings.TrimSpace(r.Header.Get("X-Service"))
+	headerTraceID := strings.TrimSpace(r.Header.Get("X-Trace-ID"))
+	headerLevel := strings.TrimSpace(r.Header.Get("X-Log-Level"))
 
-	modified := false
-	if traceID != "" && obj["trace_id"] == nil && obj["traceId"] == nil {
-		obj["trace_id"] = traceID
-		modified = true
-	}
-	if service != "" && obj["service"] == nil {
-		obj["service"] = service
-		modified = true
-	}
-	if level != "" && obj["level"] == nil && obj["severity"] == nil {
-		obj["level"] = level
-		modified = true
-	}
+	reader := ndjsonReaderPool.Get().(*bufio.Reader)
+	reader.Reset(r.Body)
+	defer func() {
+		reader.Reset(nil)
+		ndjsonReaderPool.Put(reader)
+	}()
 
-	if modified {
-		if merged, err := json.Marshal(obj); err == nil {
-			return merged
+	var bufPtr *[]byte
+	defer func() {
+		if bufPtr != nil {
+			*bufPtr = (*bufPtr)[:0]
+			ndjsonBufferPool.Put(bufPtr)
+			bufPtr = nil
+		}
+	}()
+
+	ingested := 0
+	errorsCount := 0
+	totalBytes := 0
+	lineNum := 0
+
+	for {
+		select {
+		case <-r.Context().Done():
+			return
+		default:
+		}
+
+		segment, isPrefix, err := reader.ReadLine()
+		if err != nil && err != io.EOF {
+			break
+		}
+
+		if len(segment) > 0 || isPrefix {
+			if bufPtr == nil {
+				if isPrefix {
+					bufPtr = ndjsonBufferPool.Get().(*[]byte)
+					*bufPtr = (*bufPtr)[:0]
+					*bufPtr = append(*bufPtr, segment...)
+					if len(*bufPtr) > maxNDJSONLineBytes {
+						w.Header().Set("Content-Type", "application/json")
+						w.WriteHeader(http.StatusRequestEntityTooLarge)
+						_, _ = w.Write([]byte(`{"error":"line_too_long","message":"line exceeds maximum allowed length of 1048576 bytes"}` + "\n"))
+						return
+					}
+					continue
+				}
+			} else {
+				*bufPtr = append(*bufPtr, segment...)
+				if len(*bufPtr) > maxNDJSONLineBytes {
+					w.Header().Set("Content-Type", "application/json")
+					w.WriteHeader(http.StatusRequestEntityTooLarge)
+					_, _ = w.Write([]byte(`{"error":"line_too_long","message":"line exceeds maximum allowed length of 1048576 bytes"}` + "\n"))
+					return
+				}
+				if isPrefix {
+					continue
+				}
+			}
+		}
+
+		var line []byte
+		if bufPtr != nil {
+			line = *bufPtr
+		} else {
+			line = segment
+		}
+
+		if err == io.EOF && len(line) == 0 {
+			break
+		}
+
+		lineNum++
+		trimmed := bytes.TrimSpace(line)
+
+		if bufPtr != nil {
+			*bufPtr = (*bufPtr)[:0]
+			ndjsonBufferPool.Put(bufPtr)
+			bufPtr = nil
+		}
+
+		if len(trimmed) == 0 {
+			if err == io.EOF {
+				break
+			}
+			continue
+		}
+
+		if !json.Valid(trimmed) {
+			if strictMode {
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(http.StatusBadRequest)
+				_ = json.NewEncoder(w).Encode(map[string]any{
+					"error":   "invalid_json_line",
+					"line":    lineNum,
+					"message": "invalid json payload",
+				})
+				return
+			}
+			errorsCount++
+			if err == io.EOF {
+				break
+			}
+			continue
+		}
+
+		var env ndjsonLineEnvelope
+		_ = json.Unmarshal(trimmed, &env)
+
+		traceID := env.TraceID
+		if traceID == "" {
+			traceID = env.TraceId
+		}
+		if traceID == "" {
+			traceID = headerTraceID
+		}
+
+		service := env.Service
+		if service == "" {
+			service = headerService
+		}
+
+		level := env.Level
+		if level == "" {
+			level = env.Severity
+		}
+		if level == "" {
+			level = headerLevel
+		}
+		if level == "" {
+			level = "INFO"
+		}
+
+		topic := env.Topic
+		if topic == "" {
+			topic = headerTopic
+		}
+		if topic == "" {
+			topic = service
+		}
+		if service == "" && topic != "" {
+			service = topic
+		}
+
+		if topic == "" {
+			if strictMode {
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(http.StatusBadRequest)
+				_ = json.NewEncoder(w).Encode(map[string]any{
+					"error":   "topic_missing",
+					"line":    lineNum,
+					"message": "topic cannot be empty",
+				})
+				return
+			}
+			errorsCount++
+			if err == io.EOF {
+				break
+			}
+			continue
+		}
+
+		var payloadBytes []byte
+		hasPayload := len(env.Payload) > 0 && !bytes.Equal(bytes.TrimSpace(env.Payload), []byte("null"))
+		if hasPayload {
+			payloadBytes = []byte(env.Payload)
+		} else {
+			payloadBytes = trimmed
+		}
+		payloadBytes = enrichJSONPayload(payloadBytes, traceID, service, level)
+
+		enqueueErr := s.spooler.Enqueue(r.Context(), topic, payloadBytes)
+		if enqueueErr != nil {
+			if errors.Is(enqueueErr, walspool.ErrSpoolFull) {
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(http.StatusServiceUnavailable)
+				_, _ = w.Write([]byte(`{"error":"spool_full","message":"storage quota exceeded, backpressure active"}` + "\n"))
+				return
+			}
+			if errors.Is(enqueueErr, walspool.ErrPreconditionViolated) {
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(http.StatusBadRequest)
+				_, _ = w.Write([]byte(fmt.Sprintf(`{"error":"precondition_failed","message":%q}`+"\n", enqueueErr.Error())))
+				return
+			}
+			if r.Context().Err() != nil {
+				return
+			}
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusInternalServerError)
+			_, _ = w.Write([]byte(fmt.Sprintf(`{"error":"internal_error","message":%q}`+"\n", enqueueErr.Error())))
+			return
+		}
+
+		if s.metrics != nil {
+			s.metrics.RecordIngested(topic)
+		}
+		ingested++
+		totalBytes += len(payloadBytes)
+
+		if err == io.EOF {
+			break
 		}
 	}
-	return payload
+
+	if ingested == 0 && errorsCount == 0 {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"error":   "empty_body",
+			"message": "no records found in request",
+		})
+		return
+	}
+
+	if ingested == 0 && errorsCount > 0 {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"error":   "all_lines_invalid",
+			"message": "no valid records ingested",
+			"errors":  errorsCount,
+		})
+		return
+	}
+
+	status := "accepted"
+	if errorsCount > 0 {
+		status = "partial_success"
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusAccepted)
+	_ = json.NewEncoder(w).Encode(EnqueueNDJSONResponse{
+		Status:   status,
+		Ingested: ingested,
+		Enqueued: ingested,
+		Errors:   errorsCount,
+		Bytes:    totalBytes,
+	})
 }
 
 func (s *SidecarServer) handleEnqueueBatch(w http.ResponseWriter, r *http.Request) {
