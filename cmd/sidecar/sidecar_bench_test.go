@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -35,7 +36,7 @@ func setupBenchServer(b *testing.B) (*httptest.Server, *http.Client, *walspool.M
 		b.Fatalf("failed to create temp bench dir: %v", err)
 	}
 
-	storage, err := walspool.NewFileStorageEngineWithOptions(dir, b.N*10+200000, walspool.DefaultFileStorageOptions())
+	storage, err := walspool.NewFileStorageEngineWithOptions(dir, b.N*1000+1000000, walspool.DefaultFileStorageOptions())
 	if err != nil {
 		b.Fatalf("failed to initialize storage: %v", err)
 	}
@@ -167,4 +168,155 @@ func BenchmarkSidecar_HTTP_QueryLogs_TraceID(b *testing.B) {
 		_, _ = io.Copy(io.Discard, resp.Body)
 		_ = resp.Body.Close()
 	}
+}
+
+// BenchmarkSidecar_EnqueueBatch_100 measures throughput and latency for batches of 100 records.
+func BenchmarkSidecar_EnqueueBatch_100(b *testing.B) {
+	ts, client, _, cleanup := setupBenchServer(b)
+	defer cleanup()
+
+	url := ts.URL + "/v1/enqueue/batch"
+	batch := make([]EnqueueRequest, 100)
+	for i := 0; i < 100; i++ {
+		batch[i] = EnqueueRequest{
+			Topic:   "telemetry.batch",
+			Payload: json.RawMessage(`{"user_id":42,"status":"ok"}`),
+			TraceID: "tr-batch-100",
+			Service: "api",
+			Level:   "INFO",
+		}
+	}
+	body, _ := json.Marshal(batch)
+	b.SetBytes(int64(len(body)))
+
+	b.ResetTimer()
+	b.ReportAllocs()
+	for i := 0; i < b.N; i++ {
+		req, _ := http.NewRequest(http.MethodPost, url, bytes.NewReader(body))
+		req.Header.Set("Content-Type", "application/json")
+		resp, err := client.Do(req)
+		if err != nil {
+			b.Fatalf("HTTP request failed: %v", err)
+		}
+		if resp.StatusCode != http.StatusOK {
+			b.Fatalf("unexpected status %d", resp.StatusCode)
+		}
+		_, _ = io.Copy(io.Discard, resp.Body)
+		_ = resp.Body.Close()
+	}
+}
+
+// BenchmarkSidecar_EnqueueBatch_1000 measures maximum throughput for batches of 1000 records.
+func BenchmarkSidecar_EnqueueBatch_1000(b *testing.B) {
+	ts, client, _, cleanup := setupBenchServer(b)
+	defer cleanup()
+
+	url := ts.URL + "/v1/enqueue/batch"
+	batch := make([]EnqueueRequest, 1000)
+	for i := 0; i < 1000; i++ {
+		batch[i] = EnqueueRequest{
+			Topic:   "telemetry.batch1000",
+			Payload: json.RawMessage(`{"user_id":42,"status":"ok"}`),
+			TraceID: "tr-batch-1000",
+			Service: "api",
+			Level:   "INFO",
+		}
+	}
+	body, _ := json.Marshal(batch)
+	b.SetBytes(int64(len(body)))
+
+	b.ResetTimer()
+	b.ReportAllocs()
+	for i := 0; i < b.N; i++ {
+		req, _ := http.NewRequest(http.MethodPost, url, bytes.NewReader(body))
+		req.Header.Set("Content-Type", "application/json")
+		resp, err := client.Do(req)
+		if err != nil {
+			b.Fatalf("HTTP request failed: %v", err)
+		}
+		if resp.StatusCode != http.StatusOK {
+			b.Fatalf("unexpected status %d", resp.StatusCode)
+		}
+		_, _ = io.Copy(io.Discard, resp.Body)
+		_ = resp.Body.Close()
+	}
+}
+
+// BenchmarkSidecar_HTTP_EnqueueBatch_Sequential measures throughput across various batch sizes.
+func BenchmarkSidecar_HTTP_EnqueueBatch_Sequential(b *testing.B) {
+	sizes := []int{10, 100, 500, 1000}
+	for _, size := range sizes {
+		b.Run(fmt.Sprintf("BatchSize_%d", size), func(b *testing.B) {
+			ts, client, _, cleanup := setupBenchServer(b)
+			defer cleanup()
+
+			url := ts.URL + "/v1/enqueue/batch"
+			batch := make([]EnqueueRequest, size)
+			for i := 0; i < size; i++ {
+				batch[i] = EnqueueRequest{
+					Topic:   "telemetry.batch",
+					Payload: json.RawMessage(`{"user_id":42,"status":"ok"}`),
+					TraceID: "tr-batch-seq",
+					Service: "api",
+					Level:   "INFO",
+				}
+			}
+			body, _ := json.Marshal(batch)
+			b.SetBytes(int64(len(body)))
+
+			b.ResetTimer()
+			b.ReportAllocs()
+			for i := 0; i < b.N; i++ {
+				req, _ := http.NewRequest(http.MethodPost, url, bytes.NewReader(body))
+				req.Header.Set("Content-Type", "application/json")
+				resp, err := client.Do(req)
+				if err != nil {
+					b.Fatalf("HTTP request failed: %v", err)
+				}
+				if resp.StatusCode != http.StatusOK {
+					b.Fatalf("unexpected status %d", resp.StatusCode)
+				}
+				_, _ = io.Copy(io.Discard, resp.Body)
+				_ = resp.Body.Close()
+			}
+		})
+	}
+}
+
+// BenchmarkSidecar_HTTP_EnqueueBatch_Parallel measures concurrent batch ingestion capacity.
+func BenchmarkSidecar_HTTP_EnqueueBatch_Parallel(b *testing.B) {
+	ts, client, _, cleanup := setupBenchServer(b)
+	defer cleanup()
+
+	url := ts.URL + "/v1/enqueue/batch"
+	batch := make([]EnqueueRequest, 100)
+	for i := 0; i < 100; i++ {
+		batch[i] = EnqueueRequest{
+			Topic:   "telemetry.batch.parallel",
+			Payload: json.RawMessage(`{"user_id":99,"status":"ok"}`),
+			TraceID: "tr-batch-par",
+			Service: "api",
+			Level:   "INFO",
+		}
+	}
+	body, _ := json.Marshal(batch)
+	b.SetBytes(int64(len(body)))
+
+	b.ResetTimer()
+	b.ReportAllocs()
+	b.RunParallel(func(pb *testing.PB) {
+		for pb.Next() {
+			req, _ := http.NewRequest(http.MethodPost, url, bytes.NewReader(body))
+			req.Header.Set("Content-Type", "application/json")
+			resp, err := client.Do(req)
+			if err != nil {
+				b.Fatalf("parallel batch HTTP request failed: %v", err)
+			}
+			if resp.StatusCode != http.StatusOK {
+				b.Fatalf("unexpected status: %d", resp.StatusCode)
+			}
+			_, _ = io.Copy(io.Discard, resp.Body)
+			_ = resp.Body.Close()
+		}
+	})
 }

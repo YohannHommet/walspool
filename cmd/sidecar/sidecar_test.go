@@ -1736,3 +1736,554 @@ func TestSidecar_ConfigRejectsMalformedEnvInt(t *testing.T) {
 		})
 	}
 }
+
+func setupBatchTestServer(t *testing.T, storageCapacity int) (*SidecarServer, http.Handler, *mockSinkServer, *walspool.MemoryLogHub, func()) {
+	t.Helper()
+	remoteMock := &mockSinkServer{}
+	remoteServer := httptest.NewServer(remoteMock)
+
+	if storageCapacity <= 0 {
+		storageCapacity = 2000
+	}
+	storage := walspool.NewMemoryStorageEngine(storageCapacity)
+	sink := &HTTPSink{
+		TargetURL:  remoteServer.URL,
+		HTTPClient: remoteServer.Client(),
+	}
+
+	cfg := walspool.DefaultConfig()
+	cfg.BatchSize = 50
+	cfg.FlushInterval = 20 * time.Millisecond
+
+	hub := walspool.NewMemoryLogHub(2000)
+	spool, err := walspool.New(cfg, storage, sink, nil, walspool.WithObserver(hub))
+	if err != nil {
+		remoteServer.Close()
+		t.Fatalf("failed to initialize spooler: %v", err)
+	}
+
+	sidecar := NewSidecarServer(spool, hub).WithStorage(storage)
+	routes := sidecar.Routes()
+
+	cleanup := func() {
+		remoteServer.Close()
+		_ = spool.Close()
+	}
+
+	return sidecar, routes, remoteMock, hub, cleanup
+}
+
+func TestBatchEnqueue_Success(t *testing.T) {
+	_, routes, remoteMock, _, cleanup := setupBatchTestServer(t, 2000)
+	defer cleanup()
+
+	batch := make([]EnqueueRequest, 50)
+	for i := 0; i < 50; i++ {
+		batch[i] = EnqueueRequest{
+			Topic:   fmt.Sprintf("topic.%d", i%5),
+			Payload: json.RawMessage(fmt.Sprintf(`{"index":%d,"data":"value_%d"}`, i, i)),
+			TraceID: fmt.Sprintf("tr-%d", i),
+			Service: "test-svc",
+			Level:   "INFO",
+		}
+	}
+
+	body, err := json.Marshal(batch)
+	if err != nil {
+		t.Fatalf("marshal failed: %v", err)
+	}
+
+	req := httptest.NewRequest(http.MethodPost, "/v1/enqueue/batch", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+	routes.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200 OK, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var resp BatchEnqueueResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("invalid json response: %v", err)
+	}
+
+	if resp.Status != "ok" {
+		t.Fatalf("expected status ok, got %q", resp.Status)
+	}
+	if resp.Enqueued != 50 {
+		t.Fatalf("expected enqueued 50, got %d", resp.Enqueued)
+	}
+	if resp.Size <= 0 {
+		t.Fatalf("expected positive size_bytes, got %d", resp.Size)
+	}
+
+	flushReq := httptest.NewRequest(http.MethodPost, "/flush", nil)
+	flushRec := httptest.NewRecorder()
+	routes.ServeHTTP(flushRec, flushReq)
+	if flushRec.Code != http.StatusOK {
+		t.Fatalf("flush failed: %d", flushRec.Code)
+	}
+
+	time.Sleep(50 * time.Millisecond)
+	remoteMock.mu.Lock()
+	defer remoteMock.mu.Unlock()
+
+	totalReceived := 0
+	for _, b := range remoteMock.received {
+		totalReceived += len(b)
+	}
+	if totalReceived != 50 {
+		t.Fatalf("expected 50 delivered records in sink, got %d", totalReceived)
+	}
+}
+
+func TestBatchEnqueue_AliasRoute(t *testing.T) {
+	_, routes, _, _, cleanup := setupBatchTestServer(t, 2000)
+	defer cleanup()
+
+	batch := make([]EnqueueRequest, 10)
+	for i := 0; i < 10; i++ {
+		batch[i] = EnqueueRequest{
+			Topic:   "alias.topic",
+			Payload: json.RawMessage(fmt.Sprintf(`{"index":%d}`, i)),
+		}
+	}
+	body, _ := json.Marshal(batch)
+
+	req := httptest.NewRequest(http.MethodPost, "/enqueue/batch", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+	routes.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200 OK, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var resp BatchEnqueueResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("invalid json response: %v", err)
+	}
+	if resp.Status != "ok" || resp.Enqueued != 10 {
+		t.Fatalf("unexpected response: %+v", resp)
+	}
+}
+
+func TestBatchEnqueue_HeaderInheritance(t *testing.T) {
+	_, routes, _, _, cleanup := setupBatchTestServer(t, 2000)
+	defer cleanup()
+
+	batch := []EnqueueRequest{
+		{
+			Topic:   "logs.auth",
+			Payload: json.RawMessage(`{"message":"login attempt"}`),
+		},
+		{
+			Topic:   "logs.auth",
+			Payload: json.RawMessage(`{"message":"login success"}`),
+		},
+	}
+	body, _ := json.Marshal(batch)
+
+	req := httptest.NewRequest(http.MethodPost, "/v1/enqueue/batch", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("X-Trace-ID", "tr-batch-inherited-42")
+	req.Header.Set("X-Service", "auth-service")
+	req.Header.Set("X-Log-Level", "WARN")
+	rec := httptest.NewRecorder()
+	routes.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200 OK, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	qreq := httptest.NewRequest(http.MethodGet, "/v1/logs?trace_id=tr-batch-inherited-42", nil)
+	qrec := httptest.NewRecorder()
+	routes.ServeHTTP(qrec, qreq)
+
+	if qrec.Code != http.StatusOK {
+		t.Fatalf("query logs failed: %d", qrec.Code)
+	}
+
+	var logs []walspool.LogEntry
+	if err := json.Unmarshal(qrec.Body.Bytes(), &logs); err != nil {
+		t.Fatalf("unmarshal logs failed: %v", err)
+	}
+	if len(logs) != 2 {
+		t.Fatalf("expected 2 logs for inherited trace_id, got %d", len(logs))
+	}
+	for i, l := range logs {
+		if l.TraceID != "tr-batch-inherited-42" {
+			t.Errorf("log %d: expected trace_id tr-batch-inherited-42, got %q", i, l.TraceID)
+		}
+		if l.Service != "auth-service" {
+			t.Errorf("log %d: expected service auth-service, got %q", i, l.Service)
+		}
+		if l.Level != "WARN" {
+			t.Errorf("log %d: expected level WARN, got %q", i, l.Level)
+		}
+	}
+}
+
+func TestBatchEnqueue_TopicFallback(t *testing.T) {
+	_, routes, _, hub, cleanup := setupBatchTestServer(t, 2000)
+	defer cleanup()
+
+	batch := []EnqueueRequest{
+		{
+			Service: "payment-service",
+			Payload: json.RawMessage(`{"status":"paid"}`),
+			TraceID: "tr-fallback-1",
+		},
+	}
+	body, _ := json.Marshal(batch)
+
+	req := httptest.NewRequest(http.MethodPost, "/v1/enqueue/batch", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+	routes.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200 OK, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	results := hub.Query(walspool.LogQuery{TraceID: "tr-fallback-1"})
+	if len(results) != 1 {
+		t.Fatalf("expected 1 result in hub, got %d", len(results))
+	}
+	if results[0].Topic != "payment-service" {
+		t.Fatalf("expected topic payment-service, got %q", results[0].Topic)
+	}
+}
+
+func TestBatchEnqueue_InvalidJSON(t *testing.T) {
+	_, routes, _, _, cleanup := setupBatchTestServer(t, 2000)
+	defer cleanup()
+
+	t.Run("MalformedSyntax", func(t *testing.T) {
+		body := []byte(`[{invalid-json`)
+		req := httptest.NewRequest(http.MethodPost, "/v1/enqueue/batch", bytes.NewReader(body))
+		req.Header.Set("Content-Type", "application/json")
+		rec := httptest.NewRecorder()
+		routes.ServeHTTP(rec, req)
+
+		if rec.Code != http.StatusBadRequest {
+			t.Fatalf("expected 400 Bad Request, got %d: %s", rec.Code, rec.Body.String())
+		}
+		if !strings.Contains(rec.Body.String(), `"invalid_json"`) {
+			t.Fatalf("expected invalid_json error, got %s", rec.Body.String())
+		}
+	})
+
+	t.Run("JSONObjectInsteadOfArray", func(t *testing.T) {
+		body := []byte(`{"topic":"orders","payload":{"id":1}}`)
+		req := httptest.NewRequest(http.MethodPost, "/v1/enqueue/batch", bytes.NewReader(body))
+		req.Header.Set("Content-Type", "application/json")
+		rec := httptest.NewRecorder()
+		routes.ServeHTTP(rec, req)
+
+		if rec.Code != http.StatusBadRequest {
+			t.Fatalf("expected 400 Bad Request, got %d: %s", rec.Code, rec.Body.String())
+		}
+		if !strings.Contains(rec.Body.String(), `"invalid_json"`) {
+			t.Fatalf("expected invalid_json error, got %s", rec.Body.String())
+		}
+	})
+}
+
+func TestBatchEnqueue_EmptyBatch(t *testing.T) {
+	_, routes, _, _, cleanup := setupBatchTestServer(t, 2000)
+	defer cleanup()
+
+	body := []byte(`[]`)
+	req := httptest.NewRequest(http.MethodPost, "/v1/enqueue/batch", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+	routes.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400 Bad Request, got %d: %s", rec.Code, rec.Body.String())
+	}
+	if !strings.Contains(rec.Body.String(), `"empty_batch"`) {
+		t.Fatalf("expected empty_batch error, got %s", rec.Body.String())
+	}
+}
+
+func TestBatchEnqueue_ExceedMaxBatchSize(t *testing.T) {
+	_, routes, _, _, cleanup := setupBatchTestServer(t, 2000)
+	defer cleanup()
+
+	batch := make([]EnqueueRequest, 1001)
+	for i := 0; i < 1001; i++ {
+		batch[i] = EnqueueRequest{
+			Topic:   "test",
+			Payload: json.RawMessage(`{"k":1}`),
+		}
+	}
+	body, _ := json.Marshal(batch)
+
+	req := httptest.NewRequest(http.MethodPost, "/v1/enqueue/batch", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+	routes.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusRequestEntityTooLarge {
+		t.Fatalf("expected 413, got %d: %s", rec.Code, rec.Body.String())
+	}
+	if !strings.Contains(rec.Body.String(), `"batch_too_large"`) {
+		t.Fatalf("expected batch_too_large error, got %s", rec.Body.String())
+	}
+}
+
+func TestBatchEnqueue_ExceedMaxBodySize(t *testing.T) {
+	_, routes, _, _, cleanup := setupBatchTestServer(t, 2000)
+	defer cleanup()
+
+	prefix := []byte(`[{"topic":"t","payload":{"data":"`)
+	suffix := []byte(`"}}]`)
+	padLen := 10*1024*1024 + 1024 - len(prefix) - len(suffix)
+	padding := bytes.Repeat([]byte("a"), padLen)
+	body := append(prefix, append(padding, suffix...)...)
+
+	req := httptest.NewRequest(http.MethodPost, "/v1/enqueue/batch", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+	routes.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusRequestEntityTooLarge {
+		t.Fatalf("expected 413 Payload Too Large, got %d: %s", rec.Code, rec.Body.String())
+	}
+	if !strings.Contains(rec.Body.String(), `"payload_too_large"`) {
+		t.Fatalf("expected payload_too_large error, got %s", rec.Body.String())
+	}
+}
+
+func TestBatchEnqueue_AtomicPreValidation_Topic(t *testing.T) {
+	_, routes, _, hub, cleanup := setupBatchTestServer(t, 2000)
+	defer cleanup()
+
+	batch := make([]EnqueueRequest, 10)
+	for i := 0; i < 10; i++ {
+		batch[i] = EnqueueRequest{
+			Topic:   "valid.topic",
+			Payload: json.RawMessage(fmt.Sprintf(`{"i":%d}`, i)),
+			TraceID: "tr-atomic-topic",
+		}
+	}
+	batch[6].Topic = ""
+	batch[6].Service = ""
+
+	body, _ := json.Marshal(batch)
+	req := httptest.NewRequest(http.MethodPost, "/v1/enqueue/batch", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+	routes.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400 Bad Request, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var errResp batchErrorItemResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &errResp); err != nil {
+		t.Fatalf("failed to decode error response: %v", err)
+	}
+	if errResp.Error != "invalid_batch_item" || errResp.Index != 6 || !strings.Contains(errResp.Message, "topic cannot be empty") {
+		t.Fatalf("unexpected error response: %+v", errResp)
+	}
+
+	results := hub.Query(walspool.LogQuery{TraceID: "tr-atomic-topic"})
+	if len(results) != 0 {
+		t.Fatalf("expected 0 records in hub, found %d", len(results))
+	}
+}
+
+func TestBatchEnqueue_AtomicPreValidation_Payload(t *testing.T) {
+	_, routes, _, hub, cleanup := setupBatchTestServer(t, 2000)
+	defer cleanup()
+
+	batch := make([]EnqueueRequest, 5)
+	for i := 0; i < 5; i++ {
+		batch[i] = EnqueueRequest{
+			Topic:   "valid.topic",
+			Payload: json.RawMessage(fmt.Sprintf(`{"i":%d}`, i)),
+			TraceID: "tr-atomic-payload",
+		}
+	}
+	batch[2].Payload = nil
+
+	body, _ := json.Marshal(batch)
+	req := httptest.NewRequest(http.MethodPost, "/v1/enqueue/batch", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+	routes.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400 Bad Request, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var errResp batchErrorItemResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &errResp); err != nil {
+		t.Fatalf("failed to decode error response: %v", err)
+	}
+	if errResp.Error != "invalid_batch_item" || errResp.Index != 2 || !strings.Contains(errResp.Message, "payload cannot be empty") {
+		t.Fatalf("unexpected error response: %+v", errResp)
+	}
+
+	results := hub.Query(walspool.LogQuery{TraceID: "tr-atomic-payload"})
+	if len(results) != 0 {
+		t.Fatalf("expected 0 records in hub, found %d", len(results))
+	}
+}
+
+func TestBatchEnqueue_AtomicPreValidation_PayloadSize(t *testing.T) {
+	_, routes, _, hub, cleanup := setupBatchTestServer(t, 2000)
+	defer cleanup()
+
+	oversized := bytes.Repeat([]byte("x"), 1024*1024+10)
+	quotedOversized, _ := json.Marshal(string(oversized))
+
+	batch := []EnqueueRequest{
+		{Topic: "valid", Payload: json.RawMessage(`{"ok":1}`), TraceID: "tr-oversized"},
+		{Topic: "valid", Payload: json.RawMessage(quotedOversized), TraceID: "tr-oversized"},
+		{Topic: "valid", Payload: json.RawMessage(`{"ok":2}`), TraceID: "tr-oversized"},
+	}
+
+	body, _ := json.Marshal(batch)
+	req := httptest.NewRequest(http.MethodPost, "/v1/enqueue/batch", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+	routes.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400 Bad Request, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var errResp batchErrorItemResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &errResp); err != nil {
+		t.Fatalf("failed to decode error response: %v", err)
+	}
+	if errResp.Error != "invalid_batch_item" || errResp.Index != 1 || !strings.Contains(errResp.Message, "payload size exceeds limit") {
+		t.Fatalf("unexpected error response: %+v", errResp)
+	}
+
+	results := hub.Query(walspool.LogQuery{TraceID: "tr-oversized"})
+	if len(results) != 0 {
+		t.Fatalf("expected 0 records in hub, found %d", len(results))
+	}
+}
+
+func TestBatchEnqueue_MethodNotAllowed(t *testing.T) {
+	_, routes, _, _, cleanup := setupBatchTestServer(t, 2000)
+	defer cleanup()
+
+	methods := []string{http.MethodGet, http.MethodPut, http.MethodDelete, http.MethodPatch}
+	for _, m := range methods {
+		req := httptest.NewRequest(m, "/v1/enqueue/batch", nil)
+		rec := httptest.NewRecorder()
+		routes.ServeHTTP(rec, req)
+
+		if rec.Code != http.StatusMethodNotAllowed {
+			t.Errorf("method %s: expected 405 Method Not Allowed, got %d", m, rec.Code)
+		}
+	}
+}
+
+func TestBatchEnqueue_SpoolFull_Backpressure(t *testing.T) {
+	_, routes, _, _, cleanup := setupBatchTestServer(t, 5)
+	defer cleanup()
+
+	batch := make([]EnqueueRequest, 10)
+	for i := 0; i < 10; i++ {
+		batch[i] = EnqueueRequest{
+			Topic:   "spool.full.test",
+			Payload: json.RawMessage(fmt.Sprintf(`{"item":%d}`, i)),
+		}
+	}
+	body, _ := json.Marshal(batch)
+
+	req := httptest.NewRequest(http.MethodPost, "/v1/enqueue/batch", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+	routes.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusServiceUnavailable {
+		t.Fatalf("expected 503 Service Unavailable, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	if retryAfter := rec.Header().Get("Retry-After"); retryAfter != "1" {
+		t.Fatalf("expected Retry-After: 1, got %q", retryAfter)
+	}
+
+	var failResp batchFailureResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &failResp); err != nil {
+		t.Fatalf("failed to decode failure response: %v", err)
+	}
+	if failResp.Error != "spool_full" {
+		t.Fatalf("expected error spool_full, got %q", failResp.Error)
+	}
+	if failResp.Enqueued != 5 {
+		t.Fatalf("expected 5 enqueued before full, got %d", failResp.Enqueued)
+	}
+	if failResp.Total != 10 {
+		t.Fatalf("expected total 10, got %d", failResp.Total)
+	}
+}
+
+func TestBatchEnqueue_MetricsUpdated(t *testing.T) {
+	_, routes, _, _, cleanup := setupBatchTestServer(t, 2000)
+	defer cleanup()
+
+	batch := make([]EnqueueRequest, 20)
+	for i := 0; i < 20; i++ {
+		batch[i] = EnqueueRequest{
+			Topic:   "billing",
+			Payload: json.RawMessage(fmt.Sprintf(`{"invoice_id":%d}`, i)),
+		}
+	}
+	body, _ := json.Marshal(batch)
+
+	req := httptest.NewRequest(http.MethodPost, "/v1/enqueue/batch", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+	routes.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200 OK, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	mreq := httptest.NewRequest(http.MethodGet, "/metrics", nil)
+	mrec := httptest.NewRecorder()
+	routes.ServeHTTP(mrec, mreq)
+
+	if mrec.Code != http.StatusOK {
+		t.Fatalf("expected 200 for /metrics, got %d", mrec.Code)
+	}
+
+	expectedMetric := `walspool_ingested_records_total{topic="billing"} 20`
+	if !strings.Contains(mrec.Body.String(), expectedMetric) {
+		t.Fatalf("expected metrics to contain %q, got:\n%s", expectedMetric, mrec.Body.String())
+	}
+}
+
+func TestBatchEnqueue_ServerShuttingDown(t *testing.T) {
+	sidecar, routes, _, _, cleanup := setupBatchTestServer(t, 2000)
+	defer cleanup()
+
+	sidecar.MarkShuttingDown()
+
+	batch := []EnqueueRequest{
+		{Topic: "shutdown.test", Payload: json.RawMessage(`{"v":1}`)},
+	}
+	body, _ := json.Marshal(batch)
+
+	req := httptest.NewRequest(http.MethodPost, "/v1/enqueue/batch", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+	routes.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusServiceUnavailable {
+		t.Fatalf("expected 503 Service Unavailable, got %d: %s", rec.Code, rec.Body.String())
+	}
+	if !strings.Contains(rec.Body.String(), `"shutting_down"`) {
+		t.Fatalf("expected shutting_down error, got %s", rec.Body.String())
+	}
+}
