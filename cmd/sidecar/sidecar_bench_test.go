@@ -168,3 +168,102 @@ func BenchmarkSidecar_HTTP_QueryLogs_TraceID(b *testing.B) {
 		_ = resp.Body.Close()
 	}
 }
+
+// BenchmarkSidecar_HTTP_Enqueue_NDJSON_Batch100 measures HTTP streaming ingestion throughput
+// and allocations for batches of 100 NDJSON log lines.
+func BenchmarkSidecar_HTTP_Enqueue_NDJSON_Batch100(b *testing.B) {
+	ts, client, _, cleanup := setupBenchServer(b)
+	defer cleanup()
+
+	url := ts.URL + "/v1/enqueue"
+	var buf bytes.Buffer
+	for i := 0; i < 100; i++ {
+		buf.WriteString(`{"topic":"bench.stream","service":"bench-svc","level":"INFO","payload":{"idx":1,"message":"bench event item"}}` + "\n")
+	}
+	payloadBytes := buf.Bytes()
+	b.SetBytes(int64(len(payloadBytes)))
+
+	b.ResetTimer()
+	b.ReportAllocs()
+	for i := 0; i < b.N; i++ {
+		req, _ := http.NewRequest(http.MethodPost, url, bytes.NewReader(payloadBytes))
+		req.Header.Set("Content-Type", "application/x-ndjson")
+
+		resp, err := client.Do(req)
+		if err != nil {
+			b.Fatalf("HTTP NDJSON request failed at %d: %v", i, err)
+		}
+		if resp.StatusCode != http.StatusAccepted {
+			b.Fatalf("unexpected status %d at iteration %d", resp.StatusCode, i)
+		}
+		_, _ = io.Copy(io.Discard, resp.Body)
+		_ = resp.Body.Close()
+	}
+}
+
+// BenchmarkSidecar_EnqueueNDJSON_1000 measures HTTP streaming ingestion throughput
+// for larger batches of 1000 NDJSON log lines.
+func BenchmarkSidecar_EnqueueNDJSON_1000(b *testing.B) {
+	ts, client, _, cleanup := setupBenchServer(b)
+	defer cleanup()
+	client.Timeout = 30 * time.Second
+
+	url := ts.URL + "/v1/enqueue"
+	var buf bytes.Buffer
+	for i := 0; i < 1000; i++ {
+		buf.WriteString(`{"topic":"bench.stream.1k","service":"bench-svc","level":"INFO","payload":{"idx":1,"message":"bench event item"}}` + "\n")
+	}
+	payloadBytes := buf.Bytes()
+	b.SetBytes(int64(len(payloadBytes)))
+
+	b.ResetTimer()
+	b.ReportAllocs()
+	for i := 0; i < b.N; i++ {
+		req, _ := http.NewRequest(http.MethodPost, url, bytes.NewReader(payloadBytes))
+		req.Header.Set("Content-Type", "application/x-ndjson")
+
+		resp, err := client.Do(req)
+		if err != nil {
+			b.Fatalf("HTTP NDJSON request failed at %d: %v", i, err)
+		}
+		if resp.StatusCode != http.StatusAccepted {
+			b.Fatalf("unexpected status %d at iteration %d", resp.StatusCode, i)
+		}
+		_, _ = io.Copy(io.Discard, resp.Body)
+		_ = resp.Body.Close()
+	}
+}
+
+// BenchmarkSidecar_HTTP_Enqueue_NDJSON_LargeLine measures memory re-use efficiency
+// when processing large lines (500 KiB) near the safety ceiling.
+func BenchmarkSidecar_HTTP_Enqueue_NDJSON_LargeLine(b *testing.B) {
+	ts, client, _, cleanup := setupBenchServer(b)
+	defer cleanup()
+
+	url := ts.URL + "/v1/enqueue"
+	largePayload := make([]byte, 500*1024)
+	for i := range largePayload {
+		largePayload[i] = 'x'
+	}
+	largeJSON := `{"topic":"bench.large","payload":{"data":"` + string(largePayload) + `"}}` + "\n"
+	payloadBytes := []byte(largeJSON)
+	b.SetBytes(int64(len(payloadBytes)))
+
+	b.ResetTimer()
+	b.ReportAllocs()
+	for i := 0; i < b.N; i++ {
+		req, _ := http.NewRequest(http.MethodPost, url, bytes.NewReader(payloadBytes))
+		req.Header.Set("Content-Type", "application/x-ndjson")
+
+		resp, err := client.Do(req)
+		if err != nil {
+			b.Fatalf("HTTP NDJSON large line failed at %d: %v", i, err)
+		}
+		if resp.StatusCode != http.StatusAccepted {
+			b.Fatalf("unexpected status %d at iteration %d", resp.StatusCode, i)
+		}
+		_, _ = io.Copy(io.Discard, resp.Body)
+		_ = resp.Body.Close()
+	}
+}
+

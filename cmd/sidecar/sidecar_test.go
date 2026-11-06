@@ -1736,3 +1736,679 @@ func TestSidecar_ConfigRejectsMalformedEnvInt(t *testing.T) {
 		})
 	}
 }
+
+func TestSidecar_EnqueueNDJSON_RED(t *testing.T) {
+	storage := walspool.NewMemoryStorageEngine(100)
+	sink := &benchNoopSink{}
+	cfg := walspool.DefaultConfig()
+	spool, err := walspool.New(cfg, storage, sink, nil)
+	if err != nil {
+		t.Fatalf("failed to init spooler: %v", err)
+	}
+	defer spool.Close()
+
+	sidecar := NewSidecarServer(spool)
+	routes := sidecar.Routes()
+
+	body := []byte("{\"topic\":\"test.stream\",\"payload\":{\"val\":1}}\n{\"topic\":\"test.stream\",\"payload\":{\"val\":2}}\n{\"topic\":\"test.stream\",\"payload\":{\"val\":3}}\n")
+	req := httptest.NewRequest(http.MethodPost, "/v1/enqueue", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/x-ndjson")
+	rec := httptest.NewRecorder()
+
+	routes.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusAccepted {
+		t.Fatalf("expected HTTP 202 Accepted, got %d: %s", rec.Code, rec.Body.String())
+	}
+}
+
+// T-NDJSON-01: Ingestion nominale format enveloppe
+func TestSidecar_EnqueueNDJSON_EnvelopeFormat(t *testing.T) {
+	storage := walspool.NewMemoryStorageEngine(100)
+	sink := &benchNoopSink{}
+	cfg := walspool.DefaultConfig()
+	cfg.BatchSize = 1000
+	cfg.FlushInterval = 10 * time.Minute
+	spool, err := walspool.New(cfg, storage, sink, nil)
+	if err != nil {
+		t.Fatalf("failed to init spooler: %v", err)
+	}
+	defer spool.Close()
+
+	sidecar := NewSidecarServer(spool)
+	routes := sidecar.Routes()
+
+	body := []byte("{\"topic\":\"orders\",\"payload\":{\"order_id\":101}}\n{\"topic\":\"orders\",\"payload\":{\"order_id\":102}}\n{\"topic\":\"orders\",\"payload\":{\"order_id\":103}}\n")
+	req := httptest.NewRequest(http.MethodPost, "/v1/enqueue", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/x-ndjson")
+	rec := httptest.NewRecorder()
+
+	routes.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusAccepted {
+		t.Fatalf("expected HTTP 202, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var resp EnqueueNDJSONResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("failed to decode response: %v", err)
+	}
+	if resp.Status != "accepted" {
+		t.Fatalf("expected status 'accepted', got %q", resp.Status)
+	}
+	if resp.Ingested != 3 || resp.Enqueued != 3 {
+		t.Fatalf("expected ingested=3, got %d", resp.Ingested)
+	}
+	if resp.Errors != 0 {
+		t.Fatalf("expected errors=0, got %d", resp.Errors)
+	}
+	if resp.Bytes <= 0 {
+		t.Fatalf("expected bytes > 0, got %d", resp.Bytes)
+	}
+
+	count, err := storage.UncommittedCount()
+	if err != nil || count != 3 {
+		t.Fatalf("expected 3 records in storage, got count=%d, err=%v", count, err)
+	}
+}
+
+// T-NDJSON-02: Ingestion nominale format brut (Docker/K8s)
+func TestSidecar_EnqueueNDJSON_RawLogFormat(t *testing.T) {
+	storage := walspool.NewMemoryStorageEngine(100)
+	sink := &benchNoopSink{}
+	cfg := walspool.DefaultConfig()
+	cfg.BatchSize = 1000
+	cfg.FlushInterval = 10 * time.Minute
+	spool, err := walspool.New(cfg, storage, sink, nil)
+	if err != nil {
+		t.Fatalf("failed to init spooler: %v", err)
+	}
+	defer spool.Close()
+
+	sidecar := NewSidecarServer(spool)
+	routes := sidecar.Routes()
+
+	body := []byte("{\"user\":1,\"action\":\"login\"}\n{\"user\":2,\"action\":\"logout\"}\n{\"user\":3,\"action\":\"click\"}\n")
+	req := httptest.NewRequest(http.MethodPost, "/enqueue", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/x-ndjson")
+	req.Header.Set("X-Topic", "auth")
+	rec := httptest.NewRecorder()
+
+	routes.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusAccepted {
+		t.Fatalf("expected HTTP 202, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var resp EnqueueNDJSONResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("failed to decode response: %v", err)
+	}
+	if resp.Ingested != 3 || resp.Errors != 0 {
+		t.Fatalf("expected ingested=3, errors=0, got %+v", resp)
+	}
+
+	records, err := storage.ReadBatch(10)
+	if err != nil || len(records) != 3 {
+		t.Fatalf("expected 3 records, got %d (err: %v)", len(records), err)
+	}
+	for i, r := range records {
+		if r.Topic != "auth" {
+			t.Fatalf("record %d topic expected 'auth', got %q", i, r.Topic)
+		}
+	}
+}
+
+// T-NDJSON-03: Prise en compte des en-tetes de contexte
+func TestSidecar_EnqueueNDJSON_ContextHeaders(t *testing.T) {
+	storage := walspool.NewMemoryStorageEngine(100)
+	sink := &benchNoopSink{}
+	hub := walspool.NewMemoryLogHub(100)
+	cfg := walspool.DefaultConfig()
+	spool, err := walspool.New(cfg, storage, sink, nil, walspool.WithObserver(hub))
+	if err != nil {
+		t.Fatalf("failed to init spooler: %v", err)
+	}
+	defer spool.Close()
+
+	sidecar := NewSidecarServer(spool, hub)
+	routes := sidecar.Routes()
+
+	body := []byte("{\"action\":\"pay\",\"amount\":42}\n")
+	req := httptest.NewRequest(http.MethodPost, "/v1/enqueue", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/x-ndjson")
+	req.Header.Set("X-Topic", "billing")
+	req.Header.Set("X-Trace-ID", "tr-ctx-999")
+	req.Header.Set("X-Service", "payment-svc")
+	req.Header.Set("X-Log-Level", "WARN")
+	rec := httptest.NewRecorder()
+
+	routes.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusAccepted {
+		t.Fatalf("expected HTTP 202, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	qreq := httptest.NewRequest(http.MethodGet, "/v1/logs?trace_id=tr-ctx-999", nil)
+	qrec := httptest.NewRecorder()
+	routes.ServeHTTP(qrec, qreq)
+
+	if qrec.Code != http.StatusOK {
+		t.Fatalf("expected 200 OK from log query, got %d", qrec.Code)
+	}
+	var logs []walspool.LogEntry
+	if err := json.Unmarshal(qrec.Body.Bytes(), &logs); err != nil {
+		t.Fatalf("failed to decode logs: %v", err)
+	}
+	if len(logs) != 1 {
+		t.Fatalf("expected 1 log for trace tr-ctx-999, got %d", len(logs))
+	}
+	if logs[0].TraceID != "tr-ctx-999" || logs[0].Service != "payment-svc" || logs[0].Level != "WARN" {
+		t.Fatalf("metadata mismatch: %+v", logs[0])
+	}
+}
+
+// T-NDJSON-04: Surcharge des en-tetes par la ligne
+func TestSidecar_EnqueueNDJSON_LineOverridesHeaders(t *testing.T) {
+	storage := walspool.NewMemoryStorageEngine(100)
+	sink := &benchNoopSink{}
+	hub := walspool.NewMemoryLogHub(100)
+	cfg := walspool.DefaultConfig()
+	cfg.BatchSize = 1000
+	cfg.FlushInterval = 10 * time.Minute
+	spool, err := walspool.New(cfg, storage, sink, nil, walspool.WithObserver(hub))
+	if err != nil {
+		t.Fatalf("failed to init spooler: %v", err)
+	}
+	defer spool.Close()
+
+	sidecar := NewSidecarServer(spool, hub)
+	routes := sidecar.Routes()
+
+	body := []byte("{\"topic\":\"custom-topic\",\"service\":\"custom-svc\",\"trace_id\":\"custom-tr\",\"level\":\"ERROR\",\"payload\":{\"val\":1}}\n")
+	req := httptest.NewRequest(http.MethodPost, "/v1/enqueue", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/x-ndjson")
+	req.Header.Set("X-Topic", "default-topic")
+	req.Header.Set("X-Service", "default-svc")
+	req.Header.Set("X-Trace-ID", "default-tr")
+	req.Header.Set("X-Log-Level", "INFO")
+	rec := httptest.NewRecorder()
+
+	routes.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusAccepted {
+		t.Fatalf("expected HTTP 202, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	records, err := storage.ReadBatch(10)
+	if err != nil || len(records) != 1 {
+		t.Fatalf("expected 1 record in storage, got %d (err: %v)", len(records), err)
+	}
+	if records[0].Topic != "custom-topic" {
+		t.Fatalf("expected line topic 'custom-topic' to override header, got %q", records[0].Topic)
+	}
+
+	qreq := httptest.NewRequest(http.MethodGet, "/v1/logs?trace_id=custom-tr", nil)
+	qrec := httptest.NewRecorder()
+	routes.ServeHTTP(qrec, qreq)
+	var logs []walspool.LogEntry
+	_ = json.Unmarshal(qrec.Body.Bytes(), &logs)
+	if len(logs) != 1 || logs[0].Service != "custom-svc" || logs[0].Level != "ERROR" {
+		t.Fatalf("expected line metadata to override header, got %+v", logs)
+	}
+}
+
+// T-NDJSON-05: Lignes blanches et separateurs multiples
+func TestSidecar_EnqueueNDJSON_WhitespaceAndEmptyLines(t *testing.T) {
+	storage := walspool.NewMemoryStorageEngine(100)
+	sink := &benchNoopSink{}
+	cfg := walspool.DefaultConfig()
+	spool, err := walspool.New(cfg, storage, sink, nil)
+	if err != nil {
+		t.Fatalf("failed to init spooler: %v", err)
+	}
+	defer spool.Close()
+
+	sidecar := NewSidecarServer(spool)
+	routes := sidecar.Routes()
+
+	body := []byte("   \n\n\r\n\t  \r\n{\"topic\":\"t5\",\"payload\":{\"n\":1}}\n\n  \n{\"topic\":\"t5\",\"payload\":{\"n\":2}}\r\n\r\n")
+	req := httptest.NewRequest(http.MethodPost, "/v1/enqueue", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/x-ndjson")
+	rec := httptest.NewRecorder()
+
+	routes.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusAccepted {
+		t.Fatalf("expected HTTP 202, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var resp EnqueueNDJSONResponse
+	_ = json.Unmarshal(rec.Body.Bytes(), &resp)
+	if resp.Ingested != 2 || resp.Errors != 0 {
+		t.Fatalf("expected ingested=2, errors=0, got %+v", resp)
+	}
+}
+
+// T-NDJSON-06: Fichier sans saut de ligne final
+func TestSidecar_EnqueueNDJSON_NoTrailingNewline(t *testing.T) {
+	storage := walspool.NewMemoryStorageEngine(100)
+	sink := &benchNoopSink{}
+	cfg := walspool.DefaultConfig()
+	spool, err := walspool.New(cfg, storage, sink, nil)
+	if err != nil {
+		t.Fatalf("failed to init spooler: %v", err)
+	}
+	defer spool.Close()
+
+	sidecar := NewSidecarServer(spool)
+	routes := sidecar.Routes()
+
+	body := []byte("{\"topic\":\"t6\",\"payload\":{\"n\":1}}\n{\"topic\":\"t6\",\"payload\":{\"n\":2}}\n{\"topic\":\"t6\",\"payload\":{\"n\":3}}")
+	req := httptest.NewRequest(http.MethodPost, "/v1/enqueue", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/x-ndjson")
+	rec := httptest.NewRecorder()
+
+	routes.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusAccepted {
+		t.Fatalf("expected HTTP 202, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var resp EnqueueNDJSONResponse
+	_ = json.Unmarshal(rec.Body.Bytes(), &resp)
+	if resp.Ingested != 3 || resp.Errors != 0 {
+		t.Fatalf("expected ingested=3, errors=0, got %+v", resp)
+	}
+}
+
+// T-NDJSON-07: Ligne excedant 1 Mo (Plafond anti-OOM)
+func TestSidecar_EnqueueNDJSON_LineTooLong_AntiOOM(t *testing.T) {
+	storage := walspool.NewMemoryStorageEngine(100)
+	sink := &benchNoopSink{}
+	cfg := walspool.DefaultConfig()
+	spool, err := walspool.New(cfg, storage, sink, nil)
+	if err != nil {
+		t.Fatalf("failed to init spooler: %v", err)
+	}
+	defer spool.Close()
+
+	sidecar := NewSidecarServer(spool)
+	routes := sidecar.Routes()
+
+	hugeLine := make([]byte, 1024*1024+1)
+	for i := range hugeLine {
+		hugeLine[i] = 'a'
+	}
+
+	req := httptest.NewRequest(http.MethodPost, "/v1/enqueue", bytes.NewReader(hugeLine))
+	req.Header.Set("Content-Type", "application/x-ndjson")
+	rec := httptest.NewRecorder()
+
+	routes.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusRequestEntityTooLarge {
+		t.Fatalf("expected HTTP 413 Request Entity Too Large, got %d: %s", rec.Code, rec.Body.String())
+	}
+	bodyStr := rec.Body.String()
+	if !strings.Contains(bodyStr, "line_too_long") || !strings.Contains(bodyStr, "1048576") {
+		t.Fatalf("unexpected error payload: %s", bodyStr)
+	}
+}
+
+// T-NDJSON-08: Ligne JSON malformee au milieu (Mode resilient)
+func TestSidecar_EnqueueNDJSON_ResilientMode_PartialErrors(t *testing.T) {
+	storage := walspool.NewMemoryStorageEngine(100)
+	sink := &benchNoopSink{}
+	cfg := walspool.DefaultConfig()
+	spool, err := walspool.New(cfg, storage, sink, nil)
+	if err != nil {
+		t.Fatalf("failed to init spooler: %v", err)
+	}
+	defer spool.Close()
+
+	sidecar := NewSidecarServer(spool)
+	routes := sidecar.Routes()
+
+	body := []byte("{\"topic\":\"t8\",\"payload\":{\"n\":1}}\n{broken-json-payload-line\n{\"topic\":\"t8\",\"payload\":{\"n\":3}}\n")
+	req := httptest.NewRequest(http.MethodPost, "/v1/enqueue", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/x-ndjson")
+	rec := httptest.NewRecorder()
+
+	routes.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusAccepted {
+		t.Fatalf("expected HTTP 202 Accepted, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var resp EnqueueNDJSONResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("failed to decode response: %v", err)
+	}
+	if resp.Status != "partial_success" {
+		t.Fatalf("expected status 'partial_success', got %q", resp.Status)
+	}
+	if resp.Ingested != 2 {
+		t.Fatalf("expected ingested=2, got %d", resp.Ingested)
+	}
+	if resp.Errors != 1 {
+		t.Fatalf("expected errors=1, got %d", resp.Errors)
+	}
+}
+
+// T-NDJSON-09: Ligne JSON malformee en mode strict
+func TestSidecar_EnqueueNDJSON_StrictMode_Error(t *testing.T) {
+	storage := walspool.NewMemoryStorageEngine(100)
+	sink := &benchNoopSink{}
+	cfg := walspool.DefaultConfig()
+	spool, err := walspool.New(cfg, storage, sink, nil)
+	if err != nil {
+		t.Fatalf("failed to init spooler: %v", err)
+	}
+	defer spool.Close()
+
+	sidecar := NewSidecarServer(spool)
+	routes := sidecar.Routes()
+
+	body := []byte("{\"topic\":\"t9\",\"payload\":{\"n\":1}}\n{broken-json-payload-line\n{\"topic\":\"t9\",\"payload\":{\"n\":3}}\n")
+
+	req := httptest.NewRequest(http.MethodPost, "/v1/enqueue?strict=true", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/x-ndjson")
+	rec := httptest.NewRecorder()
+
+	routes.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("expected HTTP 400 Bad Request, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	var errMap map[string]any
+	if err := json.Unmarshal(rec.Body.Bytes(), &errMap); err != nil {
+		t.Fatalf("failed to decode error body: %v", err)
+	}
+	if errMap["error"] != "invalid_json_line" {
+		t.Fatalf("expected error 'invalid_json_line', got %v", errMap["error"])
+	}
+	if fmt.Sprintf("%v", errMap["line"]) != "2" {
+		t.Fatalf("expected error on line 2, got %v", errMap["line"])
+	}
+
+	reqHeader := httptest.NewRequest(http.MethodPost, "/v1/enqueue", bytes.NewReader(body))
+	reqHeader.Header.Set("Content-Type", "application/x-ndjson")
+	reqHeader.Header.Set("X-Strict", "true")
+	recHeader := httptest.NewRecorder()
+
+	routes.ServeHTTP(recHeader, reqHeader)
+	if recHeader.Code != http.StatusBadRequest {
+		t.Fatalf("expected HTTP 400 with X-Strict header, got %d: %s", recHeader.Code, recHeader.Body.String())
+	}
+}
+
+// T-NDJSON-10: Corps entierement vide ou invalide
+func TestSidecar_EnqueueNDJSON_EmptyBody(t *testing.T) {
+	storage := walspool.NewMemoryStorageEngine(100)
+	sink := &benchNoopSink{}
+	cfg := walspool.DefaultConfig()
+	spool, err := walspool.New(cfg, storage, sink, nil)
+	if err != nil {
+		t.Fatalf("failed to init spooler: %v", err)
+	}
+	defer spool.Close()
+
+	sidecar := NewSidecarServer(spool)
+	routes := sidecar.Routes()
+
+	// Case A: 0 byte body
+	reqEmpty := httptest.NewRequest(http.MethodPost, "/v1/enqueue", bytes.NewReader([]byte{}))
+	reqEmpty.Header.Set("Content-Type", "application/x-ndjson")
+	recEmpty := httptest.NewRecorder()
+	routes.ServeHTTP(recEmpty, reqEmpty)
+
+	if recEmpty.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400 for empty body, got %d: %s", recEmpty.Code, recEmpty.Body.String())
+	}
+	if !strings.Contains(recEmpty.Body.String(), "empty_body") {
+		t.Fatalf("expected error 'empty_body', got %s", recEmpty.Body.String())
+	}
+
+	// Case B: All lines invalid
+	allInvalid := []byte("{bad1\n{bad2\n")
+	reqInvalid := httptest.NewRequest(http.MethodPost, "/v1/enqueue", bytes.NewReader(allInvalid))
+	reqInvalid.Header.Set("Content-Type", "application/x-ndjson")
+	recInvalid := httptest.NewRecorder()
+	routes.ServeHTTP(recInvalid, reqInvalid)
+
+	if recInvalid.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400 for all lines invalid, got %d: %s", recInvalid.Code, recInvalid.Body.String())
+	}
+	if !strings.Contains(recInvalid.Body.String(), "all_lines_invalid") {
+		t.Fatalf("expected error 'all_lines_invalid', got %s", recInvalid.Body.String())
+	}
+}
+
+// T-NDJSON-11: Ingestion cadencee en streaming via io.Pipe
+func TestSidecar_EnqueueNDJSON_ContinuousStreaming_SSE(t *testing.T) {
+	storage := walspool.NewMemoryStorageEngine(100)
+	sink := &benchNoopSink{}
+	hub := walspool.NewMemoryLogHub(100)
+	cfg := walspool.DefaultConfig()
+	spool, err := walspool.New(cfg, storage, sink, nil, walspool.WithObserver(hub))
+	if err != nil {
+		t.Fatalf("failed to init spooler: %v", err)
+	}
+	defer spool.Close()
+
+	sidecar := NewSidecarServer(spool, hub)
+	ts := httptest.NewServer(sidecar.Routes())
+	defer ts.Close()
+
+	// 1. Subscribe to SSE stream
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	sseReq, err := http.NewRequestWithContext(ctx, http.MethodGet, ts.URL+"/v1/logs/stream?service=stream-worker", nil)
+	if err != nil {
+		t.Fatalf("failed to create SSE request: %v", err)
+	}
+	sseClient := &http.Client{Timeout: 0}
+	sseResp, err := sseClient.Do(sseReq)
+	if err != nil {
+		t.Fatalf("failed to connect SSE: %v", err)
+	}
+	defer sseResp.Body.Close()
+
+	sseReader := bufio.NewReader(sseResp.Body)
+	eventsCh := make(chan string, 10)
+	go func() {
+		for {
+			line, err := sseReader.ReadString('\n')
+			if err != nil {
+				return
+			}
+			line = strings.TrimSpace(line)
+			if strings.HasPrefix(line, "data:") {
+				eventsCh <- strings.TrimSpace(strings.TrimPrefix(line, "data:"))
+			}
+		}
+	}()
+
+	time.Sleep(30 * time.Millisecond)
+
+	// 2. Open io.Pipe for streaming enqueue
+	pr, pw := io.Pipe()
+	defer pr.Close()
+
+	postDone := make(chan *http.Response, 1)
+	go func() {
+		postReq, _ := http.NewRequest(http.MethodPost, ts.URL+"/v1/enqueue", pr)
+		postReq.Header.Set("Content-Type", "application/x-ndjson")
+		postReq.Header.Set("X-Service", "stream-worker")
+		client := &http.Client{Timeout: 5 * time.Second}
+		res, err := client.Do(postReq)
+		if err == nil {
+			postDone <- res
+		}
+	}()
+
+	// 3. Write first line into pipe; pipe is still kept open
+	_, _ = pw.Write([]byte("{\"msg\":\"event-one\"}\n"))
+
+	select {
+	case event := <-eventsCh:
+		if !strings.Contains(event, "event-one") {
+			t.Fatalf("unexpected event: %s", event)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatalf("timeout waiting for realtime SSE event 1 while pipe open")
+	}
+
+	// 4. Write second line into pipe
+	_, _ = pw.Write([]byte("{\"msg\":\"event-two\"}\n"))
+
+	select {
+	case event := <-eventsCh:
+		if !strings.Contains(event, "event-two") {
+			t.Fatalf("unexpected event: %s", event)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatalf("timeout waiting for realtime SSE event 2 while pipe open")
+	}
+
+	// 5. Close pipe and check final POST response
+	_ = pw.Close()
+
+	select {
+	case res := <-postDone:
+		defer res.Body.Close()
+		if res.StatusCode != http.StatusAccepted {
+			t.Fatalf("expected 202 Accepted, got %d", res.StatusCode)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatalf("timeout waiting for post completion after pipe close")
+	}
+}
+
+// T-NDJSON-12: Contre-pression spool plein
+func TestSidecar_EnqueueNDJSON_SpoolFull_Backpressure(t *testing.T) {
+	mockSpool := &mockSpooler{
+		enqueueFunc: func(ctx context.Context, topic string, payload []byte) error {
+			return walspool.ErrSpoolFull
+		},
+	}
+	sidecar := NewSidecarServer(mockSpool)
+	routes := sidecar.Routes()
+
+	body := []byte("{\"topic\":\"bp\",\"payload\":{\"n\":1}}\n{\"topic\":\"bp\",\"payload\":{\"n\":2}}\n")
+	req := httptest.NewRequest(http.MethodPost, "/v1/enqueue", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/x-ndjson")
+	rec := httptest.NewRecorder()
+
+	routes.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusServiceUnavailable {
+		t.Fatalf("expected HTTP 503 Service Unavailable, got %d: %s", rec.Code, rec.Body.String())
+	}
+	if !strings.Contains(rec.Body.String(), "spool_full") {
+		t.Fatalf("expected error 'spool_full', got %s", rec.Body.String())
+	}
+}
+
+// T-NDJSON-13: Detection Content-Type multiple
+func TestSidecar_EnqueueNDJSON_ContentTypeDetection(t *testing.T) {
+	storage := walspool.NewMemoryStorageEngine(100)
+	sink := &benchNoopSink{}
+	cfg := walspool.DefaultConfig()
+	spool, err := walspool.New(cfg, storage, sink, nil)
+	if err != nil {
+		t.Fatalf("failed to init spooler: %v", err)
+	}
+	defer spool.Close()
+
+	sidecar := NewSidecarServer(spool)
+	routes := sidecar.Routes()
+
+	contentTypes := []string{
+		"application/x-ndjson",
+		"application/ndjson",
+		"application/jsonl",
+		"application/x-jsonlines",
+		"text/jsonl",
+		"application/x-ndjson; charset=utf-8",
+		"APPLICATION/X-NDJSON",
+	}
+
+	body := "{\"topic\":\"ct.test\",\"payload\":{\"n\":1}}\n"
+	for _, ct := range contentTypes {
+		t.Run(ct, func(t *testing.T) {
+			req := httptest.NewRequest(http.MethodPost, "/v1/enqueue", strings.NewReader(body))
+			req.Header.Set("Content-Type", ct)
+			rec := httptest.NewRecorder()
+
+			routes.ServeHTTP(rec, req)
+
+			if rec.Code != http.StatusAccepted {
+				t.Fatalf("expected 202 for Content-Type %q, got %d: %s", ct, rec.Code, rec.Body.String())
+			}
+			var resp EnqueueNDJSONResponse
+			if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+				t.Fatalf("expected NDJSON response format for %q, got: %s", ct, rec.Body.String())
+			}
+			if resp.Ingested != 1 {
+				t.Fatalf("expected ingested=1, got %d", resp.Ingested)
+			}
+		})
+	}
+}
+
+// T-NDJSON-14: Non-regression payload JSON unitaire
+func TestSidecar_Enqueue_BackwardCompatibility(t *testing.T) {
+	storage := walspool.NewMemoryStorageEngine(100)
+	sink := &benchNoopSink{}
+	cfg := walspool.DefaultConfig()
+	spool, err := walspool.New(cfg, storage, sink, nil)
+	if err != nil {
+		t.Fatalf("failed to init spooler: %v", err)
+	}
+	defer spool.Close()
+
+	sidecar := NewSidecarServer(spool)
+	routes := sidecar.Routes()
+
+	body := []byte(`{"topic":"legacy.orders","payload":{"id":"leg-1","amt":50}}`)
+
+	// Test /v1/enqueue with application/json
+	req1 := httptest.NewRequest(http.MethodPost, "/v1/enqueue", bytes.NewReader(body))
+	req1.Header.Set("Content-Type", "application/json")
+	rec1 := httptest.NewRecorder()
+	routes.ServeHTTP(rec1, req1)
+
+	if rec1.Code != http.StatusAccepted {
+		t.Fatalf("expected 202 Accepted, got %d: %s", rec1.Code, rec1.Body.String())
+	}
+	var resp1 EnqueueResponse
+	if err := json.Unmarshal(rec1.Body.Bytes(), &resp1); err != nil {
+		t.Fatalf("failed to decode EnqueueResponse: %v", err)
+	}
+	if resp1.Status != "accepted" || resp1.Topic != "legacy.orders" || resp1.Size <= 0 {
+		t.Fatalf("unexpected legacy response: %+v", resp1)
+	}
+
+	// Test /enqueue with application/json
+	req2 := httptest.NewRequest(http.MethodPost, "/enqueue", bytes.NewReader(body))
+	req2.Header.Set("Content-Type", "application/json")
+	rec2 := httptest.NewRecorder()
+	routes.ServeHTTP(rec2, req2)
+
+	if rec2.Code != http.StatusAccepted {
+		t.Fatalf("expected 202 Accepted, got %d: %s", rec2.Code, rec2.Body.String())
+	}
+	var resp2 EnqueueResponse
+	if err := json.Unmarshal(rec2.Body.Bytes(), &resp2); err != nil {
+		t.Fatalf("failed to decode EnqueueResponse: %v", err)
+	}
+	if resp2.Status != "accepted" || resp2.Topic != "legacy.orders" {
+		t.Fatalf("unexpected legacy response: %+v", resp2)
+	}
+}
+
+
