@@ -397,6 +397,42 @@ type EnqueueResponse struct {
 	Size   int    `json:"size_bytes"`
 }
 
+const (
+	// MaxBatchSize defines the maximum number of items allowed in a single batch request.
+	MaxBatchSize = 1000
+
+	// MaxBatchBytes defines the maximum raw HTTP body size allowed (10MB).
+	MaxBatchBytes = 10 * 1024 * 1024
+
+	// MaxPayloadSize defines the maximum payload size for a single record (1MB).
+	MaxPayloadSize = 1024 * 1024
+)
+
+// BatchEnqueueResponse represents the formal response returned upon successful batch ingestion.
+type BatchEnqueueResponse struct {
+	Status   string `json:"status"`
+	Enqueued int    `json:"enqueued"`
+	Size     int    `json:"size_bytes"`
+}
+
+type preparedBatchItem struct {
+	topic   string
+	payload []byte
+}
+
+type batchErrorItemResponse struct {
+	Error   string `json:"error"`
+	Index   int    `json:"index"`
+	Message string `json:"message"`
+}
+
+type batchFailureResponse struct {
+	Error    string `json:"error"`
+	Message  string `json:"message"`
+	Enqueued int    `json:"enqueued"`
+	Total    int    `json:"total"`
+}
+
 func (s *SidecarServer) Routes() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/healthz", s.handleHealthz)
@@ -404,6 +440,8 @@ func (s *SidecarServer) Routes() http.Handler {
 	mux.HandleFunc("/metrics", s.handleMetrics)
 	mux.HandleFunc("/enqueue", s.handleEnqueue)
 	mux.HandleFunc("/v1/enqueue", s.handleEnqueue)
+	mux.HandleFunc("/enqueue/batch", s.handleEnqueueBatch)
+	mux.HandleFunc("/v1/enqueue/batch", s.handleEnqueueBatch)
 	mux.HandleFunc("/flush", s.handleFlush)
 	mux.HandleFunc("/v1/logs", s.handleLogsRoute)
 	mux.HandleFunc("/v1/logs/stream", s.handleLogsStream)
@@ -503,23 +541,23 @@ func (s *SidecarServer) handleMetrics(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// enrichJSONPayload ensures top-level metadata (trace_id, service, level) is injected into
-// a JSON object payload if not already present. If the payload is not a JSON object or if no metadata
+// enrichPayloadMetadata injects trace_id, service, and level metadata into an existing JSON object payload
+// if those keys are not already present. If the payload is not a JSON object or if no metadata
 // is supplied, the payload is returned unchanged.
-func enrichJSONPayload(payloadBytes []byte, traceID, service, level string) []byte {
+func enrichPayloadMetadata(payload []byte, traceID, service, level string) []byte {
 	if traceID == "" && service == "" && level == "" {
-		return payloadBytes
+		return payload
 	}
-	trimmed := bytes.TrimSpace(payloadBytes)
+	trimmed := bytes.TrimSpace(payload)
 	if len(trimmed) == 0 || trimmed[0] != '{' {
-		return payloadBytes
+		return payload
 	}
 	// UseNumber avoids float64 rounding of 64-bit trace IDs / nanosecond timestamps on re-marshal.
 	decoder := json.NewDecoder(bytes.NewReader(trimmed))
 	decoder.UseNumber()
 	var obj map[string]any
 	if err := decoder.Decode(&obj); err != nil || obj == nil {
-		return payloadBytes
+		return payload
 	}
 	modified := false
 	if traceID != "" && obj["trace_id"] == nil && obj["traceId"] == nil {
@@ -539,8 +577,11 @@ func enrichJSONPayload(payloadBytes []byte, traceID, service, level string) []by
 			return merged
 		}
 	}
-	return payloadBytes
+	return payload
 }
+
+// enrichJSONPayload is an alias for backward compatibility within sidecar.
+var enrichJSONPayload = enrichPayloadMetadata
 
 func (s *SidecarServer) handleEnqueue(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
@@ -592,7 +633,7 @@ func (s *SidecarServer) handleEnqueue(w http.ResponseWriter, r *http.Request) {
 
 	// If top-level metadata was supplied in EnqueueRequest and payload is a JSON object,
 	// ensure payload retains it so WAL log and IngestionObserver receive complete metadata.
-	payloadBytes := enrichJSONPayload([]byte(req.Payload), req.TraceID, req.Service, req.Level)
+	payloadBytes := enrichPayloadMetadata([]byte(req.Payload), req.TraceID, req.Service, req.Level)
 
 	// 1. Sub-microsecond append to local disk WAL with CRC32 integrity
 	// Persists on WAL and automatically notifies registered IngestionObserver (e.g. MemoryLogHub)
@@ -880,6 +921,177 @@ func (s *SidecarServer) handleEnqueueNDJSON(w http.ResponseWriter, r *http.Reque
 	})
 }
 
+func (s *SidecarServer) handleEnqueueBatch(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	if s.IsShuttingDown() {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusServiceUnavailable)
+		_, _ = w.Write([]byte(`{"error":"shutting_down","message":"server is shutting down"}` + "\n"))
+		return
+	}
+
+	// 1. Memory bounding protection: limit request stream to 10MB
+	r.Body = http.MaxBytesReader(w, r.Body, MaxBatchBytes)
+
+	// 2. Decode JSON array input
+	var batch []EnqueueRequest
+	decoder := json.NewDecoder(r.Body)
+	decoder.UseNumber()
+	if err := decoder.Decode(&batch); err != nil {
+		var maxBytesErr *http.MaxBytesError
+		if errors.As(err, &maxBytesErr) || strings.Contains(err.Error(), "request body too large") {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusRequestEntityTooLarge)
+			_, _ = w.Write([]byte(`{"error":"payload_too_large","message":"request body exceeds maximum limit of 10MB"}` + "\n"))
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		_, _ = w.Write([]byte(`{"error":"invalid_json","message":"expected JSON array of enqueue requests"}` + "\n"))
+		return
+	}
+
+	// 3. Batch cardinality validation
+	if len(batch) == 0 {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		_, _ = w.Write([]byte(`{"error":"empty_batch","message":"batch must contain at least 1 item"}` + "\n"))
+		return
+	}
+
+	if len(batch) > MaxBatchSize {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusRequestEntityTooLarge)
+		_, _ = w.Write([]byte(`{"error":"batch_too_large","message":"batch size exceeds maximum limit of 1000 items"}` + "\n"))
+		return
+	}
+
+	// Default request headers for inheritance
+	defaultTraceID := strings.TrimSpace(r.Header.Get("X-Trace-ID"))
+	defaultService := strings.TrimSpace(r.Header.Get("X-Service"))
+	defaultLevel := strings.TrimSpace(r.Header.Get("X-Log-Level"))
+
+	// -------------------------------------------------------------------------
+	// Phase 1: Pre-validation in memory (Strict All-or-Nothing)
+	// -------------------------------------------------------------------------
+	prepared := make([]preparedBatchItem, len(batch))
+	totalBytes := 0
+
+	for i := range batch {
+		item := &batch[i]
+
+		traceID := strings.TrimSpace(item.TraceID)
+		if traceID == "" {
+			traceID = defaultTraceID
+		}
+		service := strings.TrimSpace(item.Service)
+		if service == "" {
+			service = defaultService
+		}
+		level := strings.TrimSpace(item.Level)
+		if level == "" {
+			level = defaultLevel
+		}
+
+		topic := strings.TrimSpace(item.Topic)
+		if topic == "" && service != "" {
+			topic = service
+		}
+
+		if topic == "" {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusBadRequest)
+			_ = json.NewEncoder(w).Encode(batchErrorItemResponse{
+				Error:   "invalid_batch_item",
+				Index:   i,
+				Message: "topic cannot be empty",
+			})
+			return
+		}
+
+		trimmedPayload := bytes.TrimSpace(item.Payload)
+		if len(trimmedPayload) == 0 || bytes.Equal(trimmedPayload, []byte("null")) || bytes.Equal(trimmedPayload, []byte(`""`)) {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusBadRequest)
+			_ = json.NewEncoder(w).Encode(batchErrorItemResponse{
+				Error:   "invalid_batch_item",
+				Index:   i,
+				Message: "payload cannot be empty",
+			})
+			return
+		}
+
+		if len(item.Payload) > MaxPayloadSize {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusBadRequest)
+			_ = json.NewEncoder(w).Encode(batchErrorItemResponse{
+				Error:   "invalid_batch_item",
+				Index:   i,
+				Message: fmt.Sprintf("payload size exceeds limit of %d bytes", MaxPayloadSize),
+			})
+			return
+		}
+
+		payloadBytes := enrichPayloadMetadata([]byte(item.Payload), traceID, service, level)
+		prepared[i] = preparedBatchItem{
+			topic:   topic,
+			payload: payloadBytes,
+		}
+		totalBytes += len(payloadBytes)
+	}
+
+	// -------------------------------------------------------------------------
+	// Phase 2: Sequential Ingestion into Spooler (Execution Phase)
+	// -------------------------------------------------------------------------
+	ctx := r.Context()
+	enqueuedCount := 0
+
+	for i := range prepared {
+		err := s.spooler.Enqueue(ctx, prepared[i].topic, prepared[i].payload)
+		if err != nil {
+			if errors.Is(err, walspool.ErrSpoolFull) {
+				w.Header().Set("Retry-After", "1")
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(http.StatusServiceUnavailable)
+				_ = json.NewEncoder(w).Encode(batchFailureResponse{
+					Error:    "spool_full",
+					Message:  "storage capacity exceeded, backpressure active",
+					Enqueued: enqueuedCount,
+					Total:    len(prepared),
+				})
+				return
+			}
+
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusInternalServerError)
+			_ = json.NewEncoder(w).Encode(batchFailureResponse{
+				Error:    "internal_error",
+				Message:  err.Error(),
+				Enqueued: enqueuedCount,
+				Total:    len(prepared),
+			})
+			return
+		}
+
+		if s.metrics != nil {
+			s.metrics.RecordIngested(prepared[i].topic)
+		}
+		enqueuedCount++
+	}
+
+	// Full batch ingestion successful
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	_ = json.NewEncoder(w).Encode(BatchEnqueueResponse{
+		Status:   "ok",
+		Enqueued: enqueuedCount,
+		Size:     totalBytes,
+	})
+}
 
 func (s *SidecarServer) handleLogsQuery(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
