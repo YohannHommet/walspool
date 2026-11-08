@@ -37,7 +37,8 @@ else
   go test ./... "$@"
 fi
 
-echo "==> [walspool] Running feedback-loop self-test..."
+echo "==> [walspool] Running harness script self-tests..."
 "$PROJECT_ROOT/scripts/feedback_loop_test.sh"
+"$PROJECT_ROOT/scripts/artifact_check_test.sh"
 
 echo "==> [walspool] All verification checks passed cleanly."

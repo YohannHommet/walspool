@@ -83,6 +83,15 @@ python3 .agents/skills/walspool-squad/scripts/orchestrate.py start <ISSUE_NUMBER
 - Présentez une synthèse concise (3-5 lignes) du besoin et du plan technique à l'utilisateur.
 - **Attendez explicitement le feu vert de l'utilisateur ("Go") avant d'engager la moindre modification de code**.
 
+### 4bis. Contrat de Délégation (obligatoire avant chaque sous-agent)
+- Définissez le chemin d'artefact, les titres requis et le hard stop de chaque sous-agent.
+- Le premier squelette non vide est attendu à T+5 min.
+- À T+5, relancez ; à T+7 sans squelette, interrompez et réassignez.
+- Aucune réflexion silencieuse de plus de 3 minutes : heartbeat dans
+  `<artifact>.progress`.
+- Détails et tableau des délais : [docs/harness/DELEGATION_CONTRACT.md](../../../docs/harness/DELEGATION_CONTRACT.md).
+- Vérification mécanique : `./scripts/artifact-check.sh <path> --max-age 300 --require '<heading>'`.
+
 ### 5. Phase 3 : Implémentation TDD (TDD Implementer)
 - **Red** : Rédigez le test unitaire provoquant l'échec ou affirmant le nouveau comportement. Lancez le test et vérifiez l'échec effectif.
 - **Green** : Écrivez l'implémentation minimale requise pour faire passer le test.
