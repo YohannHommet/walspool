@@ -170,17 +170,36 @@ func NewSidecarMetrics() *SidecarMetrics {
 	}
 }
 
+// metricTopicLabel bounds metric label memory and cardinality. Very long
+// attacker-controlled topics are aggregated rather than retained as map keys.
+func metricTopicLabel(topic string) string {
+	if len(topic) > maxTrackedTopicLength {
+		return overflowTopic
+	}
+	return topic
+}
+
+// recordTopic inserts or increments one bounded topic counter. One slot is
+// reserved for overflowTopic, so the map never exceeds maxTrackedTopics.
+func recordTopic(counts map[string]uint64, topic string) {
+	label := metricTopicLabel(topic)
+	if _, exists := counts[label]; !exists && len(counts) >= maxTrackedTopics-1 {
+		label = overflowTopic
+	}
+	counts[label]++
+}
+
 // RecordIngested increments the counter for a given topic.
 func (m *SidecarMetrics) RecordIngested(topic string) {
 	m.mu.Lock()
-	m.ingested[topic]++
+	recordTopic(m.ingested, topic)
 	m.mu.Unlock()
 }
 
 // RecordDelivered increments the delivered counter for a given topic.
 func (m *SidecarMetrics) RecordDelivered(topic string) {
 	m.mu.Lock()
-	m.delivered[topic]++
+	recordTopic(m.delivered, topic)
 	m.mu.Unlock()
 }
 
@@ -256,39 +275,44 @@ func (m *SidecarMetrics) FormatPrometheus(hub walspool.LogHub, storage walspool.
 		}
 	}
 
+	type topicCount struct {
+		name  string
+		count uint64
+	}
+
 	m.mu.RLock()
-	ingestedKeys := make([]string, 0, len(m.ingested))
-	for k := range m.ingested {
-		ingestedKeys = append(ingestedKeys, k)
+	ingested := make([]topicCount, 0, len(m.ingested))
+	for name, count := range m.ingested {
+		ingested = append(ingested, topicCount{name: name, count: count})
 	}
-	sort.Strings(ingestedKeys)
-
-	deliveredKeys := make([]string, 0, len(m.delivered))
-	for k := range m.delivered {
-		deliveredKeys = append(deliveredKeys, k)
+	delivered := make([]topicCount, 0, len(m.delivered))
+	for name, count := range m.delivered {
+		delivered = append(delivered, topicCount{name: name, count: count})
 	}
-	sort.Strings(deliveredKeys)
-
 	sinkFlush := m.sinkFlush
 	sinkError := m.sinkError
 	sinkRetry := m.sinkRetry
+	m.mu.RUnlock()
+
+	// Sort and render from the snapshot, never while holding the metrics lock.
+	sort.Slice(ingested, func(i, j int) bool { return ingested[i].name < ingested[j].name })
+	sort.Slice(delivered, func(i, j int) bool { return delivered[i].name < delivered[j].name })
 
 	var buf bytes.Buffer
 
 	// walspool_ingested_records_total
 	buf.WriteString("# HELP walspool_ingested_records_total Total number of records ingested by topic\n")
 	buf.WriteString("# TYPE walspool_ingested_records_total counter\n")
-	for _, k := range ingestedKeys {
-		fmt.Fprintf(&buf, "walspool_ingested_records_total{topic=\"%s\"} %d\n", escapeLabelValue(k), m.ingested[k])
+	for _, topic := range ingested {
+		fmt.Fprintf(&buf, "walspool_ingested_records_total{topic=\"%s\"} %d\n", escapeLabelValue(topic.name), topic.count)
 	}
 
 	// walspool_delivered_records_total
 	buf.WriteString("# HELP walspool_delivered_records_total Total number of delivered records to sink by topic\n")
 	buf.WriteString("# TYPE walspool_delivered_records_total counter\n")
-	for _, k := range deliveredKeys {
-		fmt.Fprintf(&buf, "walspool_delivered_records_total{topic=\"%s\"} %d\n", escapeLabelValue(k), m.delivered[k])
+	for _, topic := range delivered {
+		fmt.Fprintf(&buf, "walspool_delivered_records_total{topic=\"%s\"} %d\n", escapeLabelValue(topic.name), topic.count)
 	}
-	m.mu.RUnlock()
 
 	// walspool_active_sse_subscribers
 	buf.WriteString("# HELP walspool_active_sse_subscribers Current number of active SSE streaming subscribers\n")
@@ -487,6 +511,20 @@ const (
 
 	// MaxPayloadSize defines the maximum payload size for a single record (1MB).
 	MaxPayloadSize = 1024 * 1024
+
+	// maxTopicLength mirrors Record.MarshalBinary's topic length bound.
+	maxTopicLength = 65535
+
+	// maxTrackedTopics caps per-topic Prometheus series. One slot is reserved
+	// for the overflow bucket so attacker-controlled topic cardinality cannot
+	// grow the maps without bound.
+	maxTrackedTopics = 1000
+
+	// maxTrackedTopicLength caps label memory per topic. Longer topics are
+	// aggregated into overflowTopic instead of becoming full-size map keys.
+	maxTrackedTopicLength = 128
+
+	overflowTopic = "__walspool_overflow__"
 )
 
 // BatchEnqueueResponse represents the formal response returned upon successful batch ingestion.
@@ -505,6 +543,10 @@ type batchErrorItemResponse struct {
 	Error   string `json:"error"`
 	Index   int    `json:"index"`
 	Message string `json:"message"`
+	// Enqueued/Total are populated only for Phase 2 partial failures; they are
+	// omitted for Phase 1 validation failures, where no record was spooled.
+	Enqueued int `json:"enqueued,omitempty"`
+	Total    int `json:"total,omitempty"`
 }
 
 type batchFailureResponse struct {
@@ -1093,6 +1135,16 @@ func (s *SidecarServer) handleEnqueueBatch(w http.ResponseWriter, r *http.Reques
 			})
 			return
 		}
+		if len(topic) > maxTopicLength {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusBadRequest)
+			_ = json.NewEncoder(w).Encode(batchErrorItemResponse{
+				Error:   "invalid_batch_item",
+				Index:   i,
+				Message: fmt.Sprintf("topic length %d exceeds limit of %d bytes", len(topic), maxTopicLength),
+			})
+			return
+		}
 
 		trimmedPayload := bytes.TrimSpace(item.Payload)
 		if len(trimmedPayload) == 0 || bytes.Equal(trimmedPayload, []byte("null")) || bytes.Equal(trimmedPayload, []byte(`""`)) {
@@ -1164,9 +1216,11 @@ func (s *SidecarServer) handleEnqueueBatch(w http.ResponseWriter, r *http.Reques
 				w.Header().Set("Content-Type", "application/json")
 				w.WriteHeader(http.StatusBadRequest)
 				_ = json.NewEncoder(w).Encode(batchErrorItemResponse{
-					Error:   "invalid_batch_item",
-					Index:   i,
-					Message: err.Error(),
+					Error:    "invalid_batch_item",
+					Index:    i,
+					Message:  err.Error(),
+					Enqueued: enqueuedCount,
+					Total:    len(prepared),
 				})
 				return
 			}

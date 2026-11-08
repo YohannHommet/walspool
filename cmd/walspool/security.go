@@ -20,13 +20,14 @@ var (
 
 // SanitizeTerminal neutralizes potential terminal escape sequences, C0 and C1 control characters,
 // and bidirectional overrides before outputting untrusted text to a console.
+// Carriage returns are always escaped; LF is preserved only when singleLine is false.
 // If singleLine is true, newline characters are converted to literal \n to prevent log forgery (CWE-117).
 func SanitizeTerminal(s string, singleLine bool) string {
 	// Fast path: pure printable ASCII with allowed whitespace requires no allocation.
 	clean := true
 	for i := 0; i < len(s); i++ {
 		b := s[i]
-		if b < 0x20 && b != '\t' && (singleLine || (b != '\n' && b != '\r')) {
+		if b < 0x20 && b != '\t' && (singleLine || b != '\n') {
 			clean = false
 			break
 		}
@@ -58,11 +59,9 @@ func SanitizeTerminal(s string, singleLine bool) string {
 				buf.WriteRune('\n')
 			}
 		case r == '\r':
-			if singleLine {
-				buf.WriteString(`\r`)
-			} else {
-				buf.WriteRune('\r')
-			}
+			// CR always returns the cursor to column 0; preserve LF for
+			// multi-line mode, but never emit a raw CR from untrusted input.
+			buf.WriteString(`\r`)
 		case r < 0x20, r == 0x7F:
 			// C0 control codes & DEL (e.g. \x1b ESC, \b backspace, bell)
 			buf.WriteString(`\x`)
