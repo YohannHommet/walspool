@@ -94,6 +94,9 @@ func TestFileStorage_NoZeroPaddingOnWriteFailure(t *testing.T) {
 	if len(eng.records) != 1 {
 		t.Fatalf("expected only record A to remain indexed, got %d records", len(eng.records))
 	}
+	if got := eng.UncommittedBytes(); got != int64(sizeA) {
+		t.Fatalf("expected UncommittedBytes %d after rollback, got %d", sizeA, got)
+	}
 
 	data, err := os.ReadFile(walPath)
 	if err != nil {

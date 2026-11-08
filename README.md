@@ -110,7 +110,8 @@ Walspool operates as a **Dual-Engine** behind clean [Ports & Adapters](docs/arch
    - Appends records sequentially into append-only WAL segments (`segment-%012d.wal`).
    - Buffers writes in userspace (128 KB `bufio.Writer`), amortizing disk syscalls to deliver over 1,000,000 appends/sec.
    - Seals each entry with an IEEE 802.3 CRC32 checksum inside a 29-byte binary frame.
-   - Automatically rotates active segments when reaching `MaxSegmentSize` (e.g. 64 MB) and unlinks fully-committed segments on `Commit()`.
+   - Automatically rotates active segments when reaching `MaxSegmentSize` (the sidecar uses 64 MiB) and unlinks fully-committed segments on `Commit()`.
+   - The sidecar also caps uncommitted WAL frame bytes via `-max-spool-bytes` (default 1 GiB), so a sink outage cannot grow the backlog without limit.
    - Commits checkpoint offsets via atomic swap (`checkpoint.tmp` $\to$ `checkpoint.meta`) and directory `fsync`.
    - On startup, safely discovers all segments and truncates torn writes at the tail using `os.Truncate` without losing valid records.
 
@@ -242,6 +243,7 @@ services:
       - WALSPOOL_BATCH_SIZE=50
       - WALSPOOL_FLUSH_MS=50
       - WALSPOOL_MAX_RECORDS=50000
+      - WALSPOOL_MAX_SPOOL_BYTES=1073741824
       - WALSPOOL_LOG_FORMAT=json
       - WALSPOOL_LOG_LEVEL=info
     volumes:
@@ -511,14 +513,17 @@ Flags take precedence over environment variables, which take precedence over def
 | `-sink-url` | `WALSPOOL_SINK_URL` | `""` (stdout) | Destination HTTP URL for batch delivery |
 | `-batch-size` | `WALSPOOL_BATCH_SIZE` | `50` | Maximum records dispatched per batch |
 | `-flush-ms` | `WALSPOOL_FLUSH_MS` | `50` | Maximum wait in ms before dispatching a batch |
-| `-max-records` | `WALSPOOL_MAX_RECORDS` | `50000` | Disk spool capacity quota before backpressure `503` |
+| `-max-records` | `WALSPOOL_MAX_RECORDS` | `50000` | Count guard: maximum uncommitted records before backpressure `503` |
+| `-max-spool-bytes` | `WALSPOOL_MAX_SPOOL_BYTES` | `1073741824` | Byte guard: maximum serialized uncommitted WAL frame bytes before backpressure `503` |
 | `-hub-capacity` | `WALSPOOL_HUB_CAPACITY` | `50000` | In-memory ring buffer entry capacity |
 | `-otlp-enabled` | `WALSPOOL_OTLP_ENABLED` | `true` | Enable native OpenTelemetry HTTP log receiver on `/v1/logs` |
 | `-otlp-default-topic` | `WALSPOOL_OTLP_DEFAULT_TOPIC` | `otel_logs` | Fallback topic when OTLP records lack `service.name` |
 | `-log-format` | `WALSPOOL_LOG_FORMAT` | `text` | Internal logger format (`text` or `json`) |
 | `-log-level` | `WALSPOOL_LOG_LEVEL` | `info` | Minimum log level (`debug`, `info`, `warn`, `error`) |
 
-*For embedded Go library usage, multi-segment rotation is configured directly via `walspool.FileStorageOptions{MaxSegmentSize: 64 * 1024 * 1024}`.*
+`-max-records` is a count guard and `-max-spool-bytes` is a byte guard. Whichever limit is reached first rejects new appends with HTTP `503` and a `Retry-After` header. The byte quota counts the serialized WAL frame bytes (29-byte header + topic + payload) of records not yet committed by the sink. It does not count committed records and it is not a total-disk quota. The sidecar requires a positive value and rejects `0` at startup. The sidecar rotates at 64 MiB, so its spool disk is bounded approximately by the active segment (64 MiB plus one record) plus the uncommitted byte quota plus checkpoint metadata.
+
+*For embedded Go library usage, multi-segment rotation is configured directly via `walspool.FileStorageOptions{MaxSegmentSize: 64 * 1024 * 1024}`, and the uncommitted byte quota via `MaxUncommittedBytes` (`<= 0` keeps the legacy unlimited behavior).*
 
 ---
 

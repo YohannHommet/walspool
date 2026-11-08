@@ -718,6 +718,9 @@ func TestFileStorage_Recover_CheckpointAheadOfWAL(t *testing.T) {
 	if n, _ := reopened.UncommittedCount(); n != 0 {
 		t.Fatalf("expected 0 uncommitted after recovery, got %d", n)
 	}
+	if got := reopened.UncommittedBytes(); got != 0 {
+		t.Fatalf("expected 0 uncommitted bytes after checkpoint clamp, got %d", got)
+	}
 	if _, err := reopened.Append(walspool.Record{ID: 100, Timestamp: time.Now(), Topic: "t", Payload: []byte("new")}); err != nil {
 		t.Fatalf("append after recovery failed: %v", err)
 	}
