@@ -392,7 +392,7 @@ func (f *FileStorageEngine) recoverSegment(file *os.File, fileSize int64, segBas
 		payloadLen := int(binary.BigEndian.Uint32(header[25:29]))
 		totalRecordLen := headerSize + topicLen + payloadLen
 
-		// Reject before allocating for it — see maxRecoverableRecordSize.
+		// Reject before allocating for it: see maxRecoverableRecordSize.
 		if totalRecordLen > maxRecoverableRecordSize {
 			if err := file.Truncate(validFileEnd); err != nil {
 				return 0, fmt.Errorf("%w: failed to truncate oversized corrupt record header", ErrStorageUnavailable)
@@ -527,7 +527,7 @@ func (f *FileStorageEngine) pruneCommittedSegments() {
 }
 
 // rollbackTo undoes a failed append so the WAL never grows with zero padding: it truncates to
-// min(pos, real on-disk size) — Truncate cannot extend past what is physically flushed — and drops
+// min(pos, real on-disk size) (Truncate cannot extend past what is physically flushed) and drops
 // trailing index entries and any earlier appends still unsynced under SyncInterval. Caller holds mu.
 func (f *FileStorageEngine) rollbackTo(pos int64) {
 	target := pos

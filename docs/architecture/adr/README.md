@@ -1,4 +1,4 @@
-# 🏛️ Registre des Décisions d'Architecture (ADR) — Walspool
+# 🏛️ Registre des Décisions d'Architecture (ADR) : Walspool
 
 Ce répertoire consigne l'ensemble des **Architecture Decision Records (ADR)** de Walspool.  
 Chaque enregistrement capture une décision architecturale structurante, son contexte, ses justifications techniques, les options concurrentes écartées et ses conséquences sur la base de code.
