@@ -8,7 +8,7 @@
   <link rel="canonical" href="https://yohannhommet.github.io/walspool/">
   <meta name="theme-color" content="#F3F2EE">
   <meta name="color-scheme" content="light dark">
-  <meta name="msapplication-TileColor" content="#F7F5EF">
+  <meta name="msapplication-TileColor" content="#F3F2EE">
 
   <link rel="icon" type="image/x-icon" href="assets/favicon.ico">
   <link rel="icon" type="image/png" sizes="32x32" href="assets/favicon-32x32.png">
@@ -107,6 +107,13 @@
       color-scheme: dark;
     }
 
+
+    html.theme-switching,
+    html.theme-switching *,
+    html.theme-switching *::before,
+    html.theme-switching *::after {
+      transition: background-color 0.22s ease-out, border-color 0.22s ease-out, color 0.22s ease-out, fill 0.22s ease-out, stroke 0.22s ease-out, box-shadow 0.22s ease-out !important;
+    }
 
     *, *::before, *::after { box-sizing: border-box; }
 
@@ -1810,23 +1817,60 @@ curl -N "http://localhost:9099/v1/logs/stream?service=billing-api&amp;level=info
       var root = document.documentElement;
       var toggle = document.getElementById("theme-toggle");
       var meta = document.querySelector('meta[name="theme-color"]');
+      var tile = document.querySelector('meta[name="msapplication-TileColor"]');
+      var live = document.getElementById("copy-status");
       var colors = { light: "#F3F2EE", dark: "#191614" };
-      function sync(theme) {
+      var names = { light: "Graphite light", dark: "Sandstone Night dark" };
+      var switchTimer = null;
+
+      function sync(theme, animate) {
+        if (animate) {
+          root.classList.add("theme-switching");
+          window.clearTimeout(switchTimer);
+          switchTimer = window.setTimeout(function () {
+            root.classList.remove("theme-switching");
+          }, 240);
+        }
         root.setAttribute("data-theme", theme);
         if (toggle) {
+          var nextLabel = theme === "dark" ? "Switch to Graphite light theme" : "Switch to Sandstone Night dark theme";
           toggle.setAttribute("aria-pressed", theme === "dark" ? "true" : "false");
-          toggle.setAttribute("aria-label", theme === "dark" ? "Switch to light theme" : "Switch to dark theme");
+          toggle.setAttribute("aria-label", nextLabel);
+          toggle.setAttribute("title", nextLabel);
         }
-        if (meta) meta.setAttribute("content", colors[theme] || colors.light);
+        var hex = colors[theme] || colors.light;
+        if (meta) meta.setAttribute("content", hex);
+        if (tile) tile.setAttribute("content", hex);
       }
+
       var current = root.getAttribute("data-theme") === "dark" ? "dark" : "light";
-      sync(current);
+      sync(current, false);
+
       if (toggle) {
         toggle.addEventListener("click", function () {
           current = current === "dark" ? "light" : "dark";
-          sync(current);
+          sync(current, true);
           try { localStorage.setItem("walspool-theme", current); } catch (e) {}
+          if (live) {
+            live.textContent = "";
+            window.requestAnimationFrame(function () {
+              live.textContent = names[current] + " theme active";
+            });
+          }
         });
+      }
+
+      if (window.matchMedia) {
+        var mq = window.matchMedia("(prefers-color-scheme: dark)");
+        var onChange = function (e) {
+          var saved = null;
+          try { saved = localStorage.getItem("walspool-theme"); } catch (err) {}
+          if (!saved) {
+            current = e.matches ? "dark" : "light";
+            sync(current, true);
+          }
+        };
+        if (mq.addEventListener) mq.addEventListener("change", onChange);
       }
     })();
   </script>
