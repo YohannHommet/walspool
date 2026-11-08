@@ -25,6 +25,28 @@ For performance-sensitive changes to ingestion or storage paths, verify latency 
 ```
 *(Ingestion target: sub-microsecond latency, <= 2 allocs/op)*
 
+## Feedback Auto-Improve Loop
+
+When the sensor fails, do not re-prompt blindly or rerun unchanged code. Run:
+
+```bash
+./scripts/feedback-loop.sh
+```
+
+The wrapper runs the sensor, writes a bounded `.walspool/feedback/latest.md`,
+and counts identical failure signatures.
+
+- Attempts 1-2: fix only the first failure, then rerun the loop.
+- Attempt 3 with the same signature: stop changing production code and patch the
+  harness first:
+  - Guidance gap: update this `AGENTS.md` or the relevant leaf rule.
+  - Sensor gap: add a regression test or a `scripts/verify.sh` check.
+  - Execution gap: add a guard/hook or a forbidden-move check.
+- Never weaken an assertion, skip a test, or rerun unchanged code after a failure.
+- Run `./scripts/feedback_loop_test.sh` when changing the loop itself.
+
+Loop state is local and ignored under `.walspool/feedback/`; it is not committed.
+
 ## Standards & Mechanical Sympathy
 
 - **Pure Go**: Strictly `CGO_ENABLED=0`. Zero CGO or native C library requirements.
