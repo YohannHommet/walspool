@@ -59,6 +59,9 @@ func (s *HTTPSink) Deliver(ctx context.Context, batch []walspool.Record) error {
 	}
 
 	items := make([]BatchItem, len(batch))
+	if s.Metrics != nil {
+		s.Metrics.RecordSinkFlush()
+	}
 	for i, r := range batch {
 		// Try to preserve raw JSON if payload is valid JSON, else quote as string
 		var raw json.RawMessage
@@ -80,11 +83,17 @@ func (s *HTTPSink) Deliver(ctx context.Context, batch []walspool.Record) error {
 
 	body, err := json.Marshal(items)
 	if err != nil {
+		if s.Metrics != nil {
+			s.Metrics.RecordSinkError()
+		}
 		return fmt.Errorf("%w: failed to encode batch: %v", walspool.ErrPermanentRejection, err)
 	}
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, s.TargetURL, bytes.NewReader(body))
 	if err != nil {
+		if s.Metrics != nil {
+			s.Metrics.RecordSinkError()
+		}
 		return fmt.Errorf("%w: invalid request: %v", walspool.ErrPermanentRejection, err)
 	}
 	req.Header.Set("Content-Type", "application/json")
@@ -97,6 +106,10 @@ func (s *HTTPSink) Deliver(ctx context.Context, batch []walspool.Record) error {
 
 	resp, err := client.Do(req)
 	if err != nil {
+		if s.Metrics != nil {
+			s.Metrics.RecordSinkError()
+			s.Metrics.RecordSinkRetry()
+		}
 		return fmt.Errorf("%w: network transport fault: %v", walspool.ErrSinkUnavailable, err)
 	}
 	defer resp.Body.Close()
@@ -114,6 +127,10 @@ func (s *HTTPSink) Deliver(ctx context.Context, batch []walspool.Record) error {
 	if resp.StatusCode == http.StatusTooManyRequests || resp.StatusCode == http.StatusRequestTimeout {
 		respBody, _ := io.ReadAll(io.LimitReader(resp.Body, 512))
 		slog.Warn("[SINK TRANSIENT] Downstream transient error", "status", resp.StatusCode, "body", string(respBody))
+		if s.Metrics != nil {
+			s.Metrics.RecordSinkError()
+			s.Metrics.RecordSinkRetry()
+		}
 		return fmt.Errorf("%w: destination returned transient HTTP %d", walspool.ErrSinkUnavailable, resp.StatusCode)
 	}
 
@@ -121,10 +138,17 @@ func (s *HTTPSink) Deliver(ctx context.Context, batch []walspool.Record) error {
 	if resp.StatusCode >= 400 && resp.StatusCode < 500 {
 		respBody, _ := io.ReadAll(io.LimitReader(resp.Body, 512))
 		slog.Error("[SINK 4XX] Downstream permanently rejected batch", "status", resp.StatusCode, "body", string(respBody))
+		if s.Metrics != nil {
+			s.Metrics.RecordSinkError()
+		}
 		return walspool.ErrPermanentRejection
 	}
 
 	// 5xx server errors indicate transient downstream failure -> trigger exponential backoff
+	if s.Metrics != nil {
+		s.Metrics.RecordSinkError()
+		s.Metrics.RecordSinkRetry()
+	}
 	return fmt.Errorf("%w: destination returned HTTP %d", walspool.ErrSinkUnavailable, resp.StatusCode)
 }
 
@@ -133,6 +157,9 @@ type SidecarMetrics struct {
 	mu        sync.RWMutex
 	ingested  map[string]uint64
 	delivered map[string]uint64
+	sinkFlush uint64
+	sinkError uint64
+	sinkRetry uint64
 }
 
 // NewSidecarMetrics constructs a new thread-safe SidecarMetrics registry.
@@ -143,17 +170,57 @@ func NewSidecarMetrics() *SidecarMetrics {
 	}
 }
 
+// metricTopicLabel bounds metric label memory and cardinality. Very long
+// attacker-controlled topics are aggregated rather than retained as map keys.
+func metricTopicLabel(topic string) string {
+	if len(topic) > maxTrackedTopicLength {
+		return overflowTopic
+	}
+	return topic
+}
+
+// recordTopic inserts or increments one bounded topic counter. One slot is
+// reserved for overflowTopic, so the map never exceeds maxTrackedTopics.
+func recordTopic(counts map[string]uint64, topic string) {
+	label := metricTopicLabel(topic)
+	if _, exists := counts[label]; !exists && len(counts) >= maxTrackedTopics-1 {
+		label = overflowTopic
+	}
+	counts[label]++
+}
+
 // RecordIngested increments the counter for a given topic.
 func (m *SidecarMetrics) RecordIngested(topic string) {
 	m.mu.Lock()
-	m.ingested[topic]++
+	recordTopic(m.ingested, topic)
 	m.mu.Unlock()
 }
 
 // RecordDelivered increments the delivered counter for a given topic.
 func (m *SidecarMetrics) RecordDelivered(topic string) {
 	m.mu.Lock()
-	m.delivered[topic]++
+	recordTopic(m.delivered, topic)
+	m.mu.Unlock()
+}
+
+// RecordSinkFlush increments the number of outbound delivery attempts.
+func (m *SidecarMetrics) RecordSinkFlush() {
+	m.mu.Lock()
+	m.sinkFlush++
+	m.mu.Unlock()
+}
+
+// RecordSinkError increments the number of failed outbound delivery attempts.
+func (m *SidecarMetrics) RecordSinkError() {
+	m.mu.Lock()
+	m.sinkError++
+	m.mu.Unlock()
+}
+
+// RecordSinkRetry increments the number of failures that trigger a dispatcher retry.
+func (m *SidecarMetrics) RecordSinkRetry() {
+	m.mu.Lock()
+	m.sinkRetry++
 	m.mu.Unlock()
 }
 
@@ -199,35 +266,53 @@ func (m *SidecarMetrics) FormatPrometheus(hub walspool.LogHub, storage walspool.
 		}
 	}
 
-	m.mu.RLock()
-	ingestedKeys := make([]string, 0, len(m.ingested))
-	for k := range m.ingested {
-		ingestedKeys = append(ingestedKeys, k)
+	diskBytes := int64(0)
+	if storage != nil {
+		if sizer, ok := storage.(interface{ DiskBytes() (int64, error) }); ok {
+			if n, err := sizer.DiskBytes(); err == nil {
+				diskBytes = n
+			}
+		}
 	}
-	sort.Strings(ingestedKeys)
 
-	deliveredKeys := make([]string, 0, len(m.delivered))
-	for k := range m.delivered {
-		deliveredKeys = append(deliveredKeys, k)
+	type topicCount struct {
+		name  string
+		count uint64
 	}
-	sort.Strings(deliveredKeys)
+
+	m.mu.RLock()
+	ingested := make([]topicCount, 0, len(m.ingested))
+	for name, count := range m.ingested {
+		ingested = append(ingested, topicCount{name: name, count: count})
+	}
+	delivered := make([]topicCount, 0, len(m.delivered))
+	for name, count := range m.delivered {
+		delivered = append(delivered, topicCount{name: name, count: count})
+	}
+	sinkFlush := m.sinkFlush
+	sinkError := m.sinkError
+	sinkRetry := m.sinkRetry
+	m.mu.RUnlock()
+
+	// Sort and render from the snapshot, never while holding the metrics lock.
+	sort.Slice(ingested, func(i, j int) bool { return ingested[i].name < ingested[j].name })
+	sort.Slice(delivered, func(i, j int) bool { return delivered[i].name < delivered[j].name })
 
 	var buf bytes.Buffer
 
 	// walspool_ingested_records_total
 	buf.WriteString("# HELP walspool_ingested_records_total Total number of records ingested by topic\n")
 	buf.WriteString("# TYPE walspool_ingested_records_total counter\n")
-	for _, k := range ingestedKeys {
-		fmt.Fprintf(&buf, "walspool_ingested_records_total{topic=\"%s\"} %d\n", escapeLabelValue(k), m.ingested[k])
+	for _, topic := range ingested {
+		fmt.Fprintf(&buf, "walspool_ingested_records_total{topic=\"%s\"} %d\n", escapeLabelValue(topic.name), topic.count)
 	}
 
 	// walspool_delivered_records_total
 	buf.WriteString("# HELP walspool_delivered_records_total Total number of delivered records to sink by topic\n")
 	buf.WriteString("# TYPE walspool_delivered_records_total counter\n")
-	for _, k := range deliveredKeys {
-		fmt.Fprintf(&buf, "walspool_delivered_records_total{topic=\"%s\"} %d\n", escapeLabelValue(k), m.delivered[k])
+	for _, topic := range delivered {
+		fmt.Fprintf(&buf, "walspool_delivered_records_total{topic=\"%s\"} %d\n", escapeLabelValue(topic.name), topic.count)
 	}
-	m.mu.RUnlock()
 
 	// walspool_active_sse_subscribers
 	buf.WriteString("# HELP walspool_active_sse_subscribers Current number of active SSE streaming subscribers\n")
@@ -253,6 +338,26 @@ func (m *SidecarMetrics) FormatPrometheus(hub walspool.LogHub, storage walspool.
 	buf.WriteString("# HELP walspool_ring_buffer_count Current count of log entries in ring buffer\n")
 	buf.WriteString("# TYPE walspool_ring_buffer_count gauge\n")
 	fmt.Fprintf(&buf, "walspool_ring_buffer_count %d\n", ringCount)
+
+	// walspool_storage_disk_bytes
+	buf.WriteString("# HELP walspool_storage_disk_bytes Total size of WAL files on disk in bytes\n")
+	buf.WriteString("# TYPE walspool_storage_disk_bytes gauge\n")
+	fmt.Fprintf(&buf, "walspool_storage_disk_bytes %d\n", diskBytes)
+
+	// walspool_sink_flushes_total
+	buf.WriteString("# HELP walspool_sink_flushes_total Total outbound sink delivery attempts\n")
+	buf.WriteString("# TYPE walspool_sink_flushes_total counter\n")
+	fmt.Fprintf(&buf, "walspool_sink_flushes_total %d\n", sinkFlush)
+
+	// walspool_sink_errors_total
+	buf.WriteString("# HELP walspool_sink_errors_total Total failed outbound sink delivery attempts\n")
+	buf.WriteString("# TYPE walspool_sink_errors_total counter\n")
+	fmt.Fprintf(&buf, "walspool_sink_errors_total %d\n", sinkError)
+
+	// walspool_sink_retries_total
+	buf.WriteString("# HELP walspool_sink_retries_total Total sink failures that triggered a dispatcher retry\n")
+	buf.WriteString("# TYPE walspool_sink_retries_total counter\n")
+	fmt.Fprintf(&buf, "walspool_sink_retries_total %d\n", sinkRetry)
 
 	return buf.String()
 }
@@ -406,6 +511,20 @@ const (
 
 	// MaxPayloadSize defines the maximum payload size for a single record (1MB).
 	MaxPayloadSize = 1024 * 1024
+
+	// maxTopicLength mirrors Record.MarshalBinary's topic length bound.
+	maxTopicLength = 65535
+
+	// maxTrackedTopics caps per-topic Prometheus series. One slot is reserved
+	// for the overflow bucket so attacker-controlled topic cardinality cannot
+	// grow the maps without bound.
+	maxTrackedTopics = 1000
+
+	// maxTrackedTopicLength caps label memory per topic. Longer topics are
+	// aggregated into overflowTopic instead of becoming full-size map keys.
+	maxTrackedTopicLength = 128
+
+	overflowTopic = "__walspool_overflow__"
 )
 
 // BatchEnqueueResponse represents the formal response returned upon successful batch ingestion.
@@ -424,6 +543,10 @@ type batchErrorItemResponse struct {
 	Error   string `json:"error"`
 	Index   int    `json:"index"`
 	Message string `json:"message"`
+	// Enqueued/Total are populated only for Phase 2 partial failures; they are
+	// omitted for Phase 1 validation failures, where no record was spooled.
+	Enqueued int `json:"enqueued,omitempty"`
+	Total    int `json:"total,omitempty"`
 }
 
 type batchFailureResponse struct {
@@ -1012,6 +1135,16 @@ func (s *SidecarServer) handleEnqueueBatch(w http.ResponseWriter, r *http.Reques
 			})
 			return
 		}
+		if len(topic) > maxTopicLength {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusBadRequest)
+			_ = json.NewEncoder(w).Encode(batchErrorItemResponse{
+				Error:   "invalid_batch_item",
+				Index:   i,
+				Message: fmt.Sprintf("topic length %d exceeds limit of %d bytes", len(topic), maxTopicLength),
+			})
+			return
+		}
 
 		trimmedPayload := bytes.TrimSpace(item.Payload)
 		if len(trimmedPayload) == 0 || bytes.Equal(trimmedPayload, []byte("null")) || bytes.Equal(trimmedPayload, []byte(`""`)) {
@@ -1037,6 +1170,19 @@ func (s *SidecarServer) handleEnqueueBatch(w http.ResponseWriter, r *http.Reques
 		}
 
 		payloadBytes := enrichPayloadMetadata([]byte(item.Payload), traceID, service, level)
+		// Enrichment can add trace_id/service/level keys and grow the payload.
+		// Re-validate the final bytes so a client error is not deferred to the
+		// engine and reported as a 500 after earlier items were already spooled.
+		if len(payloadBytes) > MaxPayloadSize {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusBadRequest)
+			_ = json.NewEncoder(w).Encode(batchErrorItemResponse{
+				Error:   "invalid_batch_item",
+				Index:   i,
+				Message: fmt.Sprintf("payload size exceeds limit of %d bytes after metadata enrichment", MaxPayloadSize),
+			})
+			return
+		}
 		prepared[i] = preparedBatchItem{
 			topic:   topic,
 			payload: payloadBytes,
@@ -1060,6 +1206,19 @@ func (s *SidecarServer) handleEnqueueBatch(w http.ResponseWriter, r *http.Reques
 				_ = json.NewEncoder(w).Encode(batchFailureResponse{
 					Error:    "spool_full",
 					Message:  "storage capacity exceeded, backpressure active",
+					Enqueued: enqueuedCount,
+					Total:    len(prepared),
+				})
+				return
+			}
+
+			if errors.Is(err, walspool.ErrPreconditionViolated) {
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(http.StatusBadRequest)
+				_ = json.NewEncoder(w).Encode(batchErrorItemResponse{
+					Error:    "invalid_batch_item",
+					Index:    i,
+					Message:  err.Error(),
 					Enqueued: enqueuedCount,
 					Total:    len(prepared),
 				})
@@ -1526,6 +1685,7 @@ func main() {
 	spoolCfg := walspool.DefaultConfig()
 	spoolCfg.BatchSize = cfg.BatchSize
 	spoolCfg.FlushInterval = time.Duration(cfg.FlushMs) * time.Millisecond
+	spoolCfg.MaxCapacity = cfg.MaxRecords
 
 	spool, err := walspool.New(spoolCfg, storage, sink, nil, walspool.WithObserver(hub))
 	if err != nil {

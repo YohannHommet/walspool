@@ -1,6 +1,7 @@
 package walspool
 
 import (
+	"fmt"
 	"sync"
 )
 
@@ -74,6 +75,11 @@ func (m *MemoryStorageEngine) Commit(offset Offset) error {
 		return ErrStorageUnavailable
 	}
 
+	// Mirror the file engine: a checkpoint must name an existing record.
+	if offset >= Offset(len(m.records)) {
+		return fmt.Errorf("%w: commit offset %d is beyond the log (%d records)", ErrPreconditionViolated, offset, len(m.records))
+	}
+
 	// Commit updates high-water mark; offset is 0-indexed inclusive.
 	newCheckpoint := offset + 1
 	if newCheckpoint > m.checkpoint {
@@ -103,6 +109,17 @@ func (m *MemoryStorageEngine) Close() error {
 
 	m.closed = true
 	return nil
+}
+
+// limitCapacity lowers the storage quota when the engine is constructed with a
+// smaller Config.MaxCapacity. It never raises an explicitly configured storage
+// quota; the adapter remains the atomic owner of the admission check.
+func (m *MemoryStorageEngine) limitCapacity(n int) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if n > 0 && n < m.maxCapacity {
+		m.maxCapacity = n
+	}
 }
 
 // LastID returns the highest record ID stored in memory.

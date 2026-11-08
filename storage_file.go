@@ -547,6 +547,14 @@ func (f *FileStorageEngine) Append(rec Record) (Offset, error) {
 		return 0, ErrStorageUnavailable
 	}
 
+	// Recovery cannot replay a frame larger than maxRecoverableRecordSize; reject
+	// it symmetrically here so Append never acknowledges data that would be
+	// truncated on the next open.
+	recordSize := headerSize + len(rec.Topic) + len(rec.Payload)
+	if recordSize > maxRecoverableRecordSize {
+		return 0, fmt.Errorf("%w: record size %d exceeds recovery limit of %d", ErrPreconditionViolated, recordSize, maxRecoverableRecordSize)
+	}
+
 	uncommitted := int((f.baseOffset + Offset(len(f.records))) - f.checkpoint)
 	if uncommitted >= f.maxCapacity {
 		return 0, ErrSpoolFull
@@ -573,11 +581,15 @@ func (f *FileStorageEngine) Append(rec Record) (Offset, error) {
 		return 0, fmt.Errorf("%w: write failed", ErrStorageUnavailable)
 	}
 
+	// Always move the record out of the userspace bufio.Writer before returning.
+	// SyncInterval/SyncBatchCommit defer fsync, but an acknowledged append must
+	// survive a process crash (SIGKILL, OOM, panic), not just a power-loss window.
+	if err := f.writer.Flush(); err != nil {
+		f.rollbackTo(pos)
+		return 0, fmt.Errorf("%w: flush failed", ErrStorageUnavailable)
+	}
+
 	if f.opts.SyncPolicy == SyncEveryRecord {
-		if err := f.writer.Flush(); err != nil {
-			f.rollbackTo(pos)
-			return 0, fmt.Errorf("%w: flush failed", ErrStorageUnavailable)
-		}
 		if err := f.walFile.Sync(); err != nil {
 			f.rollbackTo(pos)
 			return 0, fmt.Errorf("%w: sync failed", ErrStorageUnavailable)
@@ -686,6 +698,15 @@ func (f *FileStorageEngine) Commit(offset Offset) error {
 		return ErrStorageUnavailable
 	}
 
+	// A checkpoint may only name an existing record. Without this guard a future
+	// offset advances the checkpoint past the log tail, making UncommittedCount
+	// clamp to zero, disabling Append's quota check, and hiding all subsequent
+	// records from ReadBatch until recovery clamps the checkpoint.
+	totalRecords := f.baseOffset + Offset(len(f.records))
+	if offset >= totalRecords {
+		return fmt.Errorf("%w: commit offset %d is beyond the log (%d records)", ErrPreconditionViolated, offset, totalRecords)
+	}
+
 	newCheckpoint := offset + 1
 	if newCheckpoint <= f.checkpoint {
 		return nil
@@ -763,6 +784,30 @@ func (f *FileStorageEngine) UncommittedCount() (int, error) {
 	return count, nil
 }
 
+// DiskBytes returns the total size of the .wal files in the storage directory.
+// It is an optional capability consumed by metrics exposition. A concurrent
+// rotation or prune may make the snapshot slightly stale; individual stat
+// failures are skipped rather than failing the whole scrape.
+func (f *FileStorageEngine) DiskBytes() (int64, error) {
+	entries, err := os.ReadDir(f.dir)
+	if err != nil {
+		return 0, fmt.Errorf("%w: failed to read wal directory", ErrStorageUnavailable)
+	}
+
+	var total int64
+	for _, entry := range entries {
+		if entry.IsDir() || filepath.Ext(entry.Name()) != ".wal" {
+			continue
+		}
+		info, err := entry.Info()
+		if err != nil {
+			continue
+		}
+		total += info.Size()
+	}
+	return total, nil
+}
+
 // Close flushes buffers, stops the background flusher, and closes the file descriptor.
 // sync.Once makes it idempotent AND synchronizing: a concurrent second Close blocks inside Do
 // until the first has fully drained flusherWg and closed the fd, then returns the same error.
@@ -805,6 +850,17 @@ func (f *FileStorageEngine) Close() error {
 		f.closeErr = errors.Join(errs...)
 	})
 	return f.closeErr
+}
+
+// limitCapacity lowers the storage quota when the engine is constructed with a
+// smaller Config.MaxCapacity. It never raises an explicitly configured storage
+// quota; the adapter remains the atomic owner of the admission check.
+func (f *FileStorageEngine) limitCapacity(n int) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if n > 0 && n < f.maxCapacity {
+		f.maxCapacity = n
+	}
 }
 
 // LastID returns the highest record ID persisted or recovered by the storage engine.
