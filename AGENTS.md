@@ -47,6 +47,14 @@ and counts identical failure signatures.
 
 Loop state is local and ignored under `.walspool/feedback/`; it is not committed.
 
+## Delegation Contract
+
+Delegated work is checkpointed, not open-ended. Record an artifact path and a hard
+stop before spawning a teammate; a non-empty skeleton is due at T+5, the Lead
+nudges at T+5 and interrupts/reassigns at T+7, and no silent thinking may exceed
+3 minutes. Validate with `./scripts/artifact-check.sh <path> --max-age 300 --require '<heading>'`. Role deadlines and the watchdog algorithm are in
+[docs/harness/DELEGATION_CONTRACT.md](docs/harness/DELEGATION_CONTRACT.md).
+
 ## Standards & Mechanical Sympathy
 
 - **Pure Go**: Strictly `CGO_ENABLED=0`. Zero CGO or native C library requirements.

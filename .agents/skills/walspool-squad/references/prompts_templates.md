@@ -4,6 +4,35 @@ Ces templates servent à initialiser ou à briefer chaque sous-agent de manière
 
 ---
 
+## 0. Contrat de Délégation (à préfixer à chaque prompt)
+
+Chaque prompt doit commencer par ce bloc, rempli avec le rôle, l'artefact et le
+hard stop. Le contrat complet est dans
+[docs/harness/DELEGATION_CONTRACT.md](../../../../docs/harness/DELEGATION_CONTRACT.md).
+
+```text
+CONTRAT DE DÉLÉGATION
+- Artefact attendu : {ARTIFACT_PATH}
+- Premier checkpoint (T+5 min) : squelette non vide avec {REQUIRED_HEADINGS}
+- Heartbeat : ajoute une ligne dans {ARTIFACT_PATH}.progress au moins toutes les
+  3 minutes : YYYY-MM-DDTHH:MM:SSZ <phase ou BLOCKED: raison>
+- Checkpoint substantiel (T+{SUBSTANTIVE_MIN} min) : {SUBSTANTIVE_CONTENT}
+- Hard stop : T+{HARD_STOP_MIN} min. Le Lead interrompt si le premier checkpoint
+  manque à T+7 min ou si l'artefact ne progresse plus.
+- Si bloqué : écris "BLOCKED: <raison>" dans l'artefact et message au Lead.
+  Ne continue pas silencieusement.
+- Périmètre de lecture : {READ_SCOPE}. Périmètre d'écriture : {WRITE_SCOPE}.
+  Aucune modification de production hors périmètre.
+```
+
+Le Lead vérifie le checkpoint avec :
+
+```bash
+./scripts/artifact-check.sh {ARTIFACT_PATH} --max-age 300 --require '{HEADING}'
+```
+
+---
+
 ## 1. Prompt d'Initialisation : Agent 1 (Spec Analyst)
 ```markdown
 Tu es l'analyste des spécifications techniques de Walspool (walspool-spec-analyst).
