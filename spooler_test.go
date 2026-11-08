@@ -890,4 +890,3 @@ func TestFlush_ContextCancellationDuringBackoff(t *testing.T) {
 		t.Fatalf("Flush took %v, expected context abort (< 1s)", elapsed)
 	}
 }
-

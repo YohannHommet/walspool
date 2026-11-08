@@ -489,7 +489,7 @@ Walspool exports standard OpenMetrics format for direct scraping:
 - **At-Least-Once Delivery:** Records are acknowledged with `202 Accepted` only after persisting to the local WAL. The background dispatcher advances checkpoints after confirmed downstream delivery.
 - **Transient Error Backoff:** HTTP `429` (Rate Limited), `408` (Timeout), and `5xx` trigger exponential backoff with jitter ($\min(\text{initial} \times 2^n, \text{max})$). Records remain safe on disk.
 - **Poison Pill Elimination:** Permanent rejections (HTTP `400`, `422`) are logged as unprocessable, skipped, and checkpointed to prevent pipeline deadlocks.
-- **Crash Recovery & Torn Writes:** If a host suddenly powers off during a write, Walspool detects incomplete frames via `fstat` and CRC32 verification on startup, safely truncating corrupted tail bytes with `os.Truncate` without impacting prior records.
+- **Crash Recovery & Torn Writes:** If a host suddenly powers off during a write, Walspool detects incomplete/torn frames via framing checks (`fstat`, magic, version, lengths) on startup and truncates the invalid tail with `os.Truncate` without impacting prior records. Each record's CRC32 is verified when it is read; a damaged record is reported as `*CorruptRecordError` at its exact offset so the dispatcher can skip only that record.
 
 ### Graceful Shutdown Sequence (Zero In-Flight Loss)
 When receiving `SIGTERM` or `SIGINT`:

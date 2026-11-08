@@ -235,7 +235,7 @@ func matchesFilter(ev *streamEvent, cfg *streamConfig, minRank int) bool {
 func printEvent(w io.Writer, ev *streamEvent, format string, noColor bool, truncated bool) error {
 	switch format {
 	case "raw":
-		_, err := fmt.Fprintf(w, "%s\n", string(ev.Payload))
+		_, err := fmt.Fprintf(w, "%s\n", SanitizeTerminal(string(ev.Payload), false))
 		return err
 
 	case "json":

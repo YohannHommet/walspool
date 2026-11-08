@@ -139,7 +139,7 @@ Le composant `storage_file.go` matérialise le Write-Ahead Log physique sur disq
   - _Crash Recovery Multi-Segments (`recoverSegmented`)_ : Découverte et validation ordonnée de tous les segments au redémarrage, avec réparation chirurgicale de la queue du segment actif en cas d'écriture tronquée (_torn write_).
 - **Récupération sur Panne (Crash Recovery) avec Troncature Atomique** :
   - Lors du redémarrage, `recover()` relit séquentiellement chaque frame.
-  - Si une écriture a été interrompue brutalement (coupure d'alimentation, panique système), le moteur détecte l'incohérence CRC32 ou la troncature de frame en fin de fichier et invoque immédiatement `walFile.Truncate(validFileEnd)` pour éliminer les octets corrompus et restaurer un état valide.
+  - Si une écriture a été interrompue brutalement (coupure d'alimentation, panique système), le moteur détecte la troncature de frame en fin de fichier (magic, version, longueurs) et invoque immédiatement `walFile.Truncate(validFileEnd)` pour éliminer les octets incomplets. Le CRC32 de chaque enregistrement est vérifié à la lecture par `ReadBatch`, qui signale l'offset endommagé via `*CorruptRecordError` afin que le dispatcher ne saute que cet enregistrement.
   - Les métadonnées de checkpoint (`checkpoint.meta`) utilisent un renommage atomique POSIX précédé d'un `fsync` sur le fichier temporaire et sur le répertoire parent.
 
 ### 3.2. Index Mémoire Circulaire & Streaming (`MemoryLogHub`)

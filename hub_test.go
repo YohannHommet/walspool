@@ -802,4 +802,3 @@ func TestHub_EvictionAllocationEfficiency(t *testing.T) {
 		t.Fatalf("expected at most 1 alloc per ingest on saturated buffer, got %f (slice reallocation detected)", allocs)
 	}
 }
-

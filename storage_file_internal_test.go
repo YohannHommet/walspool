@@ -44,26 +44,35 @@ func TestFileStorage_NoZeroPaddingOnWriteFailure(t *testing.T) {
 	recA := Record{ID: 1, Timestamp: time.Unix(0, 1), Topic: "t", Payload: []byte("AAAAAAAAAAAAAAAA")}
 	dataA, err := recA.MarshalBinary()
 	if err != nil {
-		t.Fatalf("marshal failed: %v", err)
+		t.Fatalf("marshal A failed: %v", err)
 	}
 	sizeA := len(dataA)
-	partial := sizeA / 2
 
-	// SyncBatchCommit has no background flusher (deterministic); the buffer overflows on B, forcing a flush through the faulty writer.
-	opts := FileStorageOptions{BufferSize: sizeA + 8, SyncPolicy: SyncBatchCommit}
+	recB := Record{ID: 2, Timestamp: time.Unix(0, 2), Topic: "t", Payload: []byte("BBBBBBBBBBBBBBBB")}
+	dataB, err := recB.MarshalBinary()
+	if err != nil {
+		t.Fatalf("marshal B failed: %v", err)
+	}
+	sizeB := len(dataB)
+	partialB := sizeB / 2
+
+	// SyncBatchCommit has no background flusher (deterministic). Append now flushes
+	// every accepted record, so give A enough budget to land fully and B only half:
+	// B's flush fails with ENOSPC and must roll back to A's physical end, never to a
+	// logical position that would zero-pad the file.
+	opts := FileStorageOptions{BufferSize: sizeA + sizeB + 8, SyncPolicy: SyncBatchCommit}
 	eng, err := NewFileStorageEngineWithOptions(dir, 100, opts)
 	if err != nil {
 		t.Fatalf("init failed: %v", err)
 	}
 
-	faulty := &faultyWriter{target: eng.walFile, budget: partial}
-	eng.writer = bufio.NewWriterSize(faulty, sizeA+8)
+	faulty := &faultyWriter{target: eng.walFile, budget: sizeA + partialB}
+	eng.writer = bufio.NewWriterSize(faulty, sizeA+sizeB+8)
 
 	if _, err := eng.Append(recA); err != nil {
 		t.Fatalf("append A failed: %v", err)
 	}
 
-	recB := Record{ID: 2, Timestamp: time.Unix(0, 2), Topic: "t", Payload: []byte("BBBBBBBBBBBBBBBB")}
 	if _, err := eng.Append(recB); !errors.Is(err, ErrStorageUnavailable) {
 		t.Fatalf("expected ErrStorageUnavailable on B, got %v", err)
 	}
@@ -74,21 +83,24 @@ func TestFileStorage_NoZeroPaddingOnWriteFailure(t *testing.T) {
 		t.Fatalf("stat failed: %v", err)
 	}
 
-	// The bug: Truncate(logicalPos) would extend the file to sizeA with zero bytes.
-	if fi.Size() != int64(partial) {
-		t.Fatalf("expected file truncated to physical size %d, got %d (zero-padding corruption)", partial, fi.Size())
+	// The bug: Truncate(logicalPos) would extend the file to sizeA+sizeB with zero
+	// bytes. Rollback must truncate to A's physical end instead.
+	if fi.Size() != int64(sizeA) {
+		t.Fatalf("expected file truncated to physical size %d, got %d (zero-padding corruption)", sizeA, fi.Size())
 	}
-	if eng.writePos != int64(partial) {
-		t.Fatalf("expected writePos %d after rollback, got %d", partial, eng.writePos)
+	if eng.writePos != int64(sizeA) {
+		t.Fatalf("expected writePos %d after rollback, got %d", sizeA, eng.writePos)
+	}
+	if len(eng.records) != 1 {
+		t.Fatalf("expected only record A to remain indexed, got %d records", len(eng.records))
 	}
 
-	// No record survives fully: A was only half-flushed, B never landed.
 	data, err := os.ReadFile(walPath)
 	if err != nil {
 		t.Fatalf("read wal failed: %v", err)
 	}
-	if len(data) != partial {
-		t.Fatalf("expected %d bytes on disk, got %d", partial, len(data))
+	if len(data) != sizeA {
+		t.Fatalf("expected %d bytes on disk, got %d", sizeA, len(data))
 	}
 	_ = eng.Close()
 }

@@ -53,11 +53,12 @@ type flushRequest struct {
 // Engine implements the Spooler interface.
 // High leverage: encapsulates WAL coordination, batching, backpressure, and exponential backoff.
 type Engine struct {
-	cfg       Config
-	storage   StorageEngine
-	sink      Sink
-	clock     Clock
-	observers []IngestionObserver
+	cfg             Config
+	storage         StorageEngine
+	sink            Sink
+	clock           Clock
+	observers       []IngestionObserver
+	capacityManaged bool
 
 	idCounter uint64
 	notifyCh  chan struct{}
@@ -111,6 +112,16 @@ func New(cfg Config, storage StorageEngine, sink Sink, clock Clock, opts ...Opti
 		}
 	}
 
+	// Built-in storage engines expose an internal capacity limiter. Lowering the
+	// adapter's quota here keeps MaxCapacity effective and atomic inside Append,
+	// instead of relying on a racy check-then-act in Enqueue.
+	if cfg.MaxCapacity > 0 {
+		if limiter, ok := storage.(interface{ limitCapacity(int) }); ok {
+			limiter.limitCapacity(cfg.MaxCapacity)
+			e.capacityManaged = true
+		}
+	}
+
 	e.doneWg.Add(1)
 	go e.runDispatcher()
 
@@ -137,6 +148,19 @@ func (e *Engine) Enqueue(ctx context.Context, topic string, payload []byte) erro
 	defer e.mu.RUnlock()
 	if e.closed {
 		return ErrSpoolerClosed
+	}
+
+	// Engine-level backpressure quota. The storage adapter also enforces its own
+	// constructor quota atomically; this check makes Config.MaxCapacity effective
+	// and fails fast before the defensive copy and WAL serialization.
+	if e.cfg.MaxCapacity > 0 && !e.capacityManaged {
+		uncommitted, err := e.storage.UncommittedCount()
+		if err != nil {
+			return err
+		}
+		if uncommitted >= e.cfg.MaxCapacity {
+			return ErrSpoolFull
+		}
 	}
 
 	// Defensive copy: insulate internal storage from caller mutating slice post-enqueue
@@ -312,9 +336,13 @@ func (e *Engine) drainPendingBatches(ctx context.Context) (bool, error) {
 	deliverErr := e.sink.Deliver(callCtx, batch)
 	if deliverErr != nil {
 		if errors.Is(deliverErr, ErrPermanentRejection) {
-			// Sink permanently rejected; commit to advance past poisonous batch
+			// Sink permanently rejected; commit to advance past poisonous batch.
+			// If the checkpoint cannot advance, surface the storage error so the
+			// dispatcher backs off instead of re-reading the same batch in a hot loop.
 			lastOffset := batch[len(batch)-1].Offset
-			_ = e.storage.Commit(lastOffset)
+			if err := e.storage.Commit(lastOffset); err != nil {
+				return false, err
+			}
 			return true, nil
 		}
 		// Transient sink error; do not commit, will retry
