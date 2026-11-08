@@ -7,7 +7,7 @@ cd "$PROJECT_ROOT"
 
 # Locate the Go toolchain without assuming a maintainer-specific home path.
 if ! command -v go >/dev/null 2>&1; then
-  for candidate in "$HOME/go/bin" /usr/local/go/bin /opt/homebrew/bin; do
+  for candidate in /usr/local/go/bin /opt/homebrew/bin "$HOME/go/bin"; do
     if [ -x "$candidate/go" ]; then
       PATH="$candidate:$PATH"
       break

@@ -20,11 +20,12 @@ BENCH=0
 
 usage() {
   cat <<'EOF'
-Usage: scripts/feedback-loop.sh [--max-attempts N] [--bench]
+Usage: scripts/feedback-loop.sh [--max-attempts N] [--bench] [--reset]
 
 Runs the project verification sensor and records a bounded feedback artifact.
   --max-attempts N  Escalate after N identical failures (default: 3)
   --bench           Pass --bench to the verification sensor
+  --reset           Clear the feedback state directory and exit
 
 Environment:
   WALSPOOL_FEEDBACK_DIR  State directory (default: .walspool/feedback)
@@ -46,6 +47,11 @@ while [[ $# -gt 0 ]]; do
       BENCH=1
       shift
       ;;
+    --reset)
+      rm -rf "$STATE_DIR"
+      echo "[feedback] State directory cleared: $STATE_DIR"
+      exit 0
+      ;;
     -h|--help)
       usage
       exit 0
@@ -62,11 +68,18 @@ mkdir -p "$STATE_DIR" "$STATE_DIR/tmp" "$STATE_DIR/cache"
 export TMPDIR="${TMPDIR:-$STATE_DIR/tmp}"
 export GOCACHE="${GOCACHE:-$STATE_DIR/cache}"
 touch "$HISTORY"
+if [[ $(wc -l <"$HISTORY") -gt 1500 ]]; then
+  tail -n 1000 "$HISTORY" > "$HISTORY.tmp" && mv "$HISTORY.tmp" "$HISTORY"
+fi
 
 if [[ -n "${WALSPOOL_VERIFY_CMD:-}" ]]; then
   # The override is intentionally split so the self-test can pass a command
   # plus arguments without eval.
   read -r -a VERIFY_CMD <<< "$WALSPOOL_VERIFY_CMD"
+  if [[ "${#VERIFY_CMD[@]}" -eq 0 ]]; then
+    echo "feedback-loop: WALSPOOL_VERIFY_CMD cannot be empty or whitespace" >&2
+    exit 2
+  fi
 else
   VERIFY_CMD=("$PROJECT_ROOT/scripts/verify.sh")
 fi
@@ -102,9 +115,9 @@ fi
 
 # Keep the feedback bounded. Prefer compiler/test failure lines, then fall back
 # to the tail of the log if the sensor failed without recognizable markers.
-failures="$(grep -E '^(--- FAIL:|FAIL[[:space:]]|panic:|# |[[:space:]]*[^[:space:]].*\.go:[0-9]+(:[0-9]+)?: )' "$VERIFY_LOG" | head -n 25 || true)"
+failures="$(grep -E '^(--- FAIL:|FAIL[[:space:]]|panic:|# |[[:space:]]*[^[:space:]].*\.go:[0-9]+(:[0-9]+)?: )' "$VERIFY_LOG" | head -n 25)" || failures=""
 if [[ -z "$failures" ]]; then
-  failures="$(tail -n 25 "$VERIFY_LOG" || true)"
+  failures="$(tail -n 25 "$VERIFY_LOG")" || failures=""
 fi
 if [[ -z "$failures" ]]; then
   failures="(sensor produced no output)"
@@ -113,10 +126,17 @@ fi
 # Normalize durations, hex addresses, and temporary paths before hashing so the
 # same failure gets the same signature across attempts.
 normalized="$(printf '%s\n' "$failures" \
-  | sed -E 's/[0-9]+(\.[0-9]+)?s//g; s/0x[0-9a-fA-F]+/0xADDR/g; s#/tmp/[^[:space:]]*#/tmp/...#g; s/[[:space:]]+$//' \
+  | sed -E "s/\([0-9]+(\.[0-9]+)?s\)/()/g; s/[[:space:]][0-9]+(\.[0-9]+)?s$//g; s/0x[0-9a-fA-F]+/0xADDR/g; s#$PROJECT_ROOT/tmp/[^[:space:]]*#REPO_TMP#g; s#$STATE_DIR/tmp/[^[:space:]]*#STATE_TMP#g; s#/tmp/[^[:space:]]*#/tmp/...#g; s/[[:space:]]+$//" \
   | sort -u)"
 signature="$(printf '%s\n' "$normalized" | cksum | awk '{print $1 "-" $2}')"
-prior="$(awk -F'\t' -v sig="$signature" '$4 == sig { c++ } END { print c+0 }' "$HISTORY" 2>/dev/null || printf '0')"
+
+# Count consecutive failures with the same signature (resetting on PASS or differing failure).
+prior="$(awk -F'\t' -v sig="$signature" '
+  $2 == "PASS" { count = 0; next }
+  $4 == sig { count++ }
+  $4 != sig { count = 0 }
+  END { print count + 0 }
+' "$HISTORY" 2>/dev/null || printf '0')"
 attempt=$((prior + 1))
 
 rm -f "$ESCALATION"

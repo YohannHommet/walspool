@@ -73,4 +73,39 @@ if [[ "$lines" -ne 3 ]]; then
   exit 1
 fi
 
-echo "PASS: feedback-loop self-test (2 failures -> escalation, pass clears it)"
+# Verify streak reset: after PASS, a new failure starts back at attempt 1/2.
+export WALSPOOL_VERIFY_CMD="$TMP/fail.sh"
+set +e
+"$LOOP" --max-attempts 2 >"$TMP/post_pass_fail.out" 2>&1
+post_fail=$?
+set -e
+if [[ "$post_fail" -ne 1 ]]; then
+  echo "FAIL: post-pass failure should exit 1, got $post_fail" >&2
+  exit 1
+fi
+grep -q 'Status: FAIL' "$TMP/state/latest.md" || { echo "FAIL: expected status FAIL after pass reset" >&2; exit 1; }
+grep -q 'Attempt: 1/2' "$TMP/state/latest.md" || { echo "FAIL: expected attempt 1/2 after pass reset" >&2; exit 1; }
+
+# Verify empty/whitespace WALSPOOL_VERIFY_CMD rejection
+export WALSPOOL_VERIFY_CMD="   "
+set +e
+"$LOOP" >"$TMP/empty_cmd.out" 2>&1
+empty_code=$?
+set -e
+if [[ "$empty_code" -ne 2 ]]; then
+  echo "FAIL: empty WALSPOOL_VERIFY_CMD must exit 2, got $empty_code" >&2
+  exit 1
+fi
+grep -q 'cannot be empty or whitespace' "$TMP/empty_cmd.out" || {
+  echo "FAIL: expected error message on whitespace WALSPOOL_VERIFY_CMD" >&2
+  exit 1
+}
+
+# Verify --reset flag clears state
+"$LOOP" --reset >"$TMP/reset.out" 2>&1
+if [[ -d "$TMP/state" ]]; then
+  echo "FAIL: --reset did not remove state directory" >&2
+  exit 1
+fi
+
+echo "PASS: feedback-loop self-test (streak escalation, pass reset, empty cmd check, and state reset)"
