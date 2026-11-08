@@ -943,6 +943,9 @@ func TestSidecar_ConfigPrecedenceAndValidation(t *testing.T) {
 		if cfg.MaxRecords != 50000 {
 			t.Errorf("expected default max-records 50000, got %d", cfg.MaxRecords)
 		}
+		if cfg.MaxSpoolBytes != 1<<30 {
+			t.Errorf("expected default max-spool-bytes 1GiB (1073741824), got %d", cfg.MaxSpoolBytes)
+		}
 		if cfg.HubCapacity != 50000 {
 			t.Errorf("expected default hub-capacity 50000, got %d", cfg.HubCapacity)
 		}
@@ -956,15 +959,16 @@ func TestSidecar_ConfigPrecedenceAndValidation(t *testing.T) {
 
 	t.Run("EnvOverridesDefaults", func(t *testing.T) {
 		envMap := map[string]string{
-			"WALSPOOL_ADDR":         ":8088",
-			"WALSPOOL_DATA_DIR":     "/var/spool/wal",
-			"WALSPOOL_SINK_URL":     "http://remote.sink:9000",
-			"WALSPOOL_BATCH_SIZE":   "250",
-			"WALSPOOL_FLUSH_MS":     "150",
-			"WALSPOOL_MAX_RECORDS":  "120000",
-			"WALSPOOL_HUB_CAPACITY": "80000",
-			"WALSPOOL_LOG_FORMAT":   "json",
-			"WALSPOOL_LOG_LEVEL":    "warn",
+			"WALSPOOL_ADDR":            ":8088",
+			"WALSPOOL_DATA_DIR":        "/var/spool/wal",
+			"WALSPOOL_SINK_URL":        "http://remote.sink:9000",
+			"WALSPOOL_BATCH_SIZE":      "250",
+			"WALSPOOL_FLUSH_MS":        "150",
+			"WALSPOOL_MAX_RECORDS":     "120000",
+			"WALSPOOL_MAX_SPOOL_BYTES": "2097152",
+			"WALSPOOL_HUB_CAPACITY":    "80000",
+			"WALSPOOL_LOG_FORMAT":      "json",
+			"WALSPOOL_LOG_LEVEL":       "warn",
 		}
 		mockEnv := func(k string) (string, bool) {
 			v, ok := envMap[k]
@@ -993,6 +997,9 @@ func TestSidecar_ConfigPrecedenceAndValidation(t *testing.T) {
 		}
 		if cfg.MaxRecords != 120000 {
 			t.Errorf("expected max-records 120000, got %d", cfg.MaxRecords)
+		}
+		if cfg.MaxSpoolBytes != 2097152 {
+			t.Errorf("expected max-spool-bytes from env 2097152, got %d", cfg.MaxSpoolBytes)
 		}
 		if cfg.HubCapacity != 80000 {
 			t.Errorf("expected hub-capacity 80000, got %d", cfg.HubCapacity)
@@ -1034,15 +1041,16 @@ func TestSidecar_ConfigPrecedenceAndValidation(t *testing.T) {
 
 	t.Run("CLIOverridesEnv", func(t *testing.T) {
 		envMap := map[string]string{
-			"WALSPOOL_ADDR":         ":8088",
-			"WALSPOOL_DATA_DIR":     "/env/data",
-			"WALSPOOL_SINK_URL":     "http://env.sink:9000",
-			"WALSPOOL_BATCH_SIZE":   "250",
-			"WALSPOOL_FLUSH_MS":     "150",
-			"WALSPOOL_MAX_RECORDS":  "120000",
-			"WALSPOOL_HUB_CAPACITY": "80000",
-			"WALSPOOL_LOG_FORMAT":   "text",
-			"WALSPOOL_LOG_LEVEL":    "info",
+			"WALSPOOL_ADDR":            ":8088",
+			"WALSPOOL_DATA_DIR":        "/env/data",
+			"WALSPOOL_SINK_URL":        "http://env.sink:9000",
+			"WALSPOOL_BATCH_SIZE":      "250",
+			"WALSPOOL_FLUSH_MS":        "150",
+			"WALSPOOL_MAX_RECORDS":     "120000",
+			"WALSPOOL_MAX_SPOOL_BYTES": "2097152",
+			"WALSPOOL_HUB_CAPACITY":    "80000",
+			"WALSPOOL_LOG_FORMAT":      "text",
+			"WALSPOOL_LOG_LEVEL":       "info",
 		}
 		mockEnv := func(k string) (string, bool) {
 			v, ok := envMap[k]
@@ -1056,6 +1064,7 @@ func TestSidecar_ConfigPrecedenceAndValidation(t *testing.T) {
 			"-batch-size", "15",
 			"-flush-ms", "25",
 			"-max-records", "1000",
+			"-max-spool-bytes", "1048576",
 			"-hub-capacity", "2000",
 			"-log-format", "json",
 			"-log-level", "debug",
@@ -1083,6 +1092,9 @@ func TestSidecar_ConfigPrecedenceAndValidation(t *testing.T) {
 		}
 		if cfg.MaxRecords != 1000 {
 			t.Errorf("CLI max-records must override env: expected 1000, got %d", cfg.MaxRecords)
+		}
+		if cfg.MaxSpoolBytes != 1048576 {
+			t.Errorf("CLI max-spool-bytes must override env: expected 1048576, got %d", cfg.MaxSpoolBytes)
 		}
 		if cfg.HubCapacity != 2000 {
 			t.Errorf("CLI hub-capacity must override env: expected 2000, got %d", cfg.HubCapacity)
@@ -1721,7 +1733,7 @@ func TestSidecar_MetadataHeaders(t *testing.T) {
 // A malformed numeric environment variable must fail configuration parsing, not silently
 // fall back to a default.
 func TestSidecar_ConfigRejectsMalformedEnvInt(t *testing.T) {
-	intVars := []string{"WALSPOOL_BATCH_SIZE", "WALSPOOL_FLUSH_MS", "WALSPOOL_MAX_RECORDS", "WALSPOOL_HUB_CAPACITY"}
+	intVars := []string{"WALSPOOL_BATCH_SIZE", "WALSPOOL_FLUSH_MS", "WALSPOOL_MAX_RECORDS", "WALSPOOL_HUB_CAPACITY", "WALSPOOL_MAX_SPOOL_BYTES"}
 	for _, key := range intVars {
 		t.Run(key, func(t *testing.T) {
 			env := func(k string) (string, bool) {

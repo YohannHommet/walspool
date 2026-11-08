@@ -527,6 +527,20 @@ const (
 	overflowTopic = "__walspool_overflow__"
 )
 
+// defaultSidecarMaxSegmentSize is the WAL segment rotation threshold used by the sidecar.
+// It bounds committed retention and recovery time without adding a -max-segment-size flag;
+// the library default stays 0 for ADR-001 compatibility. See ADR-004.
+const defaultSidecarMaxSegmentSize int64 = 64 * 1024 * 1024
+
+// sidecarStorageOptions builds the file storage options used by the sidecar daemon: 64 MiB
+// segments for committed retention plus a cap on uncommitted serialized WAL frame bytes.
+func sidecarStorageOptions(maxSpoolBytes int64) walspool.FileStorageOptions {
+	opts := walspool.DefaultFileStorageOptions()
+	opts.MaxSegmentSize = defaultSidecarMaxSegmentSize
+	opts.MaxUncommittedBytes = maxSpoolBytes
+	return opts
+}
+
 // BatchEnqueueResponse represents the formal response returned upon successful batch ingestion.
 type BatchEnqueueResponse struct {
 	Status   string `json:"status"`
@@ -1402,6 +1416,7 @@ type SidecarConfig struct {
 	BatchSize        int
 	FlushMs          int
 	MaxRecords       int
+	MaxSpoolBytes    int64
 	HubCapacity      int
 	LogFormat        string
 	LogLevel         string
@@ -1426,6 +1441,11 @@ func (c *SidecarConfig) Validate() error {
 	}
 	if c.MaxRecords <= 0 {
 		return fmt.Errorf("%w: max-records must be > 0 (got %d)", walspool.ErrPreconditionViolated, c.MaxRecords)
+	}
+	// Unlike the library option, 0 does not mean unlimited: disabling the byte quota
+	// would reintroduce the unbounded-outage-backlog risk this guard exists to close.
+	if c.MaxSpoolBytes <= 0 {
+		return fmt.Errorf("%w: max-spool-bytes must be > 0 (got %d)", walspool.ErrPreconditionViolated, c.MaxSpoolBytes)
 	}
 	if c.HubCapacity <= 0 {
 		return fmt.Errorf("%w: hub-capacity must be > 0 (got %d)", walspool.ErrPreconditionViolated, c.HubCapacity)
@@ -1474,6 +1494,18 @@ func ParseConfig(args []string, lookupEnv func(string) (string, bool)) (*Sidecar
 		return defaultVal, nil
 	}
 
+	// 64-bit variant for byte quotas, which can exceed the int range on 32-bit platforms.
+	getEnvInt64 := func(key string, defaultVal int64) (int64, error) {
+		if val, ok := lookupEnv(key); ok && val != "" {
+			v, err := strconv.ParseInt(val, 10, 64)
+			if err != nil {
+				return 0, fmt.Errorf("%w: env %s must be an integer (got %q)", walspool.ErrPreconditionViolated, key, val)
+			}
+			return v, nil
+		}
+		return defaultVal, nil
+	}
+
 	batchSize, err := getEnvInt("WALSPOOL_BATCH_SIZE", 50)
 	if err != nil {
 		return nil, err
@@ -1487,6 +1519,10 @@ func ParseConfig(args []string, lookupEnv func(string) (string, bool)) (*Sidecar
 		return nil, err
 	}
 	hubCapacity, err := getEnvInt("WALSPOOL_HUB_CAPACITY", 50000)
+	if err != nil {
+		return nil, err
+	}
+	maxSpoolBytes, err := getEnvInt64("WALSPOOL_MAX_SPOOL_BYTES", 1<<30)
 	if err != nil {
 		return nil, err
 	}
@@ -1518,6 +1554,7 @@ func ParseConfig(args []string, lookupEnv func(string) (string, bool)) (*Sidecar
 	fs.IntVar(&cfg.BatchSize, "batch-size", batchSize, "Batch size for background drain")
 	fs.IntVar(&cfg.FlushMs, "flush-ms", flushMs, "Flush interval in milliseconds")
 	fs.IntVar(&cfg.MaxRecords, "max-records", maxRecords, "Maximum records quota before backpressure reject")
+	fs.Int64Var(&cfg.MaxSpoolBytes, "max-spool-bytes", maxSpoolBytes, "Maximum uncommitted WAL bytes before backpressure reject")
 	fs.IntVar(&cfg.HubCapacity, "hub-capacity", hubCapacity, "In-memory ring buffer capacity for logs hub")
 	fs.StringVar(&cfg.LogFormat, "log-format", getEnvStr("WALSPOOL_LOG_FORMAT", "text"), "Log output format (text|json)")
 	fs.StringVar(&cfg.LogLevel, "log-level", getEnvStr("WALSPOOL_LOG_LEVEL", defaultLogLevel), "Log level (debug|info|warn|error)")
@@ -1658,6 +1695,7 @@ func main() {
 		"batch_size", cfg.BatchSize,
 		"flush_ms", cfg.FlushMs,
 		"max_records", cfg.MaxRecords,
+		"max_spool_bytes", cfg.MaxSpoolBytes,
 		"hub_capacity", cfg.HubCapacity,
 		"log_format", cfg.LogFormat,
 		"log_level", cfg.LogLevel,
@@ -1666,7 +1704,7 @@ func main() {
 	)
 
 	// Initialize disk storage
-	storage, err := walspool.NewFileStorageEngine(cfg.DataDir, cfg.MaxRecords)
+	storage, err := walspool.NewFileStorageEngineWithOptions(cfg.DataDir, cfg.MaxRecords, sidecarStorageOptions(cfg.MaxSpoolBytes))
 	if err != nil {
 		slog.Error("Fatal: failed to initialize FileStorageEngine", "error", err)
 		os.Exit(1)

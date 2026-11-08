@@ -46,6 +46,11 @@ type FileStorageOptions struct {
 	// MaxSegmentSize specifies the maximum size in bytes of a single WAL segment file before rotating.
 	// When <= 0, segment rotation is disabled and all records are appended to active.wal (default: 0).
 	MaxSegmentSize int64
+
+	// MaxUncommittedBytes caps the serialized bytes of records that have not yet been
+	// committed. It counts serialized WAL frame bytes, not payload bytes, not committed
+	// bytes, and not total disk usage. When <= 0, the byte quota is disabled (legacy behavior).
+	MaxUncommittedBytes int64
 }
 
 // DefaultFileStorageOptions returns production-optimized baseline options.
@@ -79,6 +84,7 @@ type FileStorageEngine struct {
 	baseOffset        Offset      // logical offset corresponding to records[0] (for memory reclamation)
 	isLegacyActiveWAL bool        // true if legacy active.wal was discovered
 	records           []offsetPos // in-memory index of [offset -> file byte position]
+	uncommittedBytes  int64       // serialized frame bytes above f.checkpoint
 	maxID             uint64      // highest recovered or persisted record ID
 	maxCapacity       int
 	opts              FileStorageOptions
@@ -236,6 +242,8 @@ func (f *FileStorageEngine) recoverSingle() error {
 	}
 	f.writePos = validFileEnd
 
+	f.initUncommittedBytes()
+
 	return nil
 }
 
@@ -332,6 +340,8 @@ func (f *FileStorageEngine) recoverSegmented() error {
 		f.pruneCommittedSegments()
 	}
 
+	f.initUncommittedBytes()
+
 	return nil
 }
 
@@ -382,7 +392,7 @@ func (f *FileStorageEngine) recoverSegment(file *os.File, fileSize int64, segBas
 		payloadLen := int(binary.BigEndian.Uint32(header[25:29]))
 		totalRecordLen := headerSize + topicLen + payloadLen
 
-		// Reject before allocating for it — see maxRecoverableRecordSize.
+		// Reject before allocating for it: see maxRecoverableRecordSize.
 		if totalRecordLen > maxRecoverableRecordSize {
 			if err := file.Truncate(validFileEnd); err != nil {
 				return 0, fmt.Errorf("%w: failed to truncate oversized corrupt record header", ErrStorageUnavailable)
@@ -517,7 +527,7 @@ func (f *FileStorageEngine) pruneCommittedSegments() {
 }
 
 // rollbackTo undoes a failed append so the WAL never grows with zero padding: it truncates to
-// min(pos, real on-disk size) — Truncate cannot extend past what is physically flushed — and drops
+// min(pos, real on-disk size) (Truncate cannot extend past what is physically flushed) and drops
 // trailing index entries and any earlier appends still unsynced under SyncInterval. Caller holds mu.
 func (f *FileStorageEngine) rollbackTo(pos int64) {
 	target := pos
@@ -536,7 +546,48 @@ func (f *FileStorageEngine) rollbackTo(pos int64) {
 	for keep > 0 && f.records[keep-1].SegBase == f.activeSegBase && f.records[keep-1].Pos+int64(f.records[keep-1].Length) > target {
 		keep--
 	}
+	// Only uncommitted frames are freed: bytes at or above the checkpoint were still
+	// counted by the byte quota. Committed bytes are never touched here.
+	var dropped int64
+	for i := keep; i < len(f.records); i++ {
+		if f.records[i].Offset >= f.checkpoint {
+			dropped += int64(f.records[i].Length)
+		}
+	}
 	f.records = f.records[:keep]
+	f.subtractUncommitted(dropped)
+}
+
+// initUncommittedBytes recomputes the byte counter from the recovered index starting at the
+// clamped checkpoint. Torn or truncated tail bytes are removed before indexing, so they can
+// never be counted. Called during construction, before the engine is shared.
+func (f *FileStorageEngine) initUncommittedBytes() {
+	f.uncommittedBytes = f.sumFrameBytes(int(f.checkpoint-f.baseOffset), len(f.records))
+}
+
+// sumFrameBytes returns the total serialized frame length of records in [from, to),
+// clamped to the current index bounds.
+func (f *FileStorageEngine) sumFrameBytes(from, to int) int64 {
+	if from < 0 {
+		from = 0
+	}
+	if to > len(f.records) {
+		to = len(f.records)
+	}
+	var total int64
+	for i := from; i < to; i++ {
+		total += int64(f.records[i].Length)
+	}
+	return total
+}
+
+// subtractUncommitted removes freed bytes from the uncommitted counter, clamped at zero
+// so a recovery or rollback anomaly can never drive the counter negative. Caller holds mu.
+func (f *FileStorageEngine) subtractUncommitted(n int64) {
+	f.uncommittedBytes -= n
+	if f.uncommittedBytes < 0 {
+		f.uncommittedBytes = 0
+	}
 }
 
 func (f *FileStorageEngine) Append(rec Record) (Offset, error) {
@@ -566,6 +617,15 @@ func (f *FileStorageEngine) Append(rec Record) (Offset, error) {
 	data, err := rec.MarshalBinary()
 	if err != nil {
 		return 0, err
+	}
+
+	// Byte quota: reject before any write or rotation. Subtraction form cannot wrap near
+	// MaxInt64. uncommittedBytes <= quota holds for every accepted append; if recovery
+	// restores more than a lowered quota, m-uncommittedBytes is negative and every append
+	// is rejected until a commit frees room. The count guard above and this byte guard both
+	// return ErrSpoolFull; whichever triggers first wins.
+	if m := f.opts.MaxUncommittedBytes; m > 0 && int64(len(data)) > m-f.uncommittedBytes {
+		return 0, ErrSpoolFull
 	}
 
 	if f.opts.MaxSegmentSize > 0 && f.writePos > 0 && f.writePos+int64(len(data)) > f.opts.MaxSegmentSize {
@@ -607,6 +667,7 @@ func (f *FileStorageEngine) Append(rec Record) (Offset, error) {
 		Pos:     pos,
 		Length:  len(data),
 	})
+	f.uncommittedBytes += int64(len(data))
 
 	return newOffset, nil
 }
@@ -711,6 +772,7 @@ func (f *FileStorageEngine) Commit(offset Offset) error {
 	if newCheckpoint <= f.checkpoint {
 		return nil
 	}
+	oldCheckpoint := f.checkpoint
 
 	if f.opts.SyncPolicy == SyncBatchCommit {
 		if f.writer != nil && f.writer.Buffered() > 0 {
@@ -761,6 +823,13 @@ func (f *FileStorageEngine) Commit(offset Offset) error {
 
 	f.checkpoint = newCheckpoint
 
+	// Free exactly the frames that just became committed. Compute the index range against
+	// the pre-prune baseOffset: pruning below may advance baseOffset and drop records.
+	f.subtractUncommitted(f.sumFrameBytes(
+		int(oldCheckpoint-f.baseOffset),
+		int(newCheckpoint-f.baseOffset),
+	))
+
 	if f.opts.MaxSegmentSize > 0 && len(f.records) > 0 {
 		f.pruneCommittedSegments()
 	}
@@ -782,6 +851,14 @@ func (f *FileStorageEngine) UncommittedCount() (int, error) {
 		return 0, nil
 	}
 	return count, nil
+}
+
+// UncommittedBytes returns the serialized WAL frame bytes of records above the current
+// checkpoint. It is a diagnostics/test accessor and is not part of the StorageEngine port.
+func (f *FileStorageEngine) UncommittedBytes() int64 {
+	f.mu.RLock()
+	defer f.mu.RUnlock()
+	return f.uncommittedBytes
 }
 
 // DiskBytes returns the total size of the .wal files in the storage directory.
