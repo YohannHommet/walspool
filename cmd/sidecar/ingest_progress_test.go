@@ -191,3 +191,14 @@ func TestOTLP_OversizedBodyReturns413(t *testing.T) {
 		t.Fatalf("status = %d, want 413; body=%s", rec.Code, rec.Body.String())
 	}
 }
+
+func TestSingleEnqueue_OversizedBodyReturns413(t *testing.T) {
+	spool := &reviewSpooler{}
+	server := NewSidecarServer(spool)
+	body := bytes.Repeat([]byte{' '}, maxSingleBodyBytes+1)
+
+	rec := doRequest(server.Routes(), http.MethodPost, "/v1/enqueue", "application/json", body)
+	if rec.Code != http.StatusRequestEntityTooLarge {
+		t.Fatalf("status = %d, want 413; body=%s", rec.Code, rec.Body.String())
+	}
+}

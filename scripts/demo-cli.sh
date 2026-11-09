@@ -13,7 +13,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
 cd "${ROOT_DIR}"
 
-PORT="${WALSPOOL_PORT:-8080}"
+PORT="${WALSPOOL_PORT:-9099}"
 ADDR="http://127.0.0.1:${PORT}"
 
 # 1. Vérification / Compilation du binaire CLI

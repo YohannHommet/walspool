@@ -50,17 +50,17 @@ jobs:
             exit 1
           fi
 
-      - name: Run go vet
-        run: go vet ./...
+      - name: Run verification sensor
+        run: ./scripts/verify.sh
 
       - name: Run golangci-lint
         uses: golangci/golangci-lint-action@v6
         with:
-          version: latest
+          version: v1.62.2
           args: --timeout=5m
 
       - name: Run tests with race detector (Linux)
-        run: go test -v -race ./...
+        run: go test -race ./...
 
       - name: Cross-compile validation (Darwin / macOS arm64)
         run: CGO_ENABLED=0 GOOS=darwin GOARCH=arm64 go build ./...

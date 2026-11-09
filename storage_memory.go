@@ -13,6 +13,7 @@ type MemoryStorageEngine struct {
 	checkpoint  Offset
 	closed      bool
 	maxCapacity int
+	maxID       uint64
 }
 
 // NewMemoryStorageEngine creates a thread-safe in-memory storage engine.
@@ -45,6 +46,9 @@ func (m *MemoryStorageEngine) Append(rec Record) (Offset, error) {
 
 	rec.Offset = Offset(len(m.records))
 	m.records = append(m.records, rec)
+	if rec.ID > m.maxID {
+		m.maxID = rec.ID
+	}
 	return rec.Offset, nil
 }
 
@@ -119,15 +123,5 @@ func (m *MemoryStorageEngine) Close() error {
 func (m *MemoryStorageEngine) LastID() uint64 {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
-
-	if len(m.records) == 0 {
-		return 0
-	}
-	var maxID uint64
-	for _, r := range m.records {
-		if r.ID > maxID {
-			maxID = r.ID
-		}
-	}
-	return maxID
+	return m.maxID
 }

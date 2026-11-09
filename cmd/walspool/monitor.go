@@ -311,17 +311,3 @@ func writeLine(buf *bytes.Buffer, line string) {
 	buf.WriteString(line)
 	buf.WriteString("\033[K\r\n") // Clear to end of line + CRLF
 }
-
-func min(a, b int) int {
-	if a < b {
-		return a
-	}
-	return b
-}
-
-func max(a, b int) int {
-	if a > b {
-		return a
-	}
-	return b
-}

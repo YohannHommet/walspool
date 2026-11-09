@@ -15,11 +15,16 @@ import os
 import re
 import subprocess
 import sys
+from pathlib import Path
 
 EPIC_ISSUE_NUMBER = 27
 REPO_NAME = "YohannHommet/walspool"
 SQUAD_DIR = ".walspool/squad"
-HARNESS_DIR = "/home/yohann/Labs/.harness/walspool"
+REPO_ROOT = Path(__file__).resolve().parents[4]
+HARNESS_DIR = os.environ.get(
+    "WALSPOOL_HARNESS_DIR",
+    str(REPO_ROOT.parent / ".harness" / "walspool"),
+)
 
 def run_cmd(cmd, check=True, text=True):
     """Executes a command and returns stdout."""
@@ -143,9 +148,6 @@ def cmd_start(args):
 def cmd_verify(args):
     """Executes the verification sensor."""
     env = os.environ.copy()
-    env["GOROOT"] = "/home/yohann/go"
-    env["PATH"] = f"/home/yohann/go/bin:{env.get('PATH', '')}"
-    env["GOPATH"] = "/home/yohann/go/pkg"
     env["CGO_ENABLED"] = "0"
 
     print("[Orchestrator] Running ./scripts/verify.sh sensor...")

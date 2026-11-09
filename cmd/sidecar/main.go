@@ -591,6 +591,9 @@ const (
 	// MaxPayloadSize is the shared default per-record payload bound.
 	MaxPayloadSize = walspool.DefaultMaxPayloadSize
 
+	// maxSingleBodyBytes bounds the whole single-record HTTP body, including JSON overhead.
+	maxSingleBodyBytes = 2 * 1024 * 1024
+
 	// maxTrackedTopics caps per-topic Prometheus series. One slot is reserved
 	// for the overflow bucket so attacker-controlled topic cardinality cannot
 	// grow the maps without bound.
@@ -814,9 +817,6 @@ func enrichPayloadMetadata(payload []byte, traceID, service, level string) []byt
 	return payload
 }
 
-// enrichJSONPayload is an alias for backward compatibility within sidecar.
-var enrichJSONPayload = enrichPayloadMetadata
-
 func (s *SidecarServer) handleEnqueue(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
@@ -829,8 +829,18 @@ func (s *SidecarServer) handleEnqueue(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	body, err := io.ReadAll(io.LimitReader(r.Body, 2*1024*1024))
+	body, err := io.ReadAll(http.MaxBytesReader(w, r.Body, maxSingleBodyBytes))
 	if err != nil {
+		var maxBytesErr *http.MaxBytesError
+		if errors.As(err, &maxBytesErr) {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusRequestEntityTooLarge)
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"error":   "payload_too_large",
+				"message": fmt.Sprintf("request body exceeds %d bytes", maxSingleBodyBytes),
+			})
+			return
+		}
 		http.Error(w, `{"error":"failed to read request body"}`, http.StatusBadRequest)
 		return
 	}
@@ -1100,7 +1110,7 @@ func (s *SidecarServer) handleEnqueueNDJSON(w http.ResponseWriter, r *http.Reque
 		} else {
 			payloadBytes = trimmed
 		}
-		payloadBytes = enrichJSONPayload(payloadBytes, traceID, service, level)
+		payloadBytes = enrichPayloadMetadata(payloadBytes, traceID, service, level)
 
 		if validationErr := walspool.ValidateRecord(topic, payloadBytes, MaxPayloadSize); validationErr != nil {
 			if strictMode {

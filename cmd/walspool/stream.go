@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -171,17 +172,17 @@ func runStream(args []string) error {
 			continue
 		}
 
-		if !strings.HasPrefix(string(line), "data:") {
+		if !bytes.HasPrefix(line, []byte("data:")) {
 			continue
 		}
 
-		payloadBytes := strings.TrimSpace(strings.TrimPrefix(string(line), "data:"))
+		payloadBytes := bytes.TrimSpace(line[len("data:"):])
 		if len(payloadBytes) == 0 {
 			continue
 		}
 
 		var event streamEvent
-		if err := json.Unmarshal([]byte(payloadBytes), &event); err != nil {
+		if err := json.Unmarshal(payloadBytes, &event); err != nil {
 			continue
 		}
 
