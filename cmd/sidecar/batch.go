@@ -136,7 +136,7 @@ func (s *SidecarServer) handleEnqueueBatch(w http.ResponseWriter, r *http.Reques
 			return
 		}
 
-		payloadBytes := enrichPayloadMetadata([]byte(item.Payload), traceID, service, level)
+		payloadBytes := walspool.EnrichPayloadMetadata([]byte(item.Payload), traceID, service, level)
 		// Enrichment can add trace_id/service/level keys and grow the payload.
 		// Re-validate the final bytes so a client error is not deferred to the
 		// engine and reported as a 500 after earlier items were already spooled.
