@@ -450,6 +450,13 @@ func (f *FileStorageEngine) recoverSegmented() error {
 	return nil
 }
 
+func truncateRecoveryBoundary(file *os.File, validEnd int64, reason string) (int64, error) {
+	if err := file.Truncate(validEnd); err != nil {
+		return 0, fmt.Errorf("%w: failed to truncate %s", ErrStorageUnavailable, reason)
+	}
+	return validEnd, nil
+}
+
 func (f *FileStorageEngine) recoverSegment(file *os.File, fileSize int64, segBase Offset) (int64, error) {
 	if _, err := file.Seek(0, io.SeekStart); err != nil {
 		return 0, fmt.Errorf("%w: seek error during recovery", ErrStorageUnavailable)
@@ -457,70 +464,40 @@ func (f *FileStorageEngine) recoverSegment(file *os.File, fileSize int64, segBas
 
 	validFileEnd := int64(0)
 	offsetCounter := segBase
+	header := make([]byte, headerSize)
 
 	for {
-		curPos, err := file.Seek(0, io.SeekCurrent)
-		if err != nil {
-			return 0, fmt.Errorf("%w: failed to get file pos during recovery", ErrStorageUnavailable)
-		}
-
-		remaining := fileSize - curPos
+		remaining := fileSize - validFileEnd
 		if remaining == 0 {
 			break
 		}
 
-		// Check for partial header at EOF (truncated write)
 		if remaining < headerSize {
-			if err := file.Truncate(validFileEnd); err != nil {
-				return 0, fmt.Errorf("%w: failed to truncate partial header at EOF", ErrStorageUnavailable)
-			}
-			break
+			return truncateRecoveryBoundary(file, validFileEnd, "partial header at EOF")
 		}
 
-		header := make([]byte, headerSize)
 		if _, err := io.ReadFull(file, header); err != nil {
-			if err := file.Truncate(validFileEnd); err != nil {
-				return 0, fmt.Errorf("%w: failed to truncate after header read error", ErrStorageUnavailable)
-			}
-			break
+			return truncateRecoveryBoundary(file, validFileEnd, "after header read error")
 		}
 
-		// Validate magic bytes ('W', 'S') and wire version (0x01) sequentially
 		if header[0] != magicByte1 || header[1] != magicByte2 || header[2] != wireVersion {
-			if err := file.Truncate(validFileEnd); err != nil {
-				return 0, fmt.Errorf("%w: failed to truncate corrupt record header at EOF", ErrStorageUnavailable)
-			}
-			break
+			return truncateRecoveryBoundary(file, validFileEnd, "corrupt record header at EOF")
 		}
 
 		topicLen := int(binary.BigEndian.Uint16(header[23:25]))
 		payloadLen := int(binary.BigEndian.Uint32(header[25:29]))
 		totalRecordLen := headerSize + topicLen + payloadLen
 
-		// Reject before allocating for it: see maxRecoverableRecordSize.
 		if totalRecordLen > maxRecoverableRecordSize {
-			if err := file.Truncate(validFileEnd); err != nil {
-				return 0, fmt.Errorf("%w: failed to truncate oversized corrupt record header", ErrStorageUnavailable)
-			}
-			break
+			return truncateRecoveryBoundary(file, validFileEnd, "oversized corrupt record header")
 		}
-
-		// Validate bounds: check real remaining bytes on disk before advancing (POSIX lseek countermeasure)
 		if int64(totalRecordLen) > remaining {
-			// Torn write: body is truncated at EOF
-			if err := file.Truncate(validFileEnd); err != nil {
-				return 0, fmt.Errorf("%w: failed to truncate partial record body at EOF", ErrStorageUnavailable)
-			}
-			break
+			return truncateRecoveryBoundary(file, validFileEnd, "partial record body at EOF")
 		}
 
-		// Read full body with io.ReadFull
 		bodyBuf := make([]byte, topicLen+payloadLen)
 		if _, err := io.ReadFull(file, bodyBuf); err != nil {
-			if err := file.Truncate(validFileEnd); err != nil {
-				return 0, fmt.Errorf("%w: failed to truncate after body read error", ErrStorageUnavailable)
-			}
-			break
+			return truncateRecoveryBoundary(file, validFileEnd, "after body read error")
 		}
 
 		recID := binary.BigEndian.Uint64(header[7:15])
@@ -531,18 +508,15 @@ func (f *FileStorageEngine) recoverSegment(file *os.File, fileSize int64, segBas
 		f.records = append(f.records, offsetPos{
 			Offset:  offsetCounter,
 			SegBase: segBase,
-			Pos:     curPos,
+			Pos:     validFileEnd,
 			Length:  totalRecordLen,
 		})
 		offsetCounter++
-		validFileEnd = curPos + int64(totalRecordLen)
+		validFileEnd += int64(totalRecordLen)
 	}
 
-	// If there were any dangling bytes past the last valid record, truncate them
 	if fileSize > validFileEnd {
-		if err := file.Truncate(validFileEnd); err != nil {
-			return 0, fmt.Errorf("%w: failed to truncate trailing data", ErrStorageUnavailable)
-		}
+		return truncateRecoveryBoundary(file, validFileEnd, "trailing data")
 	}
 
 	return validFileEnd, nil
