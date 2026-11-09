@@ -291,19 +291,7 @@ func (h *MemoryLogHub) unlinkService(pos int32, service string) {
 }
 
 // Ingest indexes a log entry into the ring buffer and distributes to matching SSE subscribers.
-func (h *MemoryLogHub) Ingest(entry LogEntry) error {
-	// Precondition validation (Meyer DbC - caller fault)
-	if entry.Topic == "" && entry.Service == "" {
-		return fmt.Errorf("%w: entry must specify topic or service", ErrPreconditionViolated)
-	}
-
-	h.mu.Lock()
-	if h.closed {
-		h.mu.Unlock()
-		return ErrHubClosed
-	}
-
-	// Invariant assignment
+func (h *MemoryLogHub) normalizeEntry(entry LogEntry) LogEntry {
 	if entry.ID == 0 {
 		entry.ID = atomic.AddUint64(&h.seqID, 1)
 	}
@@ -322,25 +310,23 @@ func (h *MemoryLogHub) Ingest(entry LogEntry) error {
 	}
 	entry.Service = strings.ToLower(strings.TrimSpace(entry.Service))
 	entry.TraceID = strings.TrimSpace(entry.TraceID)
-
-	// Defensive copy of payload to ensure immutability across subscribers and circular eviction
 	if len(entry.Payload) > 0 {
 		payloadCopy := make(json.RawMessage, len(entry.Payload))
 		copy(payloadCopy, entry.Payload)
 		entry.Payload = payloadCopy
 	}
+	return entry
+}
 
-	item := &entry
-	h.totalIngested++
-
-	// Circular Ring Buffer Eviction: O(1) strict, zero copy, zero allocation
+// evictAndInsertLocked writes item into the ring and prunes the evicted
+// secondary-index links. Caller holds h.mu.
+func (h *MemoryLogHub) evictAndInsertLocked(item *LogEntry) int32 {
 	var pos int32
 	if h.count == h.capacity {
 		pos = int32(h.head)
 		oldItem := h.entries[pos]
-		h.entries[pos] = nil // Immediate pointer release for GC
+		h.entries[pos] = nil
 
-		// Prune secondary indices without slice copy or reallocation
 		if oldItem != nil && oldItem.TraceID != "" {
 			h.unlinkTrace(pos, oldItem.TraceID)
 		}
@@ -355,28 +341,23 @@ func (h *MemoryLogHub) Ingest(entry LogEntry) error {
 		h.entries[pos] = item
 		h.count++
 	}
+	return pos
+}
 
-	// Update secondary indices in O(1)
-	if item.TraceID != "" {
-		h.linkTrace(pos, item.TraceID)
+// snapshotSubscribersLocked copies the subscriber slice so notification can
+// happen outside the hub lock. Caller holds h.mu.
+func (h *MemoryLogHub) snapshotSubscribersLocked() []*subscriber {
+	if len(h.subscribers) == 0 {
+		return nil
 	}
-	if item.Service != "" {
-		h.linkService(pos, item.Service)
+	subs := make([]*subscriber, 0, len(h.subscribers))
+	for _, sub := range h.subscribers {
+		subs = append(subs, sub)
 	}
+	return subs
+}
 
-	// Copy subscriber snapshot under lock
-	var subs []*subscriber
-	if len(h.subscribers) > 0 {
-		subs = make([]*subscriber, 0, len(h.subscribers))
-		for _, sub := range h.subscribers {
-			subs = append(subs, sub)
-		}
-	}
-
-	// Release lock IMMEDIATELY
-	h.mu.Unlock()
-
-	// Distribute log outside exclusive lock (non-blocking)
+func (h *MemoryLogHub) notifySubscribers(subs []*subscriber, entry LogEntry) {
 	for _, sub := range subs {
 		if sub.filter.Service != "" && !strings.EqualFold(sub.filter.Service, entry.Service) {
 			continue
@@ -395,7 +376,34 @@ func (h *MemoryLogHub) Ingest(entry LogEntry) error {
 		}
 		sub.mu.RUnlock()
 	}
+}
 
+func (h *MemoryLogHub) Ingest(entry LogEntry) error {
+	if entry.Topic == "" && entry.Service == "" {
+		return fmt.Errorf("%w: entry must specify topic or service", ErrPreconditionViolated)
+	}
+
+	entry = h.normalizeEntry(entry)
+	item := &entry
+
+	h.mu.Lock()
+	if h.closed {
+		h.mu.Unlock()
+		return ErrHubClosed
+	}
+	h.totalIngested++
+
+	pos := h.evictAndInsertLocked(item)
+	if item.TraceID != "" {
+		h.linkTrace(pos, item.TraceID)
+	}
+	if item.Service != "" {
+		h.linkService(pos, item.Service)
+	}
+	subs := h.snapshotSubscribersLocked()
+	h.mu.Unlock()
+
+	h.notifySubscribers(subs, entry)
 	return nil
 }
 
