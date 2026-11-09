@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strings"
 	"sync"
 	"time"
 )
@@ -60,6 +61,101 @@ func DefaultFileStorageOptions() FileStorageOptions {
 		SyncPolicy:   SyncInterval,
 		SyncInterval: 50 * time.Millisecond,
 	}
+}
+
+func isWALSegmentName(name string) bool {
+	return strings.HasPrefix(name, "segment-") && strings.HasSuffix(name, ".wal")
+}
+
+func parseWALSegmentBase(name string) (Offset, bool) {
+	var base uint64
+	if n, _ := fmt.Sscanf(name, "segment-%012d.wal", &base); n != 1 {
+		return 0, false
+	}
+	return Offset(base), true
+}
+
+// readCheckpointOffset reads checkpoint.meta using the same tolerance as recovery.
+// A missing or short checkpoint is treated as zero; an unreadable one is a storage fault.
+func readCheckpointOffset(dir string) (Offset, error) {
+	data, err := os.ReadFile(filepath.Join(dir, "checkpoint.meta"))
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return 0, nil
+		}
+		return 0, fmt.Errorf("%w: failed to read checkpoint during format check", ErrStorageUnavailable)
+	}
+	if len(data) < 8 {
+		return 0, nil
+	}
+	return Offset(binary.BigEndian.Uint64(data[:8])), nil
+}
+
+// validateWALDirectory rejects opening a non-empty directory with incompatible
+// FileStorageOptions before the constructor creates or truncates any file.
+// This turns a silent "recover zero records" into an actionable configuration error.
+func validateWALDirectory(dir string, maxSegmentSize int64) error {
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return nil
+		}
+		return fmt.Errorf("%w: failed to inspect WAL directory", ErrStorageUnavailable)
+	}
+
+	var hasActive bool
+	var activeSize int64
+	var hasSegment bool
+	var hasZeroSegment bool
+	for _, entry := range entries {
+		name := entry.Name()
+		if entry.Type()&os.ModeSymlink != 0 && (name == "active.wal" || isWALSegmentName(name)) {
+			return fmt.Errorf("%w: %q contains a symlinked WAL file %q", ErrStorageFormatMismatch, dir, name)
+		}
+		switch {
+		case name == "active.wal":
+			info, infoErr := entry.Info()
+			if infoErr != nil {
+				return fmt.Errorf("%w: failed to inspect active.wal", ErrStorageUnavailable)
+			}
+			hasActive = true
+			activeSize = info.Size()
+		case name == "checkpoint.tmp":
+			// Transient checkpoint write; recovery ignores or replaces it.
+		case isWALSegmentName(name):
+			base, ok := parseWALSegmentBase(name)
+			if !ok {
+				return fmt.Errorf("%w: %q contains a malformed segment name %q", ErrStorageFormatMismatch, dir, name)
+			}
+			hasSegment = true
+			if base == 0 {
+				hasZeroSegment = true
+			}
+		}
+	}
+
+	checkpoint, err := readCheckpointOffset(dir)
+	if err != nil {
+		return err
+	}
+
+	if maxSegmentSize <= 0 {
+		if hasSegment {
+			return fmt.Errorf("%w: %q contains segmented WAL files but was opened with MaxSegmentSize=0; use segmented options or migrate explicitly", ErrStorageFormatMismatch, dir)
+		}
+		if !hasActive && checkpoint > 0 {
+			return fmt.Errorf("%w: %q has a non-zero checkpoint but no active.wal; refusing to reset offsets and IDs", ErrStorageFormatMismatch, dir)
+		}
+		return nil
+	}
+
+	if hasActive && activeSize > 0 && hasZeroSegment {
+		return fmt.Errorf("%w: %q contains both non-empty active.wal and segment-000000000000.wal; active.wal would be ignored", ErrStorageFormatMismatch, dir)
+	}
+	if !hasActive && !hasSegment && checkpoint > 0 {
+		return fmt.Errorf("%w: %q has a non-zero checkpoint but no WAL segment; refusing to reset offsets and IDs", ErrStorageFormatMismatch, dir)
+	}
+	return nil
 }
 
 // offsetPos maps a logical spooler offset to its physical byte offset and byte length in the WAL.
@@ -118,6 +214,10 @@ func NewFileStorageEngineWithOptions(dir string, maxCapacity int, opts FileStora
 	}
 	if opts.SyncInterval <= 0 {
 		opts.SyncInterval = 50 * time.Millisecond
+	}
+
+	if err := validateWALDirectory(dir, opts.MaxSegmentSize); err != nil {
+		return nil, err
 	}
 
 	if err := os.MkdirAll(dir, 0755); err != nil {
