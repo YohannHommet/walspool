@@ -31,8 +31,8 @@ type Record struct {
 // Header Layout: [Magic:2][Ver:1][CRC32:4][ID:8][UnixNano:8][TopicLen:2][PayloadLen:4][Topic...][Payload...]
 func (r Record) MarshalBinary() ([]byte, error) {
 	topicBytes := []byte(r.Topic)
-	if len(topicBytes) > 65535 {
-		return nil, fmt.Errorf("%w: topic length exceeds 64KB", ErrPreconditionViolated)
+	if len(topicBytes) > MaxTopicBytes {
+		return nil, fmt.Errorf("%w: got %d bytes", ErrTopicTooLong, len(topicBytes))
 	}
 
 	bodyLen := len(topicBytes) + len(r.Payload)

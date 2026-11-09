@@ -140,15 +140,10 @@ func (e *Engine) Enqueue(ctx context.Context, topic string, payload []byte) erro
 		return err
 	}
 
-	// Precondition Verification (Meyer DbC - Client Fault)
-	if topic == "" {
-		return fmt.Errorf("%w: topic must not be empty", ErrPreconditionViolated)
-	}
-	if len(payload) == 0 {
-		return fmt.Errorf("%w: payload must not be empty", ErrPreconditionViolated)
-	}
-	if len(payload) > e.cfg.MaxPayloadSize {
-		return fmt.Errorf("%w: payload size %d exceeds limit of %d", ErrPreconditionViolated, len(payload), e.cfg.MaxPayloadSize)
+	// Precondition verification is shared with storage adapters so every path
+	// accepts and rejects the same record.
+	if err := ValidateRecord(topic, payload, e.cfg.MaxPayloadSize); err != nil {
+		return err
 	}
 
 	e.mu.RLock()

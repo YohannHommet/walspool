@@ -27,6 +27,10 @@ func NewMemoryStorageEngine(maxCapacity int) *MemoryStorageEngine {
 }
 
 func (m *MemoryStorageEngine) Append(rec Record) (Offset, error) {
+	if err := ValidateTopic(rec.Topic); err != nil {
+		return 0, err
+	}
+
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
