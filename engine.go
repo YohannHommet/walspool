@@ -52,13 +52,20 @@ type flushRequest struct {
 
 // Engine implements the Spooler interface.
 // High leverage: encapsulates WAL coordination, batching, backpressure, and exponential backoff.
+// admittedCounter tracks records accepted but not yet committed. It is kept
+// on its own cache line because Enqueue and the dispatcher update it concurrently.
+type admittedCounter struct {
+	value atomic.Int64
+	_     [56]byte
+}
+
 type Engine struct {
-	cfg             Config
-	storage         StorageEngine
-	sink            Sink
-	clock           Clock
-	observers       []IngestionObserver
-	capacityManaged bool
+	cfg       Config
+	storage   StorageEngine
+	sink      Sink
+	clock     Clock
+	observers []IngestionObserver
+	admitted  admittedCounter
 
 	idCounter uint64
 	notifyCh  chan struct{}
@@ -112,14 +119,14 @@ func New(cfg Config, storage StorageEngine, sink Sink, clock Clock, opts ...Opti
 		}
 	}
 
-	// Built-in storage engines expose an internal capacity limiter. Lowering the
-	// adapter's quota here keeps MaxCapacity effective and atomic inside Append,
-	// instead of relying on a racy check-then-act in Enqueue.
+	// Seed the admission counter with the recovered uncommitted backlog so a
+	// restart cannot admit a fresh MaxCapacity on top of already-pending records.
 	if cfg.MaxCapacity > 0 {
-		if limiter, ok := storage.(interface{ limitCapacity(int) }); ok {
-			limiter.limitCapacity(cfg.MaxCapacity)
-			e.capacityManaged = true
+		uncommitted, err := storage.UncommittedCount()
+		if err != nil {
+			return nil, fmt.Errorf("%w: failed to read recovered uncommitted backlog", err)
 		}
+		e.admitted.value.Store(int64(uncommitted))
 	}
 
 	e.doneWg.Add(1)
@@ -150,17 +157,14 @@ func (e *Engine) Enqueue(ctx context.Context, topic string, payload []byte) erro
 		return ErrSpoolerClosed
 	}
 
-	// Engine-level backpressure quota. The storage adapter also enforces its own
-	// constructor quota atomically; this check makes Config.MaxCapacity effective
-	// and fails fast before the defensive copy and WAL serialization.
-	if e.cfg.MaxCapacity > 0 && !e.capacityManaged {
-		uncommitted, err := e.storage.UncommittedCount()
-		if err != nil {
-			return err
-		}
-		if uncommitted >= e.cfg.MaxCapacity {
+	// Atomic, adapter-independent admission. Reserving before Append closes the
+	// check-then-act race that affected third-party StorageEngine implementations.
+	reserved := false
+	if e.cfg.MaxCapacity > 0 {
+		if !e.reserveAdmission(1) {
 			return ErrSpoolFull
 		}
+		reserved = true
 	}
 
 	// Defensive copy: insulate internal storage from caller mutating slice post-enqueue
@@ -176,6 +180,9 @@ func (e *Engine) Enqueue(ctx context.Context, topic string, payload []byte) erro
 	offset, err := e.storage.Append(rec)
 	if err != nil {
 		// Tier 2 (ErrSpoolFull) or Tier 3 (ErrStorageUnavailable)
+		if reserved {
+			e.releaseAdmission(1)
+		}
 		return err
 	}
 	rec.Offset = offset
@@ -317,6 +324,7 @@ func (e *Engine) drainPendingBatches(ctx context.Context) (bool, error) {
 			if cErr := e.storage.Commit(corrupt.Offset); cErr != nil {
 				return false, cErr
 			}
+			e.releaseAdmission(1)
 			return true, nil
 		}
 		return false, err
@@ -343,6 +351,7 @@ func (e *Engine) drainPendingBatches(ctx context.Context) (bool, error) {
 			if err := e.storage.Commit(lastOffset); err != nil {
 				return false, err
 			}
+			e.releaseAdmission(int64(len(batch)))
 			return true, nil
 		}
 		// Transient sink error; do not commit, will retry
@@ -353,8 +362,42 @@ func (e *Engine) drainPendingBatches(ctx context.Context) (bool, error) {
 	if err := e.storage.Commit(lastOffset); err != nil {
 		return false, err
 	}
+	e.releaseAdmission(int64(len(batch)))
 
 	return true, nil
+}
+
+// reserveAdmission atomically reserves n records, returning false when the
+// configured MaxCapacity would be exceeded.
+func (e *Engine) reserveAdmission(n int64) bool {
+	for {
+		current := e.admitted.value.Load()
+		if current+n > int64(e.cfg.MaxCapacity) {
+			return false
+		}
+		if e.admitted.value.CompareAndSwap(current, current+n) {
+			return true
+		}
+	}
+}
+
+// releaseAdmission returns n admitted slots after a successful commit, or after
+// a failed append. Clamping is defensive only: normal accounting never underflows.
+func (e *Engine) releaseAdmission(n int64) {
+	if e.cfg.MaxCapacity <= 0 || n <= 0 {
+		return
+	}
+	for {
+		current := e.admitted.value.Load()
+		next := current - n
+		if next < 0 {
+			slog.Warn("walspool: admission accounting underflow", "admitted", current, "release", n)
+			next = 0
+		}
+		if e.admitted.value.CompareAndSwap(current, next) {
+			return
+		}
+	}
 }
 
 // resetTimer desactive le timer t, vide son canal de maniere non-bloquante

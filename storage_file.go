@@ -1029,17 +1029,6 @@ func (f *FileStorageEngine) Close() error {
 	return f.closeErr
 }
 
-// limitCapacity lowers the storage quota when the engine is constructed with a
-// smaller Config.MaxCapacity. It never raises an explicitly configured storage
-// quota; the adapter remains the atomic owner of the admission check.
-func (f *FileStorageEngine) limitCapacity(n int) {
-	f.mu.Lock()
-	defer f.mu.Unlock()
-	if n > 0 && n < f.maxCapacity {
-		f.maxCapacity = n
-	}
-}
-
 // LastID returns the highest record ID persisted or recovered by the storage engine.
 func (f *FileStorageEngine) LastID() uint64 {
 	f.mu.RLock()

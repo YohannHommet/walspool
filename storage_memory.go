@@ -111,17 +111,6 @@ func (m *MemoryStorageEngine) Close() error {
 	return nil
 }
 
-// limitCapacity lowers the storage quota when the engine is constructed with a
-// smaller Config.MaxCapacity. It never raises an explicitly configured storage
-// quota; the adapter remains the atomic owner of the admission check.
-func (m *MemoryStorageEngine) limitCapacity(n int) {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	if n > 0 && n < m.maxCapacity {
-		m.maxCapacity = n
-	}
-}
-
 // LastID returns the highest record ID stored in memory.
 func (m *MemoryStorageEngine) LastID() uint64 {
 	m.mu.RLock()
