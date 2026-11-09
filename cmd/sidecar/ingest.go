@@ -14,42 +14,6 @@ import (
 	"github.com/YohannHommet/walspool"
 )
 
-func enrichPayloadMetadata(payload []byte, traceID, service, level string) []byte {
-	if traceID == "" && service == "" && level == "" {
-		return payload
-	}
-	trimmed := bytes.TrimSpace(payload)
-	if len(trimmed) == 0 || trimmed[0] != '{' {
-		return payload
-	}
-	// UseNumber avoids float64 rounding of 64-bit trace IDs / nanosecond timestamps on re-marshal.
-	decoder := json.NewDecoder(bytes.NewReader(trimmed))
-	decoder.UseNumber()
-	var obj map[string]any
-	if err := decoder.Decode(&obj); err != nil || obj == nil {
-		return payload
-	}
-	modified := false
-	if traceID != "" && obj["trace_id"] == nil && obj["traceId"] == nil {
-		obj["trace_id"] = traceID
-		modified = true
-	}
-	if service != "" && obj["service"] == nil {
-		obj["service"] = service
-		modified = true
-	}
-	if level != "" && obj["level"] == nil && obj["severity"] == nil {
-		obj["level"] = level
-		modified = true
-	}
-	if modified {
-		if merged, err := json.Marshal(obj); err == nil {
-			return merged
-		}
-	}
-	return payload
-}
-
 func (s *SidecarServer) handleEnqueue(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
@@ -110,7 +74,7 @@ func (s *SidecarServer) handleEnqueue(w http.ResponseWriter, r *http.Request) {
 
 	// If top-level metadata was supplied in EnqueueRequest and payload is a JSON object,
 	// ensure payload retains it so WAL log and IngestionObserver receive complete metadata.
-	payloadBytes := enrichPayloadMetadata([]byte(req.Payload), req.TraceID, req.Service, req.Level)
+	payloadBytes := walspool.EnrichPayloadMetadata([]byte(req.Payload), req.TraceID, req.Service, req.Level)
 	if err := walspool.ValidateRecord(req.Topic, payloadBytes, MaxPayloadSize); err != nil {
 		writeIngestFault(w, err, 0, 0, 0)
 		return
@@ -343,7 +307,7 @@ func (s *SidecarServer) handleEnqueueNDJSON(w http.ResponseWriter, r *http.Reque
 		} else {
 			payloadBytes = trimmed
 		}
-		payloadBytes = enrichPayloadMetadata(payloadBytes, traceID, service, level)
+		payloadBytes = walspool.EnrichPayloadMetadata(payloadBytes, traceID, service, level)
 
 		if validationErr := walspool.ValidateRecord(topic, payloadBytes, MaxPayloadSize); validationErr != nil {
 			if strictMode {
