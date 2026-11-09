@@ -18,7 +18,7 @@ import (
 
 // Build metadata injected via -ldflags during GoReleaser or docker builds.
 var (
-	Version   = "1.1.0"
+	Version   = "1.2.0"
 	GitCommit = "HEAD"
 	BuildDate = "unknown"
 )

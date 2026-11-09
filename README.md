@@ -13,8 +13,8 @@
 <p align="center">
   <a href="https://golang.org"><img src="https://img.shields.io/badge/Go-1.22%2B-15171A?style=for-the-badge&logo=go&logoColor=white" alt="Go Version"/></a>
   <a href="https://goreportcard.com/report/github.com/YohannHommet/walspool"><img src="https://img.shields.io/badge/Go_Report-A%2B-2E3438?style=for-the-badge&logo=go&logoColor=white" alt="Go Report Card"/></a>
-  <a href="https://github.com/YohannHommet/walspool/releases/tag/v1.1.0"><img src="https://img.shields.io/badge/Edition-Community-2E3438?style=for-the-badge&logo=github&logoColor=white" alt="Edition Community"/></a>
-  <a href="https://github.com/YohannHommet/walspool/pkgs/container/walspool"><img src="https://img.shields.io/badge/Docker-1.1.0-15171A?style=for-the-badge&logo=docker&logoColor=white" alt="Docker Ready"/></a>
+  <a href="https://github.com/YohannHommet/walspool/releases/tag/v1.2.0"><img src="https://img.shields.io/badge/Edition-Community-2E3438?style=for-the-badge&logo=github&logoColor=white" alt="Edition Community"/></a>
+  <a href="https://github.com/YohannHommet/walspool/pkgs/container/walspool"><img src="https://img.shields.io/badge/Docker-1.2.0-15171A?style=for-the-badge&logo=docker&logoColor=white" alt="Docker Ready"/></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-FSL--1.1--MIT-C9F53B?style=for-the-badge&logoColor=black&labelColor=15171A" alt="License FSL-1.1-MIT"/></a>
 </p>
 
@@ -87,7 +87,7 @@ Run the sidecar on port `9099` and verify readiness:
 docker run -d --name walspool \
   -p 9099:9099 \
   -v walspool-data:/data/spool \
-  ghcr.io/yohannhommet/walspool:1.1.0
+  ghcr.io/yohannhommet/walspool:1.2.0
 
 curl -s http://localhost:9099/readyz
 # {"status":"ready","ready":true}
@@ -253,6 +253,7 @@ Historical v1.0 reference baseline, measured on Linux 6.8 (x86_64), Intel Core i
 - **[OpenTelemetry Guide](docs/OPENTELEMETRY.md)**: Polyglot SDK setup, Kubernetes sidecar manifests, and OTel Collector forwarding.
 - **[Observability & Resilience Report](docs/architecture/OBSERVABILITY_REPORT.md)**: SSE streaming, trace correlation, and crash recovery.
 - **[Architecture Decision Records](docs/architecture/adr/)**: [ADR-001 Multi-Segment Rotation](docs/architecture/adr/ADR-001-multi-segment-rotation.md), [ADR-002 Standalone CLI & TUI](docs/architecture/adr/ADR-002-standalone-cli-tui.md), [ADR-003 V2 High-Throughput Scope](docs/architecture/adr/ADR-003-v2-high-throughput-and-community-scope.md).
+- **[Release Notes v1.2.0](docs/release/RELEASE_NOTES_v1.2.0.md)**: P0/P1 hardening, resilient ingest, and architecture cleanup.
 - **[OpenAPI 3.0 Specification](docs/openapi.yaml)**: Complete HTTP contract for the sidecar daemon.
 
 ---
