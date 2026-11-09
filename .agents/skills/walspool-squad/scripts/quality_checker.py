@@ -43,7 +43,8 @@ def get_git_diff(base_ref=None):
         res = subprocess.check_output(cmd, stderr=subprocess.STDOUT, text=True)
         return res
     except subprocess.CalledProcessError as e:
-        return ""
+        print(f"[walspool-quality-validator] ERROR: git diff failed: {e.output}", file=sys.stderr)
+        sys.exit(2)
 
 def check_diff(diff_text):
     errors = []

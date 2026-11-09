@@ -31,8 +31,18 @@ func (s *SidecarServer) handleOTLPLogs(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	body, err := io.ReadAll(io.LimitReader(r.Body, MaxOTLPRequestBodyLimit))
+	body, err := io.ReadAll(http.MaxBytesReader(w, r.Body, MaxOTLPRequestBodyLimit))
 	if err != nil {
+		var maxBytesErr *http.MaxBytesError
+		if errors.As(err, &maxBytesErr) {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusRequestEntityTooLarge)
+			_ = json.NewEncoder(w).Encode(map[string]string{
+				"error":   "payload_too_large",
+				"message": fmt.Sprintf("OTLP request exceeds %d bytes", MaxOTLPRequestBodyLimit),
+			})
+			return
+		}
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusBadRequest)
 		_ = json.NewEncoder(w).Encode(map[string]string{
@@ -78,7 +88,14 @@ func (s *SidecarServer) handleOTLPLogs(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Ingest all log records into Walspool's persistent WAL and live memory hub
+	// Phase 1: normalize and validate every record before writing anything.
+	// A client fault must not leave a partially spooled OTLP request behind.
+	type preparedOTLPRecord struct {
+		topic   string
+		payload []byte
+	}
+	var prepared []preparedOTLPRecord
+
 	for _, resLogs := range req.ResourceLogs {
 		serviceName := extractResourceServiceName(resLogs.Resource, s.otlpDefaultTopic)
 		resAttrs := attributesToMap(resLogs.Resource.GetAttributes())
@@ -96,7 +113,6 @@ func (s *SidecarServer) handleOTLPLogs(w http.ResponseWriter, r *http.Request) {
 					topic = svc
 				}
 
-				// Timestamp resolution
 				var ts time.Time
 				if logRec.TimeUnixNano > 0 {
 					ts = time.Unix(0, int64(logRec.TimeUnixNano))
@@ -106,21 +122,15 @@ func (s *SidecarServer) handleOTLPLogs(w http.ResponseWriter, r *http.Request) {
 					ts = time.Now()
 				}
 
-				// Severity level resolution
 				level := strings.ToUpper(strings.TrimSpace(logRec.SeverityText))
 				if level == "" {
 					level = severityNumberToText(logRec.SeverityNumber)
 				}
 
-				// Trace & Span IDs
 				traceID := resolveTraceID(logRec.TraceId, isProtobuf)
 				spanID := resolveSpanID(logRec.SpanId, isProtobuf)
-
 				bodyVal := anyValueToInterface(logRec.Body)
 
-				// Normalized JSON representation:
-				// Placing service, level, and trace_id at the top level allows
-				// MemoryLogHub's OnIngested observer to index them directly without overhead.
 				payloadMap := map[string]any{
 					"timestamp": ts.Format(time.RFC3339Nano),
 					"service":   topic,
@@ -143,46 +153,71 @@ func (s *SidecarServer) handleOTLPLogs(w http.ResponseWriter, r *http.Request) {
 					payloadMap["resource"] = resAttrs
 				}
 
-				payloadBytes, err := json.Marshal(payloadMap)
-				if err != nil {
+				payloadBytes, marshalErr := json.Marshal(payloadMap)
+				if marshalErr != nil {
 					payloadBytes = []byte(fmt.Sprintf(`{"service":%q,"level":%q,"body":%q}`, topic, level, fmt.Sprint(bodyVal)))
 				}
-
-				if err := s.spooler.Enqueue(r.Context(), topic, payloadBytes); err != nil {
-					if errors.Is(err, walspool.ErrSpoolFull) {
-						w.Header().Set("Retry-After", "1")
-						w.Header().Set("Content-Type", "application/json")
-						w.WriteHeader(http.StatusServiceUnavailable)
-						_ = json.NewEncoder(w).Encode(map[string]string{
-							"error":   "spool_full",
-							"message": "storage capacity exceeded, backpressure active",
-						})
-						return
-					}
-					if errors.Is(err, walspool.ErrSpoolerClosed) {
-						w.Header().Set("Content-Type", "application/json")
-						w.WriteHeader(http.StatusServiceUnavailable)
-						_ = json.NewEncoder(w).Encode(map[string]string{
-							"error":   "spooler_closed",
-							"message": "server shutting down",
-						})
-						return
-					}
-
-					w.Header().Set("Content-Type", "application/json")
-					w.WriteHeader(http.StatusInternalServerError)
-					_ = json.NewEncoder(w).Encode(map[string]string{
-						"error":   "internal_error",
-						"message": err.Error(),
-					})
-					return
-				}
-
-				if s.metrics != nil {
-					s.metrics.RecordIngested(topic)
-				}
+				prepared = append(prepared, preparedOTLPRecord{topic: topic, payload: payloadBytes})
 			}
 		}
+	}
+
+	for _, rec := range prepared {
+		if err := walspool.ValidateRecord(rec.topic, rec.payload, MaxPayloadSize); err != nil {
+			writeIngestFault(w, err, 0, 0, 0)
+			return
+		}
+	}
+
+	// Phase 2: enqueue with exact progress on capacity/storage failures.
+	accepted := 0
+	for _, rec := range prepared {
+		if err := s.spooler.Enqueue(r.Context(), rec.topic, rec.payload); err != nil {
+			switch {
+			case errors.Is(err, walspool.ErrSpoolFull):
+				writeSpoolFull(w, accepted, len(prepared), 0)
+				return
+			case errors.Is(err, walspool.ErrSpoolerClosed):
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(http.StatusServiceUnavailable)
+				_ = json.NewEncoder(w).Encode(map[string]any{
+					"error":    "spooler_closed",
+					"message":  "server shutting down",
+					"enqueued": accepted,
+					"total":    len(prepared),
+				})
+				return
+			case errors.Is(err, walspool.ErrStorageUnavailable):
+				w.Header().Set("Retry-After", "1")
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(http.StatusServiceUnavailable)
+				_ = json.NewEncoder(w).Encode(map[string]any{
+					"error":    "storage_unavailable",
+					"message":  err.Error(),
+					"enqueued": accepted,
+					"total":    len(prepared),
+				})
+				return
+			case isClientFault(err):
+				writeIngestFault(w, err, 0, accepted, 0)
+				return
+			default:
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(http.StatusInternalServerError)
+				_ = json.NewEncoder(w).Encode(map[string]any{
+					"error":    "internal_error",
+					"message":  err.Error(),
+					"enqueued": accepted,
+					"total":    len(prepared),
+				})
+				return
+			}
+		}
+
+		if s.metrics != nil {
+			s.metrics.RecordIngested(rec.topic)
+		}
+		accepted++
 	}
 
 	// Success response conforming to OTLP HTTP specification

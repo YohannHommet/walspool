@@ -14,7 +14,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
 cd "${ROOT_DIR}"
 
-PORT="${WALSPOOL_PORT:-8999}"
+PORT="${WALSPOOL_PORT:-9099}"
 ADDR="http://127.0.0.1:${PORT}"
 STAGE_DURATION="5s"
 WORKERS=16
@@ -36,7 +36,7 @@ while [[ $# -gt 0 ]]; do
             shift 2
             ;;
         -h|--help)
-            echo "Usage: $0 [--duration 5s] [--workers 16] [--port 8999]"
+            echo "Usage: $0 [--duration 5s] [--workers 16] [--port 9099]"
             exit 0
             ;;
         *)
@@ -73,7 +73,6 @@ echo ""
 # 1. Compilation des binaires nécessaires
 echo "📦 Vérification / Compilation des binaires..."
 mkdir -p bin
-export PATH="${PATH}:/home/yohann/go/bin"
 
 if [ ! -f "bin/walspool-sidecar" ]; then
     CGO_ENABLED=0 go build -o bin/walspool-sidecar ./cmd/sidecar

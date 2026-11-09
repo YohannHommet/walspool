@@ -2369,9 +2369,10 @@ func TestSidecar_EnqueueNDJSON_EnvelopeFormat(t *testing.T) {
 		t.Fatalf("expected bytes > 0, got %d", resp.Bytes)
 	}
 
-	count, err := storage.UncommittedCount()
-	if err != nil || count != 3 {
-		t.Fatalf("expected 3 records in storage, got count=%d, err=%v", count, err)
+	// The dispatcher may commit these records before the assertion runs, so
+	// assert the persisted high-water ID rather than the transient uncommitted count.
+	if lastID := storage.LastID(); lastID != 3 {
+		t.Fatalf("expected 3 records persisted, got LastID=%d", lastID)
 	}
 }
 

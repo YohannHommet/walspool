@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strings"
 	"sync"
 	"time"
 )
@@ -62,6 +63,101 @@ func DefaultFileStorageOptions() FileStorageOptions {
 	}
 }
 
+func isWALSegmentName(name string) bool {
+	return strings.HasPrefix(name, "segment-") && strings.HasSuffix(name, ".wal")
+}
+
+func parseWALSegmentBase(name string) (Offset, bool) {
+	var base uint64
+	if n, _ := fmt.Sscanf(name, "segment-%012d.wal", &base); n != 1 {
+		return 0, false
+	}
+	return Offset(base), true
+}
+
+// readCheckpointOffset reads checkpoint.meta using the same tolerance as recovery.
+// A missing or short checkpoint is treated as zero; an unreadable one is a storage fault.
+func readCheckpointOffset(dir string) (Offset, error) {
+	data, err := os.ReadFile(filepath.Join(dir, "checkpoint.meta"))
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return 0, nil
+		}
+		return 0, fmt.Errorf("%w: failed to read checkpoint during format check", ErrStorageUnavailable)
+	}
+	if len(data) < 8 {
+		return 0, nil
+	}
+	return Offset(binary.BigEndian.Uint64(data[:8])), nil
+}
+
+// validateWALDirectory rejects opening a non-empty directory with incompatible
+// FileStorageOptions before the constructor creates or truncates any file.
+// This turns a silent "recover zero records" into an actionable configuration error.
+func validateWALDirectory(dir string, maxSegmentSize int64) error {
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return nil
+		}
+		return fmt.Errorf("%w: failed to inspect WAL directory", ErrStorageUnavailable)
+	}
+
+	var hasActive bool
+	var activeSize int64
+	var hasSegment bool
+	var hasZeroSegment bool
+	for _, entry := range entries {
+		name := entry.Name()
+		if entry.Type()&os.ModeSymlink != 0 && (name == "active.wal" || isWALSegmentName(name)) {
+			return fmt.Errorf("%w: %q contains a symlinked WAL file %q", ErrStorageFormatMismatch, dir, name)
+		}
+		switch {
+		case name == "active.wal":
+			info, infoErr := entry.Info()
+			if infoErr != nil {
+				return fmt.Errorf("%w: failed to inspect active.wal", ErrStorageUnavailable)
+			}
+			hasActive = true
+			activeSize = info.Size()
+		case name == "checkpoint.tmp":
+			// Transient checkpoint write; recovery ignores or replaces it.
+		case isWALSegmentName(name):
+			base, ok := parseWALSegmentBase(name)
+			if !ok {
+				return fmt.Errorf("%w: %q contains a malformed segment name %q", ErrStorageFormatMismatch, dir, name)
+			}
+			hasSegment = true
+			if base == 0 {
+				hasZeroSegment = true
+			}
+		}
+	}
+
+	checkpoint, err := readCheckpointOffset(dir)
+	if err != nil {
+		return err
+	}
+
+	if maxSegmentSize <= 0 {
+		if hasSegment {
+			return fmt.Errorf("%w: %q contains segmented WAL files but was opened with MaxSegmentSize=0; use segmented options or migrate explicitly", ErrStorageFormatMismatch, dir)
+		}
+		if !hasActive && checkpoint > 0 {
+			return fmt.Errorf("%w: %q has a non-zero checkpoint but no active.wal; refusing to reset offsets and IDs", ErrStorageFormatMismatch, dir)
+		}
+		return nil
+	}
+
+	if hasActive && activeSize > 0 && hasZeroSegment {
+		return fmt.Errorf("%w: %q contains both non-empty active.wal and segment-000000000000.wal; active.wal would be ignored", ErrStorageFormatMismatch, dir)
+	}
+	if !hasActive && !hasSegment && checkpoint > 0 {
+		return fmt.Errorf("%w: %q has a non-zero checkpoint but no WAL segment; refusing to reset offsets and IDs", ErrStorageFormatMismatch, dir)
+	}
+	return nil
+}
+
 // offsetPos maps a logical spooler offset to its physical byte offset and byte length in the WAL.
 type offsetPos struct {
 	Offset  Offset
@@ -95,6 +191,11 @@ type FileStorageEngine struct {
 
 	closeOnce sync.Once
 	closeErr  error
+
+	diskCacheMu    sync.Mutex
+	diskCacheAt    time.Time
+	diskCacheBytes int64
+	diskCacheValid bool
 }
 
 // NewFileStorageEngine opens or initializes a WAL directory using default optimized options (SyncInterval, 128KB buffer).
@@ -118,6 +219,10 @@ func NewFileStorageEngineWithOptions(dir string, maxCapacity int, opts FileStora
 	}
 	if opts.SyncInterval <= 0 {
 		opts.SyncInterval = 50 * time.Millisecond
+	}
+
+	if err := validateWALDirectory(dir, opts.MaxSegmentSize); err != nil {
+		return nil, err
 	}
 
 	if err := os.MkdirAll(dir, 0755); err != nil {
@@ -861,11 +966,21 @@ func (f *FileStorageEngine) UncommittedBytes() int64 {
 	return f.uncommittedBytes
 }
 
-// DiskBytes returns the total size of the .wal files in the storage directory.
-// It is an optional capability consumed by metrics exposition. A concurrent
-// rotation or prune may make the snapshot slightly stale; individual stat
-// failures are skipped rather than failing the whole scrape.
+const diskBytesCacheTTL = 5 * time.Second
+
+// DiskBytes returns the cached total size of the .wal files in the storage
+// directory. Scans are rate-limited to one per diskBytesCacheTTL so a 1 Hz
+// monitor scrape cannot turn into a directory stat storm on network storage.
+// A concurrent rotation or prune may make the gauge stale by up to the TTL.
 func (f *FileStorageEngine) DiskBytes() (int64, error) {
+	f.diskCacheMu.Lock()
+	if f.diskCacheValid && time.Since(f.diskCacheAt) < diskBytesCacheTTL {
+		value := f.diskCacheBytes
+		f.diskCacheMu.Unlock()
+		return value, nil
+	}
+	f.diskCacheMu.Unlock()
+
 	entries, err := os.ReadDir(f.dir)
 	if err != nil {
 		return 0, fmt.Errorf("%w: failed to read wal directory", ErrStorageUnavailable)
@@ -876,12 +991,18 @@ func (f *FileStorageEngine) DiskBytes() (int64, error) {
 		if entry.IsDir() || filepath.Ext(entry.Name()) != ".wal" {
 			continue
 		}
-		info, err := entry.Info()
-		if err != nil {
+		info, statErr := entry.Info()
+		if statErr != nil {
 			continue
 		}
 		total += info.Size()
 	}
+
+	f.diskCacheMu.Lock()
+	f.diskCacheAt = time.Now()
+	f.diskCacheBytes = total
+	f.diskCacheValid = true
+	f.diskCacheMu.Unlock()
 	return total, nil
 }
 
@@ -927,17 +1048,6 @@ func (f *FileStorageEngine) Close() error {
 		f.closeErr = errors.Join(errs...)
 	})
 	return f.closeErr
-}
-
-// limitCapacity lowers the storage quota when the engine is constructed with a
-// smaller Config.MaxCapacity. It never raises an explicitly configured storage
-// quota; the adapter remains the atomic owner of the admission check.
-func (f *FileStorageEngine) limitCapacity(n int) {
-	f.mu.Lock()
-	defer f.mu.Unlock()
-	if n > 0 && n < f.maxCapacity {
-		f.maxCapacity = n
-	}
 }
 
 // LastID returns the highest record ID persisted or recovered by the storage engine.

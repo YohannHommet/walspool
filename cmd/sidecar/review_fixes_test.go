@@ -117,7 +117,7 @@ func TestSidecarBatch_RejectsOversizedTopicBeforeSpooling(t *testing.T) {
 	server := NewSidecarServer(spool)
 	body, err := json.Marshal([]EnqueueRequest{
 		{Topic: "ok", Payload: json.RawMessage(`"one"`)},
-		{Topic: strings.Repeat("t", maxTopicLength+1), Payload: json.RawMessage(`"two"`)},
+		{Topic: strings.Repeat("t", walspool.MaxTopicBytes+1), Payload: json.RawMessage(`"two"`)},
 	})
 	if err != nil {
 		t.Fatalf("marshal batch: %v", err)
@@ -146,7 +146,7 @@ func TestSidecarBatch_AcceptsMaxTopicLength(t *testing.T) {
 	spool := &reviewSpooler{}
 	server := NewSidecarServer(spool)
 	body, err := json.Marshal([]EnqueueRequest{
-		{Topic: strings.Repeat("t", maxTopicLength), Payload: json.RawMessage(`"one"`)},
+		{Topic: strings.Repeat("t", walspool.MaxTopicBytes), Payload: json.RawMessage(`"one"`)},
 	})
 	if err != nil {
 		t.Fatalf("marshal batch: %v", err)

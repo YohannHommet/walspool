@@ -12,9 +12,6 @@ import (
 )
 
 var (
-	// ErrLineTooLong indicates an incoming SSE line exceeded the safety bound.
-	ErrLineTooLong = errors.New("sse: event line exceeds maximum allowed memory limit")
-
 	hexDigits = "0123456789abcdef"
 )
 
@@ -103,10 +100,6 @@ func CheckBrokenPipe(err error) bool {
 		return false
 	}
 	if errors.Is(err, syscall.EPIPE) || errors.Is(err, io.ErrClosedPipe) {
-		return true
-	}
-	var pathErr *os.PathError
-	if errors.As(err, &pathErr) && errors.Is(pathErr.Err, syscall.EPIPE) {
 		return true
 	}
 	return false

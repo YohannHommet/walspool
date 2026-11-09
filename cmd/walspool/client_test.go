@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 )
 
@@ -73,13 +74,9 @@ func TestClient_FetchStatsAndMetrics(t *testing.T) {
 	if err != nil {
 		t.Fatalf("FetchMetrics failed: %v", err)
 	}
-	if metrics == "" || !bytesContains(metrics, "walspool_uncommitted_records 42") {
+	if metrics == "" || !strings.Contains(metrics, "walspool_uncommitted_records 42") {
 		t.Fatalf("unexpected metrics: %s", metrics)
 	}
-}
-
-func bytesContains(s, substr string) bool {
-	return len(s) >= len(substr) && (s == substr || len(s) > 0 && containsSubstr(s, substr))
 }
 
 func containsSubstr(s, substr string) bool {

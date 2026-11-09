@@ -57,6 +57,18 @@ type StorageEngine interface {
 	Close() error
 }
 
+// StorageStats is an optional driven capability for adapters that can report
+// total WAL footprint without changing the core StorageEngine contract.
+type StorageStats interface {
+	DiskBytes() (int64, error)
+}
+
+// StorageByteStats is an optional driven capability for adapters that can
+// report uncommitted serialized bytes.
+type StorageByteStats interface {
+	UncommittedBytes() int64
+}
+
 // Clock is a test seam allowing sub-second, deterministic time manipulation.
 type Clock interface {
 	Now() time.Time

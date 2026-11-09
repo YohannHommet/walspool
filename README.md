@@ -28,7 +28,7 @@
 > **Walspool Community** is free for production and commercial use under the [Functional Source License (FSL-1.1-MIT)](LICENSE), which automatically converts to the permissive MIT License two years after each release.  
 > Need enterprise support, custom sinks, or help with a high-throughput deployment? **[Meow Labs](https://meowlabs.tech)** builds with Walspool.
 
-Walspool commits outbound events to local disk in about a microsecond (`1.06 µs` median append), absorbs downstream outages, and streams live events over Server-Sent Events (SSE). Embed the zero-dependency Go library directly inside your process, or run the single static binary sidecar next to Node.js, Python, Ruby, Rust, or PHP services.
+Walspool commits outbound events to local disk in about a microsecond (`1.06 µs` median append), absorbs downstream outages, and streams live events over Server-Sent Events (SSE). Embed the stdlib-only Go core directly inside your process, or run the sidecar next to Node.js, Python, Ruby, Rust, or PHP services. The sidecar adds only the OpenTelemetry protobuf definitions required by its OTLP adapter.
 
 ---
 
@@ -233,11 +233,11 @@ bin/walspool monitor
 
 ## Benchmarks
 
-Measured on Linux 6.8 (x86_64), Intel Core i7-1255U, NVMe PCIe 4.0 SSD (`go test -run=^$ -bench=. -benchmem ./...`):
+Historical v1.0 reference baseline, measured on Linux 6.8 (x86_64), Intel Core i7-1255U, NVMe PCIe 4.0 SSD. Run `./scripts/bench.sh` for current numbers; these are not a release guarantee:
 
 | Operation | Throughput | Latency | Memory / Op | Allocations |
 | :--- | :--- | :--- | :--- | :--- |
-| `FileStorage.Append` (128 KB group commit) | 937,207 ops/s | 1.06 µs/op | 259 B/op | 1 alloc/op |
+| `FileStorage.Append` (buffered, SyncInterval) | 937,207 ops/s | 1.06 µs/op | 259 B/op | 1 alloc/op |
 | `LogHub.Ingest` (Ring buffer + index) | 992,063 ops/s | 1.01 µs/op | 203 B/op | 1 alloc/op |
 | `LogHub.QueryByTraceID` (Indexed lookup) | 268,168 ops/s | 3.73 µs/op | 1,440 B/op | 11 allocs/op |
 | `Spooler.Enqueue` (Dual-engine end-to-end) | 607,164 ops/s | 1.65 µs/op | 1,131 B/op | 1 alloc/op |

@@ -13,6 +13,7 @@ type MemoryStorageEngine struct {
 	checkpoint  Offset
 	closed      bool
 	maxCapacity int
+	maxID       uint64
 }
 
 // NewMemoryStorageEngine creates a thread-safe in-memory storage engine.
@@ -27,6 +28,10 @@ func NewMemoryStorageEngine(maxCapacity int) *MemoryStorageEngine {
 }
 
 func (m *MemoryStorageEngine) Append(rec Record) (Offset, error) {
+	if err := ValidateTopic(rec.Topic); err != nil {
+		return 0, err
+	}
+
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -41,6 +46,9 @@ func (m *MemoryStorageEngine) Append(rec Record) (Offset, error) {
 
 	rec.Offset = Offset(len(m.records))
 	m.records = append(m.records, rec)
+	if rec.ID > m.maxID {
+		m.maxID = rec.ID
+	}
 	return rec.Offset, nil
 }
 
@@ -111,30 +119,9 @@ func (m *MemoryStorageEngine) Close() error {
 	return nil
 }
 
-// limitCapacity lowers the storage quota when the engine is constructed with a
-// smaller Config.MaxCapacity. It never raises an explicitly configured storage
-// quota; the adapter remains the atomic owner of the admission check.
-func (m *MemoryStorageEngine) limitCapacity(n int) {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	if n > 0 && n < m.maxCapacity {
-		m.maxCapacity = n
-	}
-}
-
 // LastID returns the highest record ID stored in memory.
 func (m *MemoryStorageEngine) LastID() uint64 {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
-
-	if len(m.records) == 0 {
-		return 0
-	}
-	var maxID uint64
-	for _, r := range m.records {
-		if r.ID > maxID {
-			maxID = r.ID
-		}
-	}
-	return maxID
+	return m.maxID
 }

@@ -17,6 +17,11 @@ var (
 	// ErrHubClosed indicates an operation was attempted on a terminated log hub.
 	ErrHubClosed = fmt.Errorf("%w: log hub is closed", ErrSpoolerClosed)
 
+	// ErrStorageFormatMismatch indicates the on-disk WAL layout is incompatible
+	// with the FileStorageOptions used to open it. It is a permanent caller
+	// configuration error, not a transient storage failure.
+	ErrStorageFormatMismatch = fmt.Errorf("%w: WAL directory format mismatch", ErrPreconditionViolated)
+
 	// ErrCorruptRecord indicates a record failed magic byte validation or CRC32 checksum verification.
 	ErrCorruptRecord = errors.New("walspool: corrupt record or checksum mismatch")
 
