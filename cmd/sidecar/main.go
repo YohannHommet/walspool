@@ -588,11 +588,8 @@ const (
 	// MaxBatchBytes defines the maximum raw HTTP body size allowed (10MB).
 	MaxBatchBytes = 10 * 1024 * 1024
 
-	// MaxPayloadSize defines the maximum payload size for a single record (1MB).
-	MaxPayloadSize = 1024 * 1024
-
-	// maxTopicLength mirrors Record.MarshalBinary's topic length bound.
-	maxTopicLength = 65535
+	// MaxPayloadSize is the shared default per-record payload bound.
+	MaxPayloadSize = walspool.DefaultMaxPayloadSize
 
 	// maxTrackedTopics caps per-topic Prometheus series. One slot is reserved
 	// for the overflow bucket so attacker-controlled topic cardinality cannot
@@ -1305,13 +1302,13 @@ func (s *SidecarServer) handleEnqueueBatch(w http.ResponseWriter, r *http.Reques
 			})
 			return
 		}
-		if len(topic) > maxTopicLength {
+		if len(topic) > walspool.MaxTopicBytes {
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusBadRequest)
 			_ = json.NewEncoder(w).Encode(batchErrorItemResponse{
 				Error:   "invalid_batch_item",
 				Index:   i,
-				Message: fmt.Sprintf("topic length %d exceeds limit of %d bytes", len(topic), maxTopicLength),
+				Message: fmt.Sprintf("topic length %d exceeds limit of %d bytes", len(topic), walspool.MaxTopicBytes),
 			})
 			return
 		}

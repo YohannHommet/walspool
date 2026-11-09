@@ -2,10 +2,16 @@ package walspool
 
 import "fmt"
 
-// MaxTopicBytes is the maximum topic length representable by the WAL wire format.
-// It is shared by the engine, storage adapters, and ingress adapters so the same
-// record is accepted or rejected identically everywhere.
-const MaxTopicBytes = 65535
+// MaxTopicBytes and DefaultMaxPayloadSize are shared by the engine, storage
+// adapters, and ingress adapters so the same record is accepted or rejected
+// identically everywhere.
+const (
+	// MaxTopicBytes is the maximum topic length representable by the WAL wire format.
+	MaxTopicBytes = 65535
+
+	// DefaultMaxPayloadSize is the default per-record payload bound used by Config.
+	DefaultMaxPayloadSize = 1024 * 1024
+)
 
 // Record validation sentinels. Each wraps ErrPreconditionViolated so existing
 // callers that classify client faults continue to work, while the new sentinels
