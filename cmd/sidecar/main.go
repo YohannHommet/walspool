@@ -267,11 +267,15 @@ func (m *SidecarMetrics) FormatPrometheus(hub walspool.LogHub, storage walspool.
 	}
 
 	diskBytes := int64(0)
+	uncommittedBytes := int64(0)
 	if storage != nil {
-		if sizer, ok := storage.(interface{ DiskBytes() (int64, error) }); ok {
+		if sizer, ok := storage.(walspool.StorageStats); ok {
 			if n, err := sizer.DiskBytes(); err == nil {
 				diskBytes = n
 			}
+		}
+		if sizer, ok := storage.(walspool.StorageByteStats); ok {
+			uncommittedBytes = sizer.UncommittedBytes()
 		}
 	}
 
@@ -343,6 +347,11 @@ func (m *SidecarMetrics) FormatPrometheus(hub walspool.LogHub, storage walspool.
 	buf.WriteString("# HELP walspool_storage_disk_bytes Total size of WAL files on disk in bytes\n")
 	buf.WriteString("# TYPE walspool_storage_disk_bytes gauge\n")
 	fmt.Fprintf(&buf, "walspool_storage_disk_bytes %d\n", diskBytes)
+
+	// walspool_uncommitted_bytes
+	buf.WriteString("# HELP walspool_uncommitted_bytes Serialized WAL bytes not yet committed\n")
+	buf.WriteString("# TYPE walspool_uncommitted_bytes gauge\n")
+	fmt.Fprintf(&buf, "walspool_uncommitted_bytes %d\n", uncommittedBytes)
 
 	// walspool_sink_flushes_total
 	buf.WriteString("# HELP walspool_sink_flushes_total Total outbound sink delivery attempts\n")
@@ -474,12 +483,82 @@ type ndjsonLineEnvelope struct {
 }
 
 // EnqueueNDJSONResponse definit le format de reponse JSON final du endpoint streaming.
+type ndjsonLineError struct {
+	Line    int    `json:"line"`
+	Code    string `json:"code"`
+	Message string `json:"message"`
+}
+
 type EnqueueNDJSONResponse struct {
-	Status   string `json:"status"`
-	Ingested int    `json:"ingested"`
-	Enqueued int    `json:"enqueued"`
-	Errors   int    `json:"errors"`
-	Bytes    int    `json:"bytes"`
+	Status     string           `json:"status"`
+	Ingested   int              `json:"ingested"`
+	Enqueued   int              `json:"enqueued"`
+	Errors     int              `json:"errors"`
+	Bytes      int              `json:"bytes"`
+	Lines      int              `json:"lines"`
+	FirstError *ndjsonLineError `json:"first_error,omitempty"`
+}
+
+// clientFaultCode classifies core validation sentinels for HTTP responses.
+func clientFaultCode(err error) string {
+	switch {
+	case errors.Is(err, walspool.ErrTopicTooLong):
+		return "topic_too_long"
+	case errors.Is(err, walspool.ErrEmptyTopic):
+		return "topic_missing"
+	case errors.Is(err, walspool.ErrPayloadTooLarge):
+		return "payload_too_large"
+	case errors.Is(err, walspool.ErrEmptyPayload):
+		return "payload_empty"
+	default:
+		return "precondition_failed"
+	}
+}
+
+func isClientFault(err error) bool {
+	return errors.Is(err, walspool.ErrTopicTooLong) ||
+		errors.Is(err, walspool.ErrEmptyTopic) ||
+		errors.Is(err, walspool.ErrPayloadTooLarge) ||
+		errors.Is(err, walspool.ErrEmptyPayload)
+}
+
+// writeSpoolFull returns a uniform backpressure response. total is used when
+// the full request size is known; line identifies the failing stream line.
+func writeSpoolFull(w http.ResponseWriter, enqueued, total, line int) {
+	w.Header().Set("Retry-After", "1")
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusServiceUnavailable)
+	body := map[string]any{
+		"error":    "spool_full",
+		"message":  "storage quota exceeded, backpressure active",
+		"enqueued": enqueued,
+	}
+	if total > 0 {
+		body["total"] = total
+	} else {
+		body["line"] = line
+	}
+	_ = json.NewEncoder(w).Encode(body)
+}
+
+// writeIngestFault maps a core validation fault to 400/413 and includes progress.
+func writeIngestFault(w http.ResponseWriter, err error, line, ingested, errorsCount int) {
+	status := http.StatusBadRequest
+	if errors.Is(err, walspool.ErrPayloadTooLarge) {
+		status = http.StatusRequestEntityTooLarge
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(status)
+	body := map[string]any{
+		"error":    clientFaultCode(err),
+		"message":  err.Error(),
+		"ingested": ingested,
+		"errors":   errorsCount,
+	}
+	if line > 0 {
+		body["line"] = line
+	}
+	_ = json.NewEncoder(w).Encode(body)
 }
 
 // isNDJSON detecte si le Content-Type indique un flux Newline Delimited JSON ou JSON Lines.
@@ -665,6 +744,24 @@ func (s *SidecarServer) handleReadyz(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// FormatEngineStats renders additive core dispatcher counters for /metrics.
+func FormatEngineStats(stats walspool.EngineStats) string {
+	var buf bytes.Buffer
+	write := func(name, help, mtype string, value uint64) {
+		fmt.Fprintf(&buf, "# HELP %s %s\n# TYPE %s %s\n%s %d\n", name, help, name, mtype, name, value)
+	}
+	write("walspool_engine_enqueued_total", "Records accepted by the engine", "counter", stats.Enqueued)
+	write("walspool_engine_append_errors_total", "Storage append errors", "counter", stats.AppendErrors)
+	write("walspool_engine_spool_full_total", "Enqueue requests rejected by capacity", "counter", stats.SpoolFull)
+	write("walspool_engine_committed_records_total", "Records committed to storage", "counter", stats.CommittedRecords)
+	write("walspool_engine_delivery_attempts_total", "Sink delivery batches attempted", "counter", stats.DeliveryAttempts)
+	write("walspool_engine_retries_total", "Dispatcher retry cycles", "counter", stats.Retries)
+	write("walspool_engine_sink_errors_total", "Sink delivery errors", "counter", stats.SinkErrors)
+	write("walspool_engine_permanent_rejections_total", "Batches permanently rejected by the sink", "counter", stats.PermanentRejections)
+	write("walspool_engine_corrupt_skips_total", "Corrupt WAL records skipped", "counter", stats.CorruptSkips)
+	return buf.String()
+}
+
 func (s *SidecarServer) handleMetrics(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
@@ -674,6 +771,9 @@ func (s *SidecarServer) handleMetrics(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 	if s.metrics != nil {
 		output := s.metrics.FormatPrometheus(s.hub, s.storage)
+		if provider, ok := s.spooler.(interface{ Stats() walspool.EngineStats }); ok {
+			output += FormatEngineStats(provider.Stats())
+		}
 		_, _ = w.Write([]byte(output))
 	}
 }
@@ -771,21 +871,28 @@ func (s *SidecarServer) handleEnqueue(w http.ResponseWriter, r *http.Request) {
 	// If top-level metadata was supplied in EnqueueRequest and payload is a JSON object,
 	// ensure payload retains it so WAL log and IngestionObserver receive complete metadata.
 	payloadBytes := enrichPayloadMetadata([]byte(req.Payload), req.TraceID, req.Service, req.Level)
+	if err := walspool.ValidateRecord(req.Topic, payloadBytes, MaxPayloadSize); err != nil {
+		writeIngestFault(w, err, 0, 0, 0)
+		return
+	}
 
 	// 1. Sub-microsecond append to local disk WAL with CRC32 integrity
 	// Persists on WAL and automatically notifies registered IngestionObserver (e.g. MemoryLogHub)
 	err = s.spooler.Enqueue(r.Context(), req.Topic, payloadBytes)
 	if err != nil {
 		if errors.Is(err, walspool.ErrSpoolFull) {
-			w.Header().Set("Content-Type", "application/json")
-			w.WriteHeader(http.StatusServiceUnavailable)
-			_, _ = w.Write([]byte(`{"error":"spool_full","message":"storage quota exceeded, backpressure active"}` + "\n"))
+			writeSpoolFull(w, 0, 1, 0)
 			return
 		}
-		if errors.Is(err, walspool.ErrPreconditionViolated) {
+		if isClientFault(err) {
+			writeIngestFault(w, err, 0, 0, 0)
+			return
+		}
+		if errors.Is(err, walspool.ErrStorageUnavailable) {
+			w.Header().Set("Retry-After", "1")
 			w.Header().Set("Content-Type", "application/json")
-			w.WriteHeader(http.StatusBadRequest)
-			_, _ = w.Write([]byte(fmt.Sprintf(`{"error":"precondition_failed","message":%q}`+"\n", err.Error())))
+			w.WriteHeader(http.StatusServiceUnavailable)
+			_ = json.NewEncoder(w).Encode(map[string]any{"error": "storage_unavailable", "message": err.Error(), "enqueued": 0, "total": 1})
 			return
 		}
 
@@ -836,6 +943,13 @@ func (s *SidecarServer) handleEnqueueNDJSON(w http.ResponseWriter, r *http.Reque
 	errorsCount := 0
 	totalBytes := 0
 	lineNum := 0
+	var firstError *ndjsonLineError
+	recordLineError := func(code string, lineErr error) {
+		errorsCount++
+		if firstError == nil {
+			firstError = &ndjsonLineError{Line: lineNum, Code: code, Message: lineErr.Error()}
+		}
+	}
 
 	for {
 		select {
@@ -909,13 +1023,15 @@ func (s *SidecarServer) handleEnqueueNDJSON(w http.ResponseWriter, r *http.Reque
 				w.Header().Set("Content-Type", "application/json")
 				w.WriteHeader(http.StatusBadRequest)
 				_ = json.NewEncoder(w).Encode(map[string]any{
-					"error":   "invalid_json_line",
-					"line":    lineNum,
-					"message": "invalid json payload",
+					"error":    "invalid_json_line",
+					"line":     lineNum,
+					"message":  "invalid json payload",
+					"ingested": ingested,
+					"errors":   errorsCount,
 				})
 				return
 			}
-			errorsCount++
+			recordLineError("invalid_json_line", fmt.Errorf("invalid json payload"))
 			if err == io.EOF {
 				break
 			}
@@ -965,13 +1081,15 @@ func (s *SidecarServer) handleEnqueueNDJSON(w http.ResponseWriter, r *http.Reque
 				w.Header().Set("Content-Type", "application/json")
 				w.WriteHeader(http.StatusBadRequest)
 				_ = json.NewEncoder(w).Encode(map[string]any{
-					"error":   "topic_missing",
-					"line":    lineNum,
-					"message": "topic cannot be empty",
+					"error":    "topic_missing",
+					"line":     lineNum,
+					"message":  "topic cannot be empty",
+					"ingested": ingested,
+					"errors":   errorsCount,
 				})
 				return
 			}
-			errorsCount++
+			recordLineError("topic_missing", fmt.Errorf("topic cannot be empty"))
 			if err == io.EOF {
 				break
 			}
@@ -987,18 +1105,46 @@ func (s *SidecarServer) handleEnqueueNDJSON(w http.ResponseWriter, r *http.Reque
 		}
 		payloadBytes = enrichJSONPayload(payloadBytes, traceID, service, level)
 
+		if validationErr := walspool.ValidateRecord(topic, payloadBytes, MaxPayloadSize); validationErr != nil {
+			if strictMode {
+				writeIngestFault(w, validationErr, lineNum, ingested, errorsCount)
+				return
+			}
+			recordLineError(clientFaultCode(validationErr), validationErr)
+			if err == io.EOF {
+				break
+			}
+			continue
+		}
+
 		enqueueErr := s.spooler.Enqueue(r.Context(), topic, payloadBytes)
 		if enqueueErr != nil {
 			if errors.Is(enqueueErr, walspool.ErrSpoolFull) {
-				w.Header().Set("Content-Type", "application/json")
-				w.WriteHeader(http.StatusServiceUnavailable)
-				_, _ = w.Write([]byte(`{"error":"spool_full","message":"storage quota exceeded, backpressure active"}` + "\n"))
+				writeSpoolFull(w, ingested, 0, lineNum)
 				return
 			}
-			if errors.Is(enqueueErr, walspool.ErrPreconditionViolated) {
+			if isClientFault(enqueueErr) {
+				if strictMode {
+					writeIngestFault(w, enqueueErr, lineNum, ingested, errorsCount)
+					return
+				}
+				recordLineError(clientFaultCode(enqueueErr), enqueueErr)
+				if err == io.EOF {
+					break
+				}
+				continue
+			}
+			if errors.Is(enqueueErr, walspool.ErrStorageUnavailable) {
+				w.Header().Set("Retry-After", "1")
 				w.Header().Set("Content-Type", "application/json")
-				w.WriteHeader(http.StatusBadRequest)
-				_, _ = w.Write([]byte(fmt.Sprintf(`{"error":"precondition_failed","message":%q}`+"\n", enqueueErr.Error())))
+				w.WriteHeader(http.StatusServiceUnavailable)
+				_ = json.NewEncoder(w).Encode(map[string]any{
+					"error":    "storage_unavailable",
+					"message":  enqueueErr.Error(),
+					"enqueued": ingested,
+					"errors":   errorsCount,
+					"line":     lineNum,
+				})
 				return
 			}
 			if r.Context().Err() != nil {
@@ -1006,7 +1152,13 @@ func (s *SidecarServer) handleEnqueueNDJSON(w http.ResponseWriter, r *http.Reque
 			}
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusInternalServerError)
-			_, _ = w.Write([]byte(fmt.Sprintf(`{"error":"internal_error","message":%q}`+"\n", enqueueErr.Error())))
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"error":    "internal_error",
+				"message":  enqueueErr.Error(),
+				"enqueued": ingested,
+				"errors":   errorsCount,
+				"line":     lineNum,
+			})
 			return
 		}
 
@@ -1035,9 +1187,11 @@ func (s *SidecarServer) handleEnqueueNDJSON(w http.ResponseWriter, r *http.Reque
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusBadRequest)
 		_ = json.NewEncoder(w).Encode(map[string]any{
-			"error":   "all_lines_invalid",
-			"message": "no valid records ingested",
-			"errors":  errorsCount,
+			"error":       "all_lines_invalid",
+			"message":     "no valid records ingested",
+			"errors":      errorsCount,
+			"lines":       lineNum,
+			"first_error": firstError,
 		})
 		return
 	}
@@ -1050,11 +1204,13 @@ func (s *SidecarServer) handleEnqueueNDJSON(w http.ResponseWriter, r *http.Reque
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusAccepted)
 	_ = json.NewEncoder(w).Encode(EnqueueNDJSONResponse{
-		Status:   status,
-		Ingested: ingested,
-		Enqueued: ingested,
-		Errors:   errorsCount,
-		Bytes:    totalBytes,
+		Status:     status,
+		Ingested:   ingested,
+		Enqueued:   ingested,
+		Errors:     errorsCount,
+		Bytes:      totalBytes,
+		Lines:      lineNum,
+		FirstError: firstError,
 	})
 }
 

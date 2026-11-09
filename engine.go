@@ -33,6 +33,33 @@ func DefaultConfig() Config {
 	}
 }
 
+// EngineStats is a read-only snapshot of engine-level operational counters.
+// It is exposed so daemons and custom sinks do not have to reimplement core
+// delivery/retry accounting.
+type EngineStats struct {
+	Enqueued            uint64
+	AppendErrors        uint64
+	SpoolFull           uint64
+	CommittedRecords    uint64
+	DeliveryAttempts    uint64
+	Retries             uint64
+	SinkErrors          uint64
+	PermanentRejections uint64
+	CorruptSkips        uint64
+}
+
+type engineStatsCounters struct {
+	enqueued            atomic.Uint64
+	appendErrors        atomic.Uint64
+	spoolFull           atomic.Uint64
+	committedRecords    atomic.Uint64
+	deliveryAttempts    atomic.Uint64
+	retries             atomic.Uint64
+	sinkErrors          atomic.Uint64
+	permanentRejections atomic.Uint64
+	corruptSkips        atomic.Uint64
+}
+
 // Option configures an Engine instance.
 type Option func(*Engine)
 
@@ -66,6 +93,7 @@ type Engine struct {
 	clock     Clock
 	observers []IngestionObserver
 	admitted  admittedCounter
+	stats     engineStatsCounters
 
 	idCounter uint64
 	notifyCh  chan struct{}
@@ -157,6 +185,7 @@ func (e *Engine) Enqueue(ctx context.Context, topic string, payload []byte) erro
 	reserved := false
 	if e.cfg.MaxCapacity > 0 {
 		if !e.reserveAdmission(1) {
+			e.stats.spoolFull.Add(1)
 			return ErrSpoolFull
 		}
 		reserved = true
@@ -175,6 +204,10 @@ func (e *Engine) Enqueue(ctx context.Context, topic string, payload []byte) erro
 	offset, err := e.storage.Append(rec)
 	if err != nil {
 		// Tier 2 (ErrSpoolFull) or Tier 3 (ErrStorageUnavailable)
+		e.stats.appendErrors.Add(1)
+		if errors.Is(err, ErrSpoolFull) {
+			e.stats.spoolFull.Add(1)
+		}
 		if reserved {
 			e.releaseAdmission(1)
 		}
@@ -192,7 +225,23 @@ func (e *Engine) Enqueue(ctx context.Context, topic string, payload []byte) erro
 	default:
 	}
 
+	e.stats.enqueued.Add(1)
 	return nil
+}
+
+// Stats returns a point-in-time snapshot of engine counters.
+func (e *Engine) Stats() EngineStats {
+	return EngineStats{
+		Enqueued:            e.stats.enqueued.Load(),
+		AppendErrors:        e.stats.appendErrors.Load(),
+		SpoolFull:           e.stats.spoolFull.Load(),
+		CommittedRecords:    e.stats.committedRecords.Load(),
+		DeliveryAttempts:    e.stats.deliveryAttempts.Load(),
+		Retries:             e.stats.retries.Load(),
+		SinkErrors:          e.stats.sinkErrors.Load(),
+		PermanentRejections: e.stats.permanentRejections.Load(),
+		CorruptSkips:        e.stats.corruptSkips.Load(),
+	}
 }
 
 func (e *Engine) Flush(ctx context.Context) error {
@@ -257,6 +306,7 @@ func (e *Engine) runDispatcher() {
 		// Drain all available records up to BatchSize
 		drained, err := e.drainPendingBatches(context.Background())
 		if err != nil {
+			e.stats.retries.Add(1)
 			// Every failure backs off: an unclassified sink or storage error must not spin at FlushInterval.
 			if !IsTransient(err) {
 				slog.Error("walspool: dispatcher drain failed", "error", err, "retry_in", currentBackoff)
@@ -319,6 +369,8 @@ func (e *Engine) drainPendingBatches(ctx context.Context) (bool, error) {
 			if cErr := e.storage.Commit(corrupt.Offset); cErr != nil {
 				return false, cErr
 			}
+			e.stats.corruptSkips.Add(1)
+			e.stats.committedRecords.Add(1)
 			e.releaseAdmission(1)
 			return true, nil
 		}
@@ -336,8 +388,10 @@ func (e *Engine) drainPendingBatches(ctx context.Context) (bool, error) {
 		defer cancel()
 	}
 
+	e.stats.deliveryAttempts.Add(1)
 	deliverErr := e.sink.Deliver(callCtx, batch)
 	if deliverErr != nil {
+		e.stats.sinkErrors.Add(1)
 		if errors.Is(deliverErr, ErrPermanentRejection) {
 			// Sink permanently rejected; commit to advance past poisonous batch.
 			// If the checkpoint cannot advance, surface the storage error so the
@@ -346,6 +400,8 @@ func (e *Engine) drainPendingBatches(ctx context.Context) (bool, error) {
 			if err := e.storage.Commit(lastOffset); err != nil {
 				return false, err
 			}
+			e.stats.permanentRejections.Add(1)
+			e.stats.committedRecords.Add(uint64(len(batch)))
 			e.releaseAdmission(int64(len(batch)))
 			return true, nil
 		}
@@ -357,6 +413,7 @@ func (e *Engine) drainPendingBatches(ctx context.Context) (bool, error) {
 	if err := e.storage.Commit(lastOffset); err != nil {
 		return false, err
 	}
+	e.stats.committedRecords.Add(uint64(len(batch)))
 	e.releaseAdmission(int64(len(batch)))
 
 	return true, nil
@@ -460,6 +517,7 @@ func (e *Engine) drainAll(ctx context.Context) error {
 	for {
 		drained, err := e.drainPendingBatches(ctx)
 		if err != nil {
+			e.stats.retries.Add(1)
 			if IsTransient(err) {
 				if backoffTimer == nil {
 					backoffTimer = time.NewTimer(currentBackoff)

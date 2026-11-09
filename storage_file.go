@@ -191,6 +191,11 @@ type FileStorageEngine struct {
 
 	closeOnce sync.Once
 	closeErr  error
+
+	diskCacheMu    sync.Mutex
+	diskCacheAt    time.Time
+	diskCacheBytes int64
+	diskCacheValid bool
 }
 
 // NewFileStorageEngine opens or initializes a WAL directory using default optimized options (SyncInterval, 128KB buffer).
@@ -961,11 +966,21 @@ func (f *FileStorageEngine) UncommittedBytes() int64 {
 	return f.uncommittedBytes
 }
 
-// DiskBytes returns the total size of the .wal files in the storage directory.
-// It is an optional capability consumed by metrics exposition. A concurrent
-// rotation or prune may make the snapshot slightly stale; individual stat
-// failures are skipped rather than failing the whole scrape.
+const diskBytesCacheTTL = 5 * time.Second
+
+// DiskBytes returns the cached total size of the .wal files in the storage
+// directory. Scans are rate-limited to one per diskBytesCacheTTL so a 1 Hz
+// monitor scrape cannot turn into a directory stat storm on network storage.
+// A concurrent rotation or prune may make the gauge stale by up to the TTL.
 func (f *FileStorageEngine) DiskBytes() (int64, error) {
+	f.diskCacheMu.Lock()
+	if f.diskCacheValid && time.Since(f.diskCacheAt) < diskBytesCacheTTL {
+		value := f.diskCacheBytes
+		f.diskCacheMu.Unlock()
+		return value, nil
+	}
+	f.diskCacheMu.Unlock()
+
 	entries, err := os.ReadDir(f.dir)
 	if err != nil {
 		return 0, fmt.Errorf("%w: failed to read wal directory", ErrStorageUnavailable)
@@ -976,12 +991,18 @@ func (f *FileStorageEngine) DiskBytes() (int64, error) {
 		if entry.IsDir() || filepath.Ext(entry.Name()) != ".wal" {
 			continue
 		}
-		info, err := entry.Info()
-		if err != nil {
+		info, statErr := entry.Info()
+		if statErr != nil {
 			continue
 		}
 		total += info.Size()
 	}
+
+	f.diskCacheMu.Lock()
+	f.diskCacheAt = time.Now()
+	f.diskCacheBytes = total
+	f.diskCacheValid = true
+	f.diskCacheMu.Unlock()
 	return total, nil
 }
 
